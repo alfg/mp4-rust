@@ -3,46 +3,52 @@ use std::io::{BufReader, Read, SeekFrom};
 use std::fs::File;
 use std::convert::TryInto;
 
-// struct Box {
-//     name: String,
-//     size: u32,
-//     offset: u32,
-// }
+#[derive(Debug)]
+struct Box {
+    name: String,
+    size: u32,
+    offset: u32,
+}
 
 fn main() -> std::io::Result<()> {
 
     // Using BufReader.
-    let mut f = File::open("tears-of-steel-2s.mp4")?;
+    let f = File::open("tears-of-steel-2s.mp4")?;
     let filesize = f.metadata().unwrap().len();
-    println!("{:?}", filesize);
     let mut reader = BufReader::new(f);
+    let mut v = Vec::new();
 
     let mut offset = 0u64;
-
     while offset < filesize {
 
-        // reader.seek(SeekFrom::Current(40 + 2872360));
-        reader.seek(SeekFrom::Current(offset as i64));
+        // Seek to offset.
+        let _r = reader.seek(SeekFrom::Current(offset as i64));
 
+        // Create and read to buf.
         let mut buf = [0u8;8];
-        let n = reader.read(&mut buf);
+        let _n = reader.read(&mut buf);
 
+        // Get size.
         let s = buf[0..4].try_into().unwrap();
         let size = u32::from_be_bytes(s);
+
+        // Exit loop if size is 0.
+        if size == 0 { break; }
         
+        // Get box type string.
         let t = buf[4..8].try_into().unwrap();
         let typ = match std::str::from_utf8(t) {
             Ok(v) => v,
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
 
-        // Exit loop if size is 0.
-        if size == 0 { break; }
-
-        // println!("{}", buf.len());
-        // println!("{:?}", buf);
-        println!("{:?}", size);
-        println!("{:?}", typ);
+        // Make Box struct and add to vector.
+        let b = Box{
+            name: typ.try_into().expect("asdf"),
+            size: size,
+            offset: offset as u32,
+        };
+        v.push(b);
 
         // This will find all boxes, including nested boxes.
         // let mut offset = match size {
@@ -51,10 +57,16 @@ fn main() -> std::io::Result<()> {
         // };
         // assert!(offset <= size);
 
+        // Increment offset.
         offset = (size - 8) as u64;
-        println!("skip {:?}\n", offset);
     }
 
+    // Print results.
+    for a in v {
+        println!("{:?}", a);
+    }
+
+    // Done.
     println!("done");
     Ok(())
 }
