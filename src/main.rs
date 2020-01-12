@@ -1,3 +1,5 @@
+extern crate byteorder;
+
 use std::io::prelude::*;
 use std::io::{BufReader, Read, SeekFrom};
 use std::fs::File;
@@ -16,6 +18,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Default)]
 struct BMFF {
     ftyp: FtypBox,
+    moov: MoovBox,
 }
 
 impl BMFF {
@@ -47,6 +50,22 @@ struct FtypBox {
     major_brand: FourCC,
     minor_version: u32,
     compatible_brands: Vec<FourCC>,
+}
+
+#[derive(Debug, Default)]
+struct MoovBox {
+    mvhd: MvhdBox,
+}
+
+#[derive(Debug, Default)]
+struct MvhdBox {
+    version: u8,
+    flags: u32,
+    creation_time: u32,
+    modification_time: u32,
+    timescale: u32,
+    duration: u32,
+    rate: u32,
 }
 
 #[derive(Default, PartialEq, Clone)]
@@ -128,6 +147,8 @@ fn read_boxes(f: File) -> Result<BMFF> {
             }
             "moov" => {
                 start = (size as u32 - HEADER_SIZE) as u64;
+                let moov = parse_moov_box(&mut reader, 0, size as u32).unwrap();
+                bmff.moov = moov;
             }
             "moof" => {
                 start = (size as u32 - HEADER_SIZE) as u64;
@@ -189,5 +210,37 @@ fn parse_ftyp_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Ft
         major_brand: From::from(major),
         minor_version: minor,
         compatible_brands: brands,
+    })
+}
+
+fn parse_moov_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MoovBox> {
+    let _r = f.seek(SeekFrom::Current(8 as i64));
+    let mvhd = parse_mvhd_box(f, 0, size as u32).unwrap();
+    Ok(MoovBox{
+        mvhd,
+    })
+}
+
+fn parse_mvhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MvhdBox> {
+    let version = f.read_u8().unwrap();
+    let flags_a = f.read_u8().unwrap();
+    let flags_b = f.read_u8().unwrap();
+    let flags_c = f.read_u8().unwrap();
+    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    let creation_time = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let modification_time = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let timescale = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let duration = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let rate = f.read_u32::<byteorder::BigEndian>().unwrap();
+
+
+    Ok(MvhdBox{
+        version,
+        flags,
+        creation_time,
+        modification_time,
+        timescale,
+        duration,
+        rate,
     })
 }
