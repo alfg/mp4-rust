@@ -3,13 +3,21 @@ use std::io::{BufReader, Read, SeekFrom};
 use std::fs::File;
 use std::fmt;
 use std::convert::TryInto;
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{ReadBytesExt};
+
+const HEADER_SIZE: u32 = 8;
 
 #[derive(Debug)]
-struct Box {
+pub enum Error {
+    InvalidData(&'static str),
+}
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug)]
+struct BoxHeader {
     name: String,
-    size: u32,
-    offset: u32,
+    size: u64,
+    offset: u64,
 }
 
 #[derive(Debug)]
@@ -58,14 +66,14 @@ fn main() -> std::io::Result<()> {
     let mut reader = BufReader::new(f);
     let mut boxes = Vec::new();
 
-    let mut offset = 0u64;
-    while offset < filesize {
+    let mut start = 0u64;
+    while start < filesize {
 
         // Seek to offset.
-        let _r = reader.seek(SeekFrom::Current(offset as i64));
+        let _r = reader.seek(SeekFrom::Current(start as i64));
 
         // Create and read to buf.
-        let mut buf = [0u8;8];
+        let mut buf = [0u8;8]; // 8 bytes for box header.
         let _n = reader.read(&mut buf);
 
         // Get size.
@@ -76,35 +84,52 @@ fn main() -> std::io::Result<()> {
         if size == 0 { break; }
         
         // Get box type string.
+        // println!("{:?}", buf);
         let t = buf[4..8].try_into().unwrap();
         let typ = match std::str::from_utf8(t) {
             Ok(v) => v,
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
 
-        match typ.as_ref() {
-            "ftyp" =>  parse_ftyp_box(&mut reader, 0, size),
-            _ => (),
+        let offset = match size {
+            1 => 4 + 4 + 8,
+            _ => 4 + 4,
+        };
+
+        // println!("{:?}", typ);
+        // println!("{:?}", size);
+
+        // Match and parse the filetype.
+        match typ {
+            "ftyp" => {
+                let o = parse_ftyp_box(&mut reader, 0, size);
+                println!("{:?}", o.unwrap());
+                // start += (size - HEADER_SIZE) as u64;
+                // TODO: Add to context.
+            }
+            "free" => {
+                start = 0;
+            }
+            "mdat" => {
+                start = (size - HEADER_SIZE) as u64;
+            }
+            "moov" => {
+                start = (size - HEADER_SIZE) as u64;
+            }
+            "moof" => {
+                start = (size - HEADER_SIZE) as u64;
+            }
+            _ => break
         };
 
 
         // Make Box struct and add to vector.
-        let b = Box{
+        let b = BoxHeader{
             name: typ.try_into().unwrap(),
-            size: size,
-            offset: offset as u32,
+            size: size as u64,
+            offset: offset as u64,
         };
         boxes.push(b);
-
-        // This will find all boxes, including nested boxes.
-        // let mut offset = match size {
-        //     1 => 4 + 4 + 8,
-        //     _ => 4 + 4,
-        // };
-        // assert!(offset <= size);
-
-        // Increment offset.
-        offset = (size - 8) as u64;
     }
 
     // Print results.
@@ -118,14 +143,13 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn parse_ftyp_box(f: &mut BufReader<File>, offset: u64, size: u32) {
-    println!("found ftyp");
-
+fn parse_ftyp_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<FtypBox> {
     let major = f.read_u32::<byteorder::BigEndian>().unwrap();
     let minor = f.read_u32::<byteorder::BigEndian>().unwrap();
+    if size % 4 != 0 {
+        return Err(Error::InvalidData("invalid ftyp size"));
+    }
     let brand_count = (size - 16) / 4; // header + major + minor
-
-    println!("{}", brand_count);
 
     let mut brands = Vec::new();
     for _ in 0..brand_count {
@@ -133,16 +157,9 @@ fn parse_ftyp_box(f: &mut BufReader<File>, offset: u64, size: u32) {
         brands.push(From::from(b));
     }
 
-    let ftyp = FtypBox {
+    Ok(FtypBox {
         major_brand: From::from(major),
         minor_version: minor,
         compatible_brands: brands,
-    };
-    println!("{:?}", ftyp);
-
-    println!("end ftyp");
-    // Ok(FtypBox {
-    //     major_brand: major,
-    //     minor_version: minor,
-    // })
+    })
 }
