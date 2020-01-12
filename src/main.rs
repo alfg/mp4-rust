@@ -13,14 +13,36 @@ pub enum Error {
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
+struct BMFF {
+    ftyp: FtypBox,
+}
+
+impl BMFF {
+    fn new() -> BMFF {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+struct BMFFBox {
+    head: BoxHeader,
+}
+
+impl BMFFBox {
+    fn new() -> BMFFBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
 struct BoxHeader {
     name: String,
     size: u64,
     offset: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct FtypBox {
     major_brand: FourCC,
     minor_version: u32,
@@ -60,87 +82,93 @@ impl fmt::Debug for FourCC {
 
 fn main() -> std::io::Result<()> {
 
-    // Using BufReader.
+    // Open file and read boxes.
     let f = File::open("tears-of-steel-2s.mp4")?;
+    // let boxes = read_boxes(f);
+    let bmff = read_boxes(f);
+
+    // Print results.
+    println!("{:?}", bmff.unwrap());
+
+    // Done.
+    println!("done");
+    Ok(())
+}
+
+fn read_boxes(f: File) -> Result<BMFF> {
     let filesize = f.metadata().unwrap().len();
     let mut reader = BufReader::new(f);
-    let mut boxes = Vec::new();
+    let mut bmff = BMFF::new();
 
     let mut start = 0u64;
     while start < filesize {
 
-        // Seek to offset.
-        let _r = reader.seek(SeekFrom::Current(start as i64));
+        // Get box header.
+        let header = read_box_header(&mut reader, start).unwrap();
+        let BoxHeader{ name, size, offset } = header;
 
-        // Create and read to buf.
-        let mut buf = [0u8;8]; // 8 bytes for box header.
-        let _n = reader.read(&mut buf);
-
-        // Get size.
-        let s = buf[0..4].try_into().unwrap();
-        let size = u32::from_be_bytes(s);
-
-        // Exit loop if size is 0.
-        if size == 0 { break; }
-        
-        // Get box type string.
-        // println!("{:?}", buf);
-        let t = buf[4..8].try_into().unwrap();
-        let typ = match std::str::from_utf8(t) {
-            Ok(v) => v,
-            Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+        let mut b = BMFFBox::new();
+        b.head = BoxHeader{
+            name: name.try_into().unwrap(),
+            size: size as u64,
+            offset: offset as u64,
         };
-
-        let offset = match size {
-            1 => 4 + 4 + 8,
-            _ => 4 + 4,
-        };
-
-        // println!("{:?}", typ);
-        // println!("{:?}", size);
 
         // Match and parse the filetype.
-        match typ {
+        match b.head.name.as_ref() {
             "ftyp" => {
-                let o = parse_ftyp_box(&mut reader, 0, size);
-                println!("{:?}", o.unwrap());
-                // start += (size - HEADER_SIZE) as u64;
-                // TODO: Add to context.
+                let ftyp = parse_ftyp_box(&mut reader, 0, size as u32).unwrap();
+                bmff.ftyp = ftyp;
             }
             "free" => {
                 start = 0;
             }
             "mdat" => {
-                start = (size - HEADER_SIZE) as u64;
+                start = (size as u32 - HEADER_SIZE) as u64;
             }
             "moov" => {
-                start = (size - HEADER_SIZE) as u64;
+                start = (size as u32 - HEADER_SIZE) as u64;
             }
             "moof" => {
-                start = (size - HEADER_SIZE) as u64;
+                start = (size as u32 - HEADER_SIZE) as u64;
             }
             _ => break
         };
-
-
-        // Make Box struct and add to vector.
-        let b = BoxHeader{
-            name: typ.try_into().unwrap(),
-            size: size as u64,
-            offset: offset as u64,
-        };
-        boxes.push(b);
     }
+    Ok(bmff)
+}
 
-    // Print results.
-    for b in boxes {
-        println!("{:?}", b);
+fn read_box_header(reader: &mut BufReader<File>, start: u64) -> Result<BoxHeader> {
+    // Seek to offset.
+    let _r = reader.seek(SeekFrom::Current(start as i64));
 
-    }
+    // Create and read to buf.
+    let mut buf = [0u8;8]; // 8 bytes for box header.
+    let _n = reader.read(&mut buf);
 
-    // Done.
-    println!("done");
-    Ok(())
+    // Get size.
+    let s = buf[0..4].try_into().unwrap();
+    let size = u32::from_be_bytes(s);
+
+    // TODO: Err if size is 0.
+    // if size == 0 { break; }
+    
+    // Get box type string.
+    let t = buf[4..8].try_into().unwrap();
+    let typ = match std::str::from_utf8(t) {
+        Ok(v) => v,
+        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+    };
+
+    let offset = match size {
+        1 => 4 + 4 + 8,
+        _ => 4 + 4,
+    };
+    Ok(BoxHeader {
+        name: typ.try_into().unwrap(),
+        size: size as u64,
+        offset: offset as u64,
+    })
 }
 
 fn parse_ftyp_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<FtypBox> {
