@@ -4,5 +4,18 @@ version = "0.1.0"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
 
+description = """
+MP4 Reader in Rust
+ISO/IEC 14496-12 - ISO Base Media File Format (QuickTime, MPEG-4, etc)
+"""
+
+documentation = "https://docs.rs/mp4rs"
+homepage = "https://github.com/alfg/mp4rs"
+repository = "https://github.com/alfg/mp4rs"
+
+keywords = ["mp4", "isobmff"]
+
+license = "MIT"
+
 [dependencies]
 byteorder = "1"
