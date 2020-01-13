@@ -1,5 +1,5 @@
 [package]
-name = "mp4"
+name = "mp4rs"
 version = "0.1.0"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
