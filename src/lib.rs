@@ -16,7 +16,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Default)]
-struct BMFF {
+pub struct BMFF {
     ftyp: FtypBox,
     moov: MoovBox,
 }
@@ -99,19 +99,12 @@ impl fmt::Debug for FourCC {
     }
 }
 
-fn main() -> std::io::Result<()> {
+pub fn read_mp4(f: File) -> Result<BMFF> {
 
     // Open file and read boxes.
-    let f = File::open("tears-of-steel-2s.mp4")?;
-    // let boxes = read_boxes(f);
-    let bmff = read_boxes(f);
+    let bmff = read_boxes(f).unwrap();
 
-    // Print results.
-    println!("{:?}", bmff.unwrap());
-
-    // Done.
-    println!("done");
-    Ok(())
+    Ok(bmff)
 }
 
 fn read_boxes(f: File) -> Result<BMFF> {
@@ -232,7 +225,6 @@ fn parse_mvhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Mv
     let timescale = f.read_u32::<byteorder::BigEndian>().unwrap();
     let duration = f.read_u32::<byteorder::BigEndian>().unwrap();
     let rate = f.read_u32::<byteorder::BigEndian>().unwrap();
-
 
     Ok(MvhdBox{
         version,

@@ -1,8 +1,18 @@
 # mp4.rs
 MP4 Reader in Rust
 
-#### Development
+## Development
+
+#### Requirements
+* [Rust](https://www.rust-lang.org/)
+
+#### Build
 ```
 cargo build
-cargo run
+```
+
+#### Run Examples
+* `mp4info`
+```
+cargo run --example mp4info <movie.mp4>
 ```
