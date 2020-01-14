@@ -57,6 +57,12 @@ struct MoovBox {
     mvhd: MvhdBox,
 }
 
+impl MoovBox {
+    fn new() -> MoovBox {
+        Default::default()
+    }
+}
+
 #[derive(Debug, Default)]
 struct MvhdBox {
     version: u8,
@@ -207,14 +213,47 @@ fn parse_ftyp_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Ft
 }
 
 fn parse_moov_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MoovBox> {
-    let _r = f.seek(SeekFrom::Current(8 as i64));
-    let mvhd = parse_mvhd_box(f, 0, size as u32).unwrap();
-    Ok(MoovBox{
-        mvhd,
-    })
+    let mut moov = MoovBox::new();
+
+    let mut start = 0u64;
+    while start < size as u64 {
+
+        // Get box header.
+        let header = read_box_header(f, start).unwrap();
+        let BoxHeader{ name, size: s, offset } = header;
+
+        let mut b = BMFFBox::new();
+        b.head = BoxHeader{
+            name: name.try_into().unwrap(),
+            size: s as u64,
+            offset: offset as u64,
+        };
+
+        match b.head.name.as_ref() {
+            "mvhd" => {
+                moov.mvhd = parse_mvhd_box(f, 0, s as u32).unwrap();
+            }
+            "iods" => {
+                println!("found iods");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "trak" => {
+                println!("found trak");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "udta" => {
+                println!("found udta");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            _ => break
+        }
+    }
+    Ok(moov)
 }
 
 fn parse_mvhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MvhdBox> {
+    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
     let version = f.read_u8().unwrap();
     let flags_a = f.read_u8().unwrap();
     let flags_b = f.read_u8().unwrap();
@@ -225,6 +264,11 @@ fn parse_mvhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Mv
     let timescale = f.read_u32::<byteorder::BigEndian>().unwrap();
     let duration = f.read_u32::<byteorder::BigEndian>().unwrap();
     let rate = f.read_u32::<byteorder::BigEndian>().unwrap();
+
+    // Skip remaining bytes.
+    let after =  f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
 
     Ok(MvhdBox{
         version,
