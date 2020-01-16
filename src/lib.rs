@@ -18,7 +18,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Default)]
 pub struct BMFF {
     ftyp: FtypBox,
-    moov: MoovBox,
+    moov: Option<MoovBox>,
 }
 
 impl BMFF {
@@ -55,6 +55,7 @@ struct FtypBox {
 #[derive(Debug, Default)]
 struct MoovBox {
     mvhd: MvhdBox,
+    traks: Vec<TrakBox>,
 }
 
 impl MoovBox {
@@ -72,6 +73,26 @@ struct MvhdBox {
     timescale: u32,
     duration: u32,
     rate: u32,
+}
+
+#[derive(Debug, Default)]
+struct TrakBox {
+    tkhd: Option<TkhdBox>,
+}
+
+impl TrakBox {
+    fn new() -> TrakBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+struct TkhdBox {
+    version: u8,
+    flags: u32,
+    creation_time: u32,
+    modification_time: u32,
+    track_id: u32,
 }
 
 #[derive(Default, PartialEq, Clone)]
@@ -147,7 +168,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
             "moov" => {
                 start = (size as u32 - HEADER_SIZE) as u64;
                 let moov = parse_moov_box(&mut reader, 0, size as u32).unwrap();
-                bmff.moov = moov;
+                bmff.moov = Some(moov);
             }
             "moof" => {
                 start = (size as u32 - HEADER_SIZE) as u64;
@@ -229,17 +250,15 @@ fn parse_moov_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Mo
             offset: offset as u64,
         };
 
+
         match b.head.name.as_ref() {
             "mvhd" => {
                 moov.mvhd = parse_mvhd_box(f, 0, s as u32).unwrap();
             }
-            "iods" => {
-                println!("found iods");
-                start = (s as u32 - HEADER_SIZE) as u64;
-            }
             "trak" => {
-                println!("found trak");
-                start = (s as u32 - HEADER_SIZE) as u64;
+                let trak = parse_trak_box(f, 0, s as u32).unwrap();
+                moov.traks.push(trak);
+                // start = (s as u32 - HEADER_SIZE) as u64;
             }
             "udta" => {
                 println!("found udta");
@@ -278,5 +297,75 @@ fn parse_mvhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Mv
         timescale,
         duration,
         rate,
+    })
+}
+
+fn parse_trak_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<TrakBox> {
+    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+    let mut trak = TrakBox::new();
+
+    let mut start = 0u64;
+    while start < size as u64 {
+        // Get box header.
+         let header = read_box_header(f, start).unwrap();
+         let BoxHeader{ name, size: s, offset } = header;
+
+         let mut b = BMFFBox::new();
+         b.head = BoxHeader{
+             name: name.try_into().unwrap(),
+             size: s as u64,
+             offset: offset as u64,
+         };
+
+         match b.head.name.as_ref() {
+             "tkhd" => {
+                 println!("found tkhd");
+                 let tkhd = parse_tkhd_box(f, 0, s as u32).unwrap();
+                 trak.tkhd = Some(tkhd);
+                 start = (s as u32 - HEADER_SIZE) as u64;
+             }
+             "edts" => {
+                 println!("found edts");
+                 start = (s as u32 - HEADER_SIZE) as u64;
+             }
+             "mdia" => {
+                 println!("found mdia");
+                 start = (s as u32 - HEADER_SIZE) as u64;
+             }
+             _ => break
+         }
+    }
+
+    // Skip remaining bytes.
+    let after =  f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    Ok(trak)
+}
+
+
+fn parse_tkhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<TkhdBox> {
+    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+    let version = f.read_u8().unwrap();
+    let flags_a = f.read_u8().unwrap();
+    let flags_b = f.read_u8().unwrap();
+    let flags_c = f.read_u8().unwrap();
+    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    let creation_time = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let modification_time = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let track_id = f.read_u32::<byteorder::BigEndian>().unwrap();
+
+    // Skip remaining bytes.
+    let after =  f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+
+    Ok(TkhdBox {
+        version,
+        flags,
+        creation_time,
+        modification_time,
+        track_id,
     })
 }
