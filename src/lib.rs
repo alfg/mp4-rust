@@ -5,7 +5,7 @@ use std::io::{BufReader, Read, SeekFrom};
 use std::fs::File;
 use std::fmt;
 use std::convert::TryInto;
-use byteorder::{ReadBytesExt};
+use byteorder::{ReadBytesExt, BigEndian};
 
 const HEADER_SIZE: u32 = 8;
 
@@ -93,7 +93,28 @@ struct TkhdBox {
     creation_time: u32,
     modification_time: u32,
     track_id: u32,
+    duration: u64,
+    layer:  u16,
+    alternate_group: u16,
+    volume: u16,
+    matrix: Matrix,
+    width: u32,
+    height: u32,
 }
+
+#[derive(Debug, Default)]
+struct Matrix {
+    a: i32,
+    b: i32,
+    u: i32,
+    c: i32,
+    d: i32,
+    v: i32,
+    x: i32,
+    y: i32,
+    w: i32,
+}
+
 
 #[derive(Default, PartialEq, Clone)]
 pub struct FourCC {
@@ -355,6 +376,27 @@ fn parse_tkhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Tk
     let creation_time = f.read_u32::<byteorder::BigEndian>().unwrap();
     let modification_time = f.read_u32::<byteorder::BigEndian>().unwrap();
     let track_id = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let duration = f.read_u64::<byteorder::BigEndian>().unwrap();
+    f.read_u64::<byteorder::BigEndian>().unwrap(); // skip.
+    let layer = f.read_u16::<byteorder::BigEndian>().unwrap();
+    let alternate_group = f.read_u16::<byteorder::BigEndian>().unwrap();
+    let volume = f.read_u16::<byteorder::BigEndian>().unwrap() >> 8;
+
+    f.read_u8().unwrap(); // skip.
+    let matrix = Matrix{
+        a: f.read_i32::<byteorder::LittleEndian>().unwrap(),
+        b: f.read_i32::<byteorder::BigEndian>().unwrap(),
+        u: f.read_i32::<byteorder::BigEndian>().unwrap(),
+        c: f.read_i32::<byteorder::BigEndian>().unwrap(),
+        d: f.read_i32::<byteorder::BigEndian>().unwrap(),
+        v: f.read_i32::<byteorder::BigEndian>().unwrap(),
+        x: f.read_i32::<byteorder::BigEndian>().unwrap(),
+        y: f.read_i32::<byteorder::BigEndian>().unwrap(),
+        w: f.read_i32::<byteorder::BigEndian>().unwrap(),
+    };
+
+    let width = f.read_u32::<byteorder::BigEndian>().unwrap() >> 8;
+    let height = f.read_u32::<byteorder::BigEndian>().unwrap() >> 8;
 
     // Skip remaining bytes.
     let after =  f.seek(SeekFrom::Current(0)).unwrap();
@@ -367,5 +409,12 @@ fn parse_tkhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Tk
         creation_time,
         modification_time,
         track_id,
+        duration,
+        layer,
+        alternate_group,
+        volume,
+        matrix,
+        width,
+        height,
     })
 }
