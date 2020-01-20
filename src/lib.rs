@@ -78,6 +78,7 @@ struct MvhdBox {
 #[derive(Debug, Default)]
 struct TrakBox {
     tkhd: Option<TkhdBox>,
+    edts: Option<EdtsBox>,
 }
 
 impl TrakBox {
@@ -113,6 +114,38 @@ struct Matrix {
     x: i32,
     y: i32,
     w: i32,
+}
+
+#[derive(Debug, Default)]
+struct EdtsBox {
+    elst: Option<ElstBox>,
+}
+
+impl EdtsBox {
+    fn new() -> EdtsBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+struct ElstBox {
+    version: u32,
+    entry_count: u32,
+    entries: Vec<ElstEntry>,
+}
+
+impl ElstBox {
+    fn new() -> ElstBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+struct ElstEntry {
+    segment_duration: u32,
+    media_time: u32,
+    media_rate: u16,
+    media_rate_fraction: u16,
 }
 
 
@@ -340,14 +373,12 @@ fn parse_trak_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Tr
 
          match b.head.name.as_ref() {
              "tkhd" => {
-                 println!("found tkhd");
                  let tkhd = parse_tkhd_box(f, 0, s as u32).unwrap();
                  trak.tkhd = Some(tkhd);
-                 start = (s as u32 - HEADER_SIZE) as u64;
              }
              "edts" => {
-                 println!("found edts");
-                 start = (s as u32 - HEADER_SIZE) as u64;
+                 let edts = parse_edts_box(f, 0, s as u32).unwrap();
+                 trak.edts = Some(edts);
              }
              "mdia" => {
                  println!("found mdia");
@@ -416,5 +447,67 @@ fn parse_tkhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Tk
         matrix,
         width,
         height,
+    })
+}
+
+fn parse_edts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<EdtsBox> {
+    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+    let mut edts = EdtsBox::new();
+
+    let mut start = 0u64;
+    while start < size as u64 {
+        // Get box header.
+        let header = read_box_header(f, start).unwrap();
+        let BoxHeader{ name, size: s, offset } = header;
+
+        let mut b = BMFFBox::new();
+        b.head = BoxHeader{
+            name: name.try_into().unwrap(),
+            size: s as u64,
+            offset: offset as u64,
+        };
+
+        match b.head.name.as_ref() {
+            "elst" => {
+                let elst = parse_elst_box(f, 0, s as u32).unwrap();
+                edts.elst = Some(elst);
+            }
+            _ => break
+        }
+    }
+
+    // Skip remaining bytes.
+    let after =  f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    Ok(edts)
+}
+fn parse_elst_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<ElstBox> {
+    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+    let version = f.read_u32::<byteorder::BigEndian>().unwrap();
+    let entry_count = f.read_u32::<byteorder::BigEndian>().unwrap();
+
+    let mut entries = Vec::new();
+
+    for i in 0..entry_count {
+        let entry = ElstEntry{
+            segment_duration: f.read_u32::<byteorder::BigEndian>().unwrap(),
+            media_time: f.read_u32::<byteorder::BigEndian>().unwrap(),
+            media_rate: f.read_u16::<byteorder::BigEndian>().unwrap(),
+            media_rate_fraction: f.read_u16::<byteorder::BigEndian>().unwrap(),
+        };
+        entries.push(entry);
+    }
+
+    // Skip remaining bytes.
+    let after =  f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+
+    Ok(ElstBox {
+        version,
+        entry_count,
+        entries,
     })
 }
