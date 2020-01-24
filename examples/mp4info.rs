@@ -4,6 +4,8 @@ use std::env;
 use std::fs::File;
 use std::any::Any;
 use mp4::{FourCC, TrackType};
+use std::borrow::Borrow;
+use std::fmt::Debug;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -17,7 +19,6 @@ fn main() {
             let moov = bmff.moov.unwrap();
 
             // Print results.
-//            println!("{:?}", bmff.unwrap());
             println!("File:");
             println!("  file size:  {}",  bmff.size);
             println!("  brands:     {:?} {:?}\n",  bmff.ftyp.major_brand,  bmff.ftyp.compatible_brands);
@@ -38,8 +39,12 @@ fn main() {
                 println!("  type:     {:?}", get_handler_type(hdlr.handler_type.value.as_ref()));
                 println!("  duration: {:?}", tkhd.duration);
                 println!("  language: {:?}", mdhd.language_string);
-                println!("  width: {:?}", tkhd.width);
-                println!("  height: {:?}\n", tkhd.height);
+                println!("media:");
+//                println!("  sample count: {:?}", mdia.minf.stbl.stts.sample_counts);
+                if tkhd.width != 0 && tkhd.height != 0 {
+                    println!("  width:    {:?}", tkhd.width);
+                    println!("  height:   {:?}\n", tkhd.height);
+                }
             }
         },
         _ => {
