@@ -244,11 +244,11 @@ impl StblBox {
 
 #[derive(Debug, Default)]
 pub struct SttsBox {
-//    pub version: u8,
-//    pub flags: u32,
-//    pub entry_count: u32,
-//    pub sample_counts: Vec<u32>,
-//    pub sample_deltas: Vec<u32>,
+    pub version: u8,
+    pub flags: u32,
+    pub entry_count: u32,
+    pub sample_counts: Vec<u32>,
+    pub sample_deltas: Vec<u32>,
 }
 
 impl SttsBox {
@@ -857,14 +857,12 @@ fn parse_stbl_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<St
         match b.head.name.as_ref() {
             "stsd" => {
                 println!("found stsd: {:?}", s);
-                let stsd = parse_stsd_box(f, 0, s as u32).unwrap();
-//                start = (s as u32 - HEADER_SIZE) as u64;
+//                let stsd = parse_stsd_box(f, 0, s as u32).unwrap();
+                start = (s as u32 - HEADER_SIZE) as u64;
             }
             "stts" => {
-                println!("found stts");
-//                let stts = parse_stts_box(f, 0, s as u32).unwrap();
-//                stbl.stts = Some(stts);
-                start = (s as u32 - HEADER_SIZE) as u64;
+                let stts = parse_stts_box(f, 0, s as u32).unwrap();
+                stbl.stts = Some(stts);
             }
             "stss" => {
                 println!("found stss");
@@ -900,24 +898,21 @@ fn parse_stbl_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<St
 fn parse_stts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<SttsBox> {
     let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-//    let version = f.read_u8().unwrap();
-//    let flags_a = f.read_u8().unwrap();
-//    let flags_b = f.read_u8().unwrap();
-//    let flags_c = f.read_u8().unwrap();
-//    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-//    f.read_u32::<BigEndian>().unwrap(); // skip.
-//
-//    let entry_count = f.read_u32::<BigEndian>().unwrap();
-//
-//    let mut sample_counts = Vec::new();
-//    let mut sample_deltas = Vec::new();
-//
-//    for _i in 0..entry_count {
-//        let sc = f.read_u32::<BigEndian>().unwrap();
-//        let sd = f.read_u32::<BigEndian>().unwrap();
-//        sample_counts.push(sc);
-//        sample_deltas.push(sd);
-//    }
+    let version = f.read_u8().unwrap();
+    let flags_a = f.read_u8().unwrap();
+    let flags_b = f.read_u8().unwrap();
+    let flags_c = f.read_u8().unwrap();
+    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    let entry_count = f.read_u32::<BigEndian>().unwrap();
+    let mut sample_counts = Vec::new();
+    let mut sample_deltas = Vec::new();
+
+    for _i in 0..entry_count {
+        let sc = f.read_u32::<BigEndian>().unwrap();
+        let sd = f.read_u32::<BigEndian>().unwrap();
+        sample_counts.push(sc);
+        sample_deltas.push(sd);
+    }
 
     // Skip remaining bytes.
     let after = f.seek(SeekFrom::Current(0)).unwrap();
@@ -925,11 +920,11 @@ fn parse_stts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<St
     f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
 
     Ok(SttsBox {
-//        version,
-//        flags,
-//        entry_count,
-//        sample_counts,
-//        sample_deltas,
+        version,
+        flags,
+        entry_count,
+        sample_counts,
+        sample_deltas,
     })
 }
 
