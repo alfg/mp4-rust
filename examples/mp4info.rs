@@ -2,9 +2,6 @@ extern crate mp4;
 
 use std::env;
 use std::fs::File;
-use std::any::Any;
-use std::borrow::Borrow;
-use std::fmt::Debug;
 use mp4::{TrackType};
 
 fn main() {
@@ -48,13 +45,13 @@ fn main() {
                 println!("    sample count: {:?}", stts.sample_counts[0]);
                 println!("    timescale:    {:?}", mdhd.timescale);
                 println!("    duration:     {:?} (media timescale units)", mdhd.duration);
-                println!("    duration:     {:?} (ms)", getDurationMS(mdhd.duration, mdhd.timescale));
+                println!("    duration:     {:?} (ms)", get_duration_ms(mdhd.duration, mdhd.timescale));
                 if tkhd.width != 0 && tkhd.height != 0 {
                     println!("    width:    {:?}", tkhd.width);
                     println!("    height:   {:?}", tkhd.height);
                 }
                 if get_handler_type(hdlr.handler_type.value.as_ref()) == TrackType::Video {
-                    println!("    frame rate: (computed): {:?}", getFramerate(&stts.sample_counts, mdhd.duration, mdhd.timescale));
+                    println!("    frame rate: (computed): {:?}", get_framerate(&stts.sample_counts, mdhd.duration, mdhd.timescale));
                 }
             }
         },
@@ -75,12 +72,12 @@ fn get_handler_type(handler: &str) -> TrackType {
     return typ;
 }
 
-fn getDurationMS(duration: u32, timescale: u32) -> String {
+fn get_duration_ms(duration: u32, timescale: u32) -> String {
     let ms = (duration as f64 / timescale as f64) * 1000.0;
     return format!("{:.2}", ms.floor());
 }
 
-fn getFramerate(sample_counts: &Vec<u32>, duration: u32, timescale: u32) -> String {
+fn get_framerate(sample_counts: &Vec<u32>, duration: u32, timescale: u32) -> String {
     let sc = (sample_counts[0] as f64) * 1000.0;
     let ms = (duration as f64 / timescale as f64) * 1000.0;
     return format!("{:.2}", sc / ms.floor());
