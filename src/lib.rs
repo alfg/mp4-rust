@@ -163,6 +163,7 @@ pub struct ElstEntry {
 pub struct MdiaBox {
     pub mdhd: Option<MdhdBox>,
     pub hdlr: Option<HdlrBox>,
+    pub minf: Option<MinfBox>,
 }
 
 impl MdiaBox {
@@ -199,6 +200,71 @@ pub struct HdlrBox {
 
 impl HdlrBox {
     fn new() -> HdlrBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct MinfBox {
+    pub vmhd: Option<VmhdBox>,
+    pub stbl: Option<StblBox>,
+}
+
+impl MinfBox {
+    fn new() -> MinfBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct VmhdBox {
+    pub version: u8,
+    pub flags: u32,
+    pub graphics_mode: u16,
+    pub op_color: u16,
+}
+
+impl VmhdBox {
+    fn new() -> VmhdBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct StblBox {
+    pub stts: Option<SttsBox>,
+    pub stsd: Option<StsdBox>,
+}
+
+impl StblBox {
+    fn new() -> StblBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct SttsBox {
+    pub version: u8,
+    pub flags: u32,
+    pub entry_count: u32,
+    pub sample_counts: Vec<u32>,
+    pub sample_deltas: Vec<u32>,
+}
+
+impl SttsBox {
+    fn new() -> SttsBox {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct StsdBox {
+    pub version: u8,
+    pub flags: u32,
+}
+
+impl StsdBox {
+    fn new() -> StsdBox {
         Default::default()
     }
 }
@@ -597,6 +663,10 @@ fn parse_mdia_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Md
                 let hdlr = parse_hdlr_box(f, 0, s as u32).unwrap();
                 mdia.hdlr = Some(hdlr);
             }
+            "minf" => {
+                let minf = parse_minf_box(f, 0, s as u32).unwrap();
+                mdia.minf = Some(minf);
+            }
             _ => break
         }
     }
@@ -686,5 +756,222 @@ fn parse_hdlr_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Hd
         flags,
         handler_type: From::from(handler),
         name: handler_string,
+    })
+}
+
+fn parse_minf_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MinfBox> {
+    println!("size: {:?}", size);
+    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+    let mut minf = MinfBox::new();
+
+    let mut start = 0u64;
+    while start < size as u64 {
+        // Get box header.
+        let header = read_box_header(f, start).unwrap();
+        let BoxHeader{ name, size: s, offset } = header;
+
+        let mut b = BMFFBox::new();
+        b.head = BoxHeader{
+            name: name.try_into().unwrap(),
+            size: s as u64,
+            offset: offset as u64,
+        };
+
+        match b.head.name.as_ref() {
+            "vmhd" => {
+                println!("found vmhd");
+                let vmhd = parse_vmhd_box(f, 0, s as u32).unwrap();
+                minf.vmhd = Some(vmhd);
+//                 start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "smhd" => {
+                println!("found smhd");
+////                let vmhd = parse_smhd_box(f, 0, s as u32).unwrap();
+////                minf.smhd = Some(vmhd);
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "dinf" => {
+                println!("found dinf");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "stbl" => {
+                println!("found stbl");
+                let stbl = parse_stbl_box(f, 0, s as u32).unwrap();
+                minf.stbl = Some(stbl);
+                // start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            _ => break
+        }
+    }
+
+    // Skip remaining bytes.
+    let after =  f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    Ok(minf)
+}
+
+fn parse_vmhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<VmhdBox> {
+    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+    let version = f.read_u8().unwrap();
+    let flags_a = f.read_u8().unwrap();
+    let flags_b = f.read_u8().unwrap();
+    let flags_c = f.read_u8().unwrap();
+    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+//    let flags = f.read_u32::<BigEndian>().unwrap();
+    let graphics_mode = f.read_u16::<BigEndian>().unwrap();
+    let op_color = f.read_u16::<BigEndian>().unwrap();
+
+    // Skip remaining bytes.
+    let after = f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+
+    Ok(VmhdBox {
+        version,
+        flags,
+        graphics_mode,
+        op_color,
+    })
+}
+
+fn parse_stbl_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<StblBox> {
+    println!("stbl size: {:?}", size);
+    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+    let mut stbl = StblBox::new();
+
+    let mut start = 0u64;
+    while start < size as u64 {
+        // Get box header.
+        let header = read_box_header(f, start).unwrap();
+        let BoxHeader{ name, size: s, offset } = header;
+
+        let mut b = BMFFBox::new();
+        b.head = BoxHeader{
+            name: name.try_into().unwrap(),
+            size: s as u64,
+            offset: offset as u64,
+        };
+
+        match b.head.name.as_ref() {
+            "stsd" => {
+                println!("found stsd: {:?}", s);
+//                let stsd = parse_stsd_box(f, 0, s as u32).unwrap();
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "stts" => {
+                let stts = parse_stts_box(f, 0, s as u32).unwrap();
+                stbl.stts = Some(stts);
+            }
+            "stss" => {
+                println!("found stss");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "ctts" => {
+                println!("found ctts");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "stsc" => {
+                println!("found stsc");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "stsz" => {
+                println!("found stsz");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "stco" => {
+                println!("found stco");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            _ => break
+        }
+    }
+
+    // Skip remaining bytes.
+//    let after =  f.seek(SeekFrom::Current(0)).unwrap();
+//    let remaining_bytes = (size as u64 - (after - current)) as i64;
+//    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    Ok(stbl)
+}
+
+fn parse_stts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<SttsBox> {
+    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+    let version = f.read_u8().unwrap();
+    let flags_a = f.read_u8().unwrap();
+    let flags_b = f.read_u8().unwrap();
+    let flags_c = f.read_u8().unwrap();
+    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    let entry_count = f.read_u32::<BigEndian>().unwrap();
+    let mut sample_counts = Vec::new();
+    let mut sample_deltas = Vec::new();
+
+    for _i in 0..entry_count {
+        let sc = f.read_u32::<BigEndian>().unwrap();
+        let sd = f.read_u32::<BigEndian>().unwrap();
+        sample_counts.push(sc);
+        sample_deltas.push(sd);
+    }
+
+    // Skip remaining bytes.
+    let after = f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+
+    Ok(SttsBox {
+        version,
+        flags,
+        entry_count,
+        sample_counts,
+        sample_deltas,
+    })
+}
+
+fn parse_stsd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<StsdBox> {
+    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+    let version = f.read_u8().unwrap();
+    let flags_a = f.read_u8().unwrap();
+    let flags_b = f.read_u8().unwrap();
+    let flags_c = f.read_u8().unwrap();
+    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    f.read_u32::<BigEndian>().unwrap(); // skip.
+
+
+    let mut start = 0u64;
+    while start < size as u64 {
+        // Get box header.
+        let header = read_box_header(f, start).unwrap();
+        let BoxHeader{ name, size: s, offset } = header;
+
+        let mut b = BMFFBox::new();
+        b.head = BoxHeader{
+            name: name.try_into().unwrap(),
+            size: s as u64,
+            offset: offset as u64,
+        };
+
+        match b.head.name.as_ref() {
+            "avc1" => {
+                println!("found avc1");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            "mp4a" => {
+                println!("found mp4a");
+                start = (s as u32 - HEADER_SIZE) as u64;
+            }
+            _ => break
+        }
+    }
+
+    // Skip remaining bytes.
+//    let after = f.seek(SeekFrom::Current(0)).unwrap();
+//    let remaining_bytes = (size as u64 - (after - current)) as i64;
+//    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+
+    Ok(StsdBox {
+        version,
+        flags,
     })
 }
