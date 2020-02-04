@@ -3,8 +3,8 @@
 
 ISO/IEC 14496-12 - ISO Base Media File Format (QuickTime, MPEG-4, etc)
 
-![Crates.io](https://img.shields.io/crates/v/mp4)
-![Crates.io](https://img.shields.io/crates/d/mp4)
+[![Crates.io](https://img.shields.io/crates/v/mp4)](https://crates.io/crates/mp4)
+[![Crates.io](https://img.shields.io/crates/d/mp4)](https://crates.io/crates/mp4)
 
 ## Development
 
