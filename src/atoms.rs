@@ -390,11 +390,7 @@ fn parse_mvhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Mv
     let timescale = f.read_u32::<BigEndian>().unwrap();
     let duration = f.read_u32::<BigEndian>().unwrap();
     let rate = f.read_u32::<BigEndian>().unwrap();
-
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    skip(f, current, size);
 
     Ok(MvhdBox{
         version,
@@ -433,11 +429,8 @@ fn parse_trak_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Tr
             _ => break
         }
     }
+    skip(f, current, size);
 
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
     Ok(trak)
 }
 
@@ -474,11 +467,7 @@ fn parse_tkhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Tk
 
     let width = f.read_u32::<BigEndian>().unwrap() >> 8;
     let height = f.read_u32::<BigEndian>().unwrap() >> 8;
-
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    skip(f, current, size);
 
     Ok(TkhdBox {
         version,
@@ -514,11 +503,8 @@ fn parse_edts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Ed
             _ => break
         }
     }
+    skip(f, current, size);
 
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
     Ok(edts)
 }
 
@@ -539,11 +525,7 @@ fn parse_elst_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<El
         };
         entries.push(entry);
     }
-
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    skip(f, current, size);
 
     Ok(ElstBox {
         version,
@@ -578,11 +560,8 @@ fn parse_mdia_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Md
             _ => break
         }
     }
+    skip(f, current, size);
 
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
     Ok(mdia)
 }
 
@@ -600,11 +579,7 @@ fn parse_mdhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Md
     let duration = f.read_u32::<BigEndian>().unwrap();
     let language = f.read_u16::<BigEndian>().unwrap();
     let language_string = get_language_string(language);
-
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    skip(f, current, size);
 
     Ok(MdhdBox {
         version,
@@ -653,11 +628,7 @@ fn parse_hdlr_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Hd
         Ok(t) => t,
         _ => String::from("null"),
     };
-
-    // Skip remaining bytes.
-    let after = f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    skip(f, current, size);
 
     Ok(HdlrBox {
         version,
@@ -695,11 +666,8 @@ fn parse_minf_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Mi
             _ => break
         }
     }
+    skip(f, current, size);
 
-    // Skip remaining bytes.
-    let after =  f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
     Ok(minf)
 }
 
@@ -713,11 +681,7 @@ fn parse_vmhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<Vm
     let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
     let graphics_mode = f.read_u16::<BigEndian>().unwrap();
     let op_color = f.read_u16::<BigEndian>().unwrap();
-
-    // Skip remaining bytes.
-    let after = f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    skip(f, current, size);
 
     Ok(VmhdBox {
         version,
@@ -769,11 +733,7 @@ fn parse_stts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<St
         sample_counts.push(sc);
         sample_deltas.push(sd);
     }
-
-    // Skip remaining bytes.
-    let after = f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    skip(f, current, size);
 
     Ok(SttsBox {
         version,
@@ -810,13 +770,16 @@ fn parse_stsd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<St
             _ => break
         }
     }
+    skip(f, current, size);
 
-    // Skip remaining bytes.
-    let after = f.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
     Ok(StsdBox {
         version,
         flags,
     })
+}
+
+fn skip(f: &mut BufReader<File>, current: u64, size: u32) {
+    let after = f.seek(SeekFrom::Current(0)).unwrap();
+    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
 }
