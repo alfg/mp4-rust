@@ -83,7 +83,13 @@ fn read_boxes(f: File) -> Result<BMFF> {
             BoxType::MoofBox => {
                 start = (size as u32 - HEADER_SIZE) as u64;
             }
-            _ => break
+            _ => {
+                if size == 0 {
+                    break;
+                } else {
+                    start = (size as u32 - HEADER_SIZE) as u64;
+                }
+            }
         };
     }
     Ok(bmff)
