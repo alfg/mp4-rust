@@ -19,3 +19,6 @@ license = "MIT"
 
 [dependencies]
 byteorder = "1"
+
+[dev-dependencies]
+chrono = "0.4.11"
