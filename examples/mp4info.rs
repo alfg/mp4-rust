@@ -1,6 +1,5 @@
 extern crate mp4;
 
-use chrono::prelude::*;
 use mp4::TrackType;
 use std::env;
 use std::fs::File;
@@ -28,7 +27,7 @@ fn main() {
             println!("  version:       {:?}", moov.mvhd.version);
             println!(
                 "  creation time: {}",
-                format_creation_time(moov.mvhd.creation_time)
+                creation_time(moov.mvhd.creation_time)
             );
             println!("  duration:      {:?}", moov.mvhd.duration);
             println!("  timescale:     {:?}\n", moov.mvhd.timescale);
@@ -111,13 +110,11 @@ fn get_framerate(sample_counts: &Vec<u32>, duration: u32, timescale: u32) -> Str
     return format!("{:.2}", sc / ms.floor());
 }
 
-fn format_creation_time(creation_time: u32) -> String {
+fn creation_time(creation_time: u32) -> u32 {
     // convert from MP4 epoch (1904-01-01) to Unix epoch (1970-01-01)
-    let time = if creation_time >= 2082844800 {
+    if creation_time >= 2082844800 {
         creation_time - 2082844800
     } else {
         creation_time
-    };
-    let dt = Utc.timestamp(time as i64, 0);
-    dt.format("%Y-%m-%d %H:%M:%S").to_string()
+    }
 }
