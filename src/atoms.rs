@@ -6,97 +6,58 @@ use crate::{Error, read_box_header, BoxHeader, HEADER_SIZE};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum BoxType {
-    FtypBox,
-    MvhdBox,
-    FreeBox,
-    MdatBox,
-    MoovBox,
-    MoofBox,
-    TkhdBox,
-    EdtsBox,
-    MdiaBox,
-    ElstBox,
-    MdhdBox,
-    HdlrBox,
-    MinfBox,
-    VmhdBox,
-    StblBox,
-    StsdBox,
-    SttsBox,
-    TrakBox,
-    UdtaBox,
-    DinfBox,
-    SmhdBox,
-    Avc1Box,
-    Mp4aBox,
-    UnknownBox(u32),
-}
+macro_rules! boxtype {
+    ($( $name:ident => $value:expr ),*) => {
+        #[derive(Clone, Copy, PartialEq)]
+        pub enum BoxType {
+            $( $name, )*
+            UnknownBox(u32),
+        }
 
-impl From<u32> for BoxType {
-    fn from(t: u32) -> BoxType {
-        use self::BoxType::*;
-        match t {
-            0x66747970 => FtypBox,
-            0x6d766864 => MvhdBox,
-            0x66726565 => FreeBox,
-            0x6d646174 => MdatBox,
-            0x6d6f6f76 => MoovBox,
-            0x6d6f6f66 => MoofBox ,
-            0x746b6864 => TkhdBox,
-            0x65647473 => EdtsBox,
-            0x6d646961 => MdiaBox,
-            0x656c7374 => ElstBox,
-            0x6d646864 => MdhdBox,
-            0x68646c72 => HdlrBox,
-            0x6d696e66 => MinfBox,
-            0x766d6864 => VmhdBox,
-            0x7374626c => StblBox,
-            0x73747364 => StsdBox,
-            0x73747473 => SttsBox,
-            0x7472616b => TrakBox,
-            0x75647461 => UdtaBox,
-            0x64696e66 => DinfBox,
-            0x736d6864 => SmhdBox,
-            0x61766331 => Avc1Box,
-            0x6d703461 => Mp4aBox,
-            _ => UnknownBox(t),
+        impl From<u32> for BoxType {
+            fn from(t: u32) -> BoxType {
+                match t {
+                    $( $value => BoxType::$name, )*
+                    _ => BoxType::UnknownBox(t),
+                }
+            }
+        }
+        
+        impl Into<u32> for BoxType {
+            fn into(self) -> u32 {
+                match self {
+                    $( BoxType::$name => $value, )*
+                    BoxType::UnknownBox(t) => t,
+                }
+            }
         }
     }
 }
 
-impl Into<u32> for BoxType {
-    fn into(self) -> u32 {
-        use self::BoxType::*;
-        match self {
-            FtypBox => 0x66747970,
-            MvhdBox => 0x6d766864,
-            FreeBox => 0x66726565,
-            MdatBox => 0x6d646174,
-            MoovBox => 0x6d6f6f76,
-            MoofBox => 0x6d6f6f66,
-            TkhdBox => 0x746b6864,
-            EdtsBox => 0x65647473,
-            MdiaBox => 0x6d646961,
-            ElstBox => 0x656c7374,
-            MdhdBox => 0x6d646864,
-            HdlrBox => 0x68646c72,
-            MinfBox => 0x6d696e66,
-            VmhdBox => 0x766d6864,
-            StblBox => 0x7374626c,
-            StsdBox => 0x73747364,
-            SttsBox => 0x73747473,
-            TrakBox => 0x7472616b,
-            UdtaBox => 0x75647461,
-            DinfBox => 0x64696e66,
-            SmhdBox => 0x736d6864,
-            Avc1Box => 0x61766331,
-            Mp4aBox => 0x6d703461,
-
-            UnknownBox(t) => t,
-        }
-    }
+boxtype!{
+    FtypBox => 0x66747970,
+    MvhdBox => 0x6d766864,
+    FreeBox => 0x66726565,
+    MdatBox => 0x6d646174,
+    MoovBox => 0x6d6f6f76,
+    MoofBox => 0x6d6f6f66,
+    TkhdBox => 0x746b6864,
+    EdtsBox => 0x65647473,
+    MdiaBox => 0x6d646961,
+    ElstBox => 0x656c7374,
+    MdhdBox => 0x6d646864,
+    HdlrBox => 0x68646c72,
+    MinfBox => 0x6d696e66,
+    VmhdBox => 0x766d6864,
+    StblBox => 0x7374626c,
+    StsdBox => 0x73747364,
+    SttsBox => 0x73747473,
+    TrakBox => 0x7472616b,
+    UdtaBox => 0x75647461,
+    DinfBox => 0x64696e66,
+    SmhdBox => 0x736d6864,
+    Avc1Box => 0x61766331,
+    Mp4aBox => 0x6d703461
 }
 
 impl fmt::Debug for BoxType {
