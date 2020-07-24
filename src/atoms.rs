@@ -34,6 +34,16 @@ macro_rules! boxtype {
     }
 }
 
+macro_rules! read_box_header_ext {
+    ($r:ident, $v:ident, $ f:ident) => {
+        let $v = $r.read_u8().unwrap();
+        let flags_a = $r.read_u8().unwrap();
+        let flags_b = $r.read_u8().unwrap();
+        let flags_c = $r.read_u8().unwrap();
+        let $f = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    }
+}
+
 boxtype!{
     FtypBox => 0x66747970,
     MvhdBox => 0x6d766864,
@@ -349,11 +359,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u8().unwrap();
-        let flags_a = reader.read_u8().unwrap();
-        let flags_b = reader.read_u8().unwrap();
-        let flags_c = reader.read_u8().unwrap();
-        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        read_box_header_ext!(reader, version, flags);
+
         let creation_time = reader.read_u32::<BigEndian>().unwrap();
         let modification_time = reader.read_u32::<BigEndian>().unwrap();
         let timescale = reader.read_u32::<BigEndian>().unwrap();
@@ -410,11 +417,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u8().unwrap();
-        let flags_a = reader.read_u8().unwrap();
-        let flags_b = reader.read_u8().unwrap();
-        let flags_c = reader.read_u8().unwrap();
-        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        read_box_header_ext!(reader, version, flags);
+
         let creation_time = reader.read_u32::<BigEndian>().unwrap();
         let modification_time = reader.read_u32::<BigEndian>().unwrap();
         let track_id = reader.read_u32::<BigEndian>().unwrap();
@@ -548,11 +552,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u8().unwrap();
-        let flags_a = reader.read_u8().unwrap();
-        let flags_b = reader.read_u8().unwrap();
-        let flags_c = reader.read_u8().unwrap();
-        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        read_box_header_ext!(reader, version, flags);
+
         let creation_time = reader.read_u32::<BigEndian>().unwrap();
         let modification_time = reader.read_u32::<BigEndian>().unwrap();
         let timescale = reader.read_u32::<BigEndian>().unwrap();
@@ -593,11 +594,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
     fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u8().unwrap();
-        let flags_a = reader.read_u8().unwrap();
-        let flags_b = reader.read_u8().unwrap();
-        let flags_c = reader.read_u8().unwrap();
-        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        read_box_header_ext!(reader, version, flags);
+
         reader.read_u32::<BigEndian>().unwrap(); // skip.
         let handler = reader.read_u32::<BigEndian>().unwrap();
 
@@ -660,11 +658,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u8().unwrap();
-        let flags_a = reader.read_u8().unwrap();
-        let flags_b = reader.read_u8().unwrap();
-        let flags_c = reader.read_u8().unwrap();
-        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        read_box_header_ext!(reader, version, flags);
+
         let graphics_mode = reader.read_u16::<BigEndian>().unwrap();
         let op_color = reader.read_u16::<BigEndian>().unwrap();
         skip(reader, current, size);
@@ -708,11 +703,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
     fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> { 
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u8().unwrap();
-        let flags_a = reader.read_u8().unwrap();
-        let flags_b = reader.read_u8().unwrap();
-        let flags_c = reader.read_u8().unwrap();
-        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        read_box_header_ext!(reader, version, flags);
+
         let entry_count = reader.read_u32::<BigEndian>().unwrap();
         let mut sample_counts = Vec::new();
         let mut sample_deltas = Vec::new();
@@ -739,11 +731,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
     fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u8().unwrap();
-        let flags_a = reader.read_u8().unwrap();
-        let flags_b = reader.read_u8().unwrap();
-        let flags_c = reader.read_u8().unwrap();
-        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        read_box_header_ext!(reader, version, flags);
+
         reader.read_u32::<BigEndian>().unwrap(); // skip.
 
         let mut start = 0u64;
