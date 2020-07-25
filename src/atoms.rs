@@ -1,6 +1,5 @@
 use std::fmt;
 use std::io::{BufReader, SeekFrom, Seek, Read};
-use std::fs::File;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use crate::{Error, read_box_header, BoxHeader, HEADER_SIZE};
@@ -149,6 +148,10 @@ impl fmt::Display for FourCC {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
     }
+}
+
+pub trait ReadBox<T>: Sized {
+    fn read_box(_: T, offset: u64, size: u32) -> Result<Self>;
 }
 
 #[derive(Debug, Default)]
@@ -329,268 +332,285 @@ pub struct StsdBox {
     pub flags: u32,
 }
 
-pub fn parse_ftyp_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<FtypBox> {
-    let major = f.read_u32::<BigEndian>().unwrap();
-    let minor = f.read_u32::<BigEndian>().unwrap();
-    if size % 4 != 0 {
-        return Err(Error::InvalidData("invalid ftyp size"));
-    }
-    let brand_count = (size - 16) / 4; // header + major + minor
-
-    let mut brands = Vec::new();
-    for _ in 0..brand_count {
-        let b = f.read_u32::<BigEndian>().unwrap();
-        brands.push(From::from(b));
-    }
-
-    Ok(FtypBox {
-        major_brand: From::from(major),
-        minor_version: minor,
-        compatible_brands: brands,
-    })
-}
-
-pub(crate) fn parse_moov_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MoovBox> {
-    let mut moov = MoovBox::new();
-
-    let mut start = 0u64;
-    while start < size as u64 {
-
-        // Get box header.
-        let header = read_box_header(f, start).unwrap();
-        let BoxHeader{ name, size: s, offset: _ } = header;
-
-        match name {
-            BoxType::MvhdBox => {
-                moov.mvhd = parse_mvhd_box(f, 0, s as u32).unwrap();
-            }
-            BoxType::TrakBox => {
-                let trak = parse_trak_box(f, 0, s as u32).unwrap();
-                moov.traks.push(trak);
-            }
-            BoxType::UdtaBox => {
-                start = (s as u32 - HEADER_SIZE) as u64;
-            }
-            _ => break
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let major = reader.read_u32::<BigEndian>().unwrap();
+        let minor = reader.read_u32::<BigEndian>().unwrap();
+        if size % 4 != 0 {
+            return Err(Error::InvalidData("invalid ftyp size"));
         }
-    }
-    Ok(moov)
-}
+        let brand_count = (size - 16) / 4; // header + major + minor
 
-fn parse_mvhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MvhdBox> {
-    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
-
-    let version = f.read_u8().unwrap();
-    let flags_a = f.read_u8().unwrap();
-    let flags_b = f.read_u8().unwrap();
-    let flags_c = f.read_u8().unwrap();
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-    let creation_time = f.read_u32::<BigEndian>().unwrap();
-    let modification_time = f.read_u32::<BigEndian>().unwrap();
-    let timescale = f.read_u32::<BigEndian>().unwrap();
-    let duration = f.read_u32::<BigEndian>().unwrap();
-    let rate = f.read_u32::<BigEndian>().unwrap();
-    skip(f, current, size);
-
-    Ok(MvhdBox{
-        version,
-        flags,
-        creation_time,
-        modification_time,
-        timescale,
-        duration,
-        rate,
-    })
-}
-
-fn parse_trak_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<TrakBox> {
-    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
-    let mut trak = TrakBox::new();
-
-    let start = 0u64;
-    while start < size as u64 {
-        // Get box header.
-        let header = read_box_header(f, start).unwrap();
-        let BoxHeader{ name, size: s, offset: _ } = header;
-
-        match name {
-            BoxType::TkhdBox => {
-                let tkhd = parse_tkhd_box(f, 0, s as u32).unwrap();
-                trak.tkhd = Some(tkhd);
-            }
-            BoxType::EdtsBox => {
-                let edts = parse_edts_box(f, 0, s as u32).unwrap();
-                trak.edts = Some(edts);
-            }
-            BoxType::MdiaBox => {
-                let mdia = parse_mdia_box(f, 0, s as u32).unwrap();
-                trak.mdia = Some(mdia);
-            }
-            _ => break
+        let mut brands = Vec::new();
+        for _ in 0..brand_count {
+            let b = reader.read_u32::<BigEndian>().unwrap();
+            brands.push(From::from(b));
         }
+
+        Ok(FtypBox {
+            major_brand: From::from(major),
+            minor_version: minor,
+            compatible_brands: brands,
+        })
     }
-    skip(f, current, size);
-
-    Ok(trak)
 }
 
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let mut moov = MoovBox::new();
 
-fn parse_tkhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<TkhdBox> {
-    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let mut start = 0u64;
+        while start < size as u64 {
 
-    let version = f.read_u8().unwrap();
-    let flags_a = f.read_u8().unwrap();
-    let flags_b = f.read_u8().unwrap();
-    let flags_c = f.read_u8().unwrap();
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-    let creation_time = f.read_u32::<BigEndian>().unwrap();
-    let modification_time = f.read_u32::<BigEndian>().unwrap();
-    let track_id = f.read_u32::<BigEndian>().unwrap();
-    let duration = f.read_u64::<BigEndian>().unwrap();
-    f.read_u64::<BigEndian>().unwrap(); // skip.
-    let layer = f.read_u16::<BigEndian>().unwrap();
-    let alternate_group = f.read_u16::<BigEndian>().unwrap();
-    let volume = f.read_u16::<BigEndian>().unwrap() >> 8;
+            // Get box header.
+            let header = read_box_header(reader, start).unwrap();
+            let BoxHeader{ name, size: s, offset: _ } = header;
 
-    f.read_u8().unwrap(); // skip.
-    let matrix = Matrix{
-        a: f.read_i32::<byteorder::LittleEndian>().unwrap(),
-        b: f.read_i32::<BigEndian>().unwrap(),
-        u: f.read_i32::<BigEndian>().unwrap(),
-        c: f.read_i32::<BigEndian>().unwrap(),
-        d: f.read_i32::<BigEndian>().unwrap(),
-        v: f.read_i32::<BigEndian>().unwrap(),
-        x: f.read_i32::<BigEndian>().unwrap(),
-        y: f.read_i32::<BigEndian>().unwrap(),
-        w: f.read_i32::<BigEndian>().unwrap(),
-    };
-
-    let width = f.read_u32::<BigEndian>().unwrap() >> 8;
-    let height = f.read_u32::<BigEndian>().unwrap() >> 8;
-    skip(f, current, size);
-
-    Ok(TkhdBox {
-        version,
-        flags,
-        creation_time,
-        modification_time,
-        track_id,
-        duration,
-        layer,
-        alternate_group,
-        volume,
-        matrix,
-        width,
-        height,
-    })
-}
-
-fn parse_edts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<EdtsBox> {
-    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
-    let mut edts = EdtsBox::new();
-
-    let start = 0u64;
-    while start < size as u64 {
-        // Get box header.
-        let header = read_box_header(f, start).unwrap();
-        let BoxHeader{ name, size: s, offset: _ } = header;
-
-        match name {
-            BoxType::ElstBox => {
-                let elst = parse_elst_box(f, 0, s as u32).unwrap();
-                edts.elst = Some(elst);
+            match name {
+                BoxType::MvhdBox => {
+                    moov.mvhd = MvhdBox::read_box(reader, 0, s as u32).unwrap();
+                }
+                BoxType::TrakBox => {
+                    let trak = TrakBox::read_box(reader, 0, s as u32).unwrap();
+                    moov.traks.push(trak);
+                }
+                BoxType::UdtaBox => {
+                    start = (s as u32 - HEADER_SIZE) as u64;
+                }
+                _ => break
             }
-            _ => break
         }
+        Ok(moov)
     }
-    skip(f, current, size);
-
-    Ok(edts)
 }
 
-fn parse_elst_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<ElstBox> {
-    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-    let version = f.read_u32::<BigEndian>().unwrap();
-    let entry_count = f.read_u32::<BigEndian>().unwrap();
+        let version = reader.read_u8().unwrap();
+        let flags_a = reader.read_u8().unwrap();
+        let flags_b = reader.read_u8().unwrap();
+        let flags_c = reader.read_u8().unwrap();
+        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        let creation_time = reader.read_u32::<BigEndian>().unwrap();
+        let modification_time = reader.read_u32::<BigEndian>().unwrap();
+        let timescale = reader.read_u32::<BigEndian>().unwrap();
+        let duration = reader.read_u32::<BigEndian>().unwrap();
+        let rate = reader.read_u32::<BigEndian>().unwrap();
+        skip(reader, current, size);
 
-    let mut entries = Vec::new();
+        Ok(MvhdBox{
+            version,
+            flags,
+            creation_time,
+            modification_time,
+            timescale,
+            duration,
+            rate,
+        })
+    }
+}
 
-    for _i in 0..entry_count {
-        let entry = ElstEntry{
-            segment_duration: f.read_u32::<BigEndian>().unwrap(),
-            media_time: f.read_u32::<BigEndian>().unwrap(),
-            media_rate: f.read_u16::<BigEndian>().unwrap(),
-            media_rate_fraction: f.read_u16::<BigEndian>().unwrap(),
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let mut trak = TrakBox::new();
+
+        let start = 0u64;
+        while start < size as u64 {
+            // Get box header.
+            let header = read_box_header(reader, start).unwrap();
+            let BoxHeader{ name, size: s, offset: _ } = header;
+
+            match name {
+                BoxType::TkhdBox => {
+                    let tkhd = TkhdBox::read_box(reader, 0, s as u32).unwrap();
+                    trak.tkhd = Some(tkhd);
+                }
+                BoxType::EdtsBox => {
+                    let edts = EdtsBox::read_box(reader, 0, s as u32).unwrap();
+                    trak.edts = Some(edts);
+                }
+                BoxType::MdiaBox => {
+                    let mdia = MdiaBox::read_box(reader, 0, s as u32).unwrap();
+                    trak.mdia = Some(mdia);
+                }
+                _ => break
+            }
+        }
+        skip(reader, current, size);
+
+        Ok(trak)
+    }
+}
+
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+        let version = reader.read_u8().unwrap();
+        let flags_a = reader.read_u8().unwrap();
+        let flags_b = reader.read_u8().unwrap();
+        let flags_c = reader.read_u8().unwrap();
+        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        let creation_time = reader.read_u32::<BigEndian>().unwrap();
+        let modification_time = reader.read_u32::<BigEndian>().unwrap();
+        let track_id = reader.read_u32::<BigEndian>().unwrap();
+        let duration = reader.read_u64::<BigEndian>().unwrap();
+        reader.read_u64::<BigEndian>().unwrap(); // skip.
+        let layer = reader.read_u16::<BigEndian>().unwrap();
+        let alternate_group = reader.read_u16::<BigEndian>().unwrap();
+        let volume = reader.read_u16::<BigEndian>().unwrap() >> 8;
+
+        reader.read_u8().unwrap(); // skip.
+        let matrix = Matrix{
+            a: reader.read_i32::<byteorder::LittleEndian>().unwrap(),
+            b: reader.read_i32::<BigEndian>().unwrap(),
+            u: reader.read_i32::<BigEndian>().unwrap(),
+            c: reader.read_i32::<BigEndian>().unwrap(),
+            d: reader.read_i32::<BigEndian>().unwrap(),
+            v: reader.read_i32::<BigEndian>().unwrap(),
+            x: reader.read_i32::<BigEndian>().unwrap(),
+            y: reader.read_i32::<BigEndian>().unwrap(),
+            w: reader.read_i32::<BigEndian>().unwrap(),
         };
-        entries.push(entry);
-    }
-    skip(f, current, size);
 
-    Ok(ElstBox {
-        version,
-        entry_count,
-        entries,
-    })
+        let width = reader.read_u32::<BigEndian>().unwrap() >> 8;
+        let height = reader.read_u32::<BigEndian>().unwrap() >> 8;
+        skip(reader, current, size);
+
+        Ok(TkhdBox {
+            version,
+            flags,
+            creation_time,
+            modification_time,
+            track_id,
+            duration,
+            layer,
+            alternate_group,
+            volume,
+            matrix,
+            width,
+            height,
+        })
+    }
 }
 
-fn parse_mdia_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MdiaBox> {
-    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
-    let mut mdia = MdiaBox::new();
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let mut edts = EdtsBox::new();
 
-    let start = 0u64;
-    while start < size as u64 {
-        // Get box header.
-        let header = read_box_header(f, start).unwrap();
-        let BoxHeader{ name, size: s, offset: _ } = header;
+        let start = 0u64;
+        while start < size as u64 {
+            // Get box header.
+            let header = read_box_header(reader, start).unwrap();
+            let BoxHeader{ name, size: s, offset: _ } = header;
 
-        match name {
-            BoxType::MdhdBox => {
-                let mdhd = parse_mdhd_box(f, 0, s as u32).unwrap();
-                mdia.mdhd = Some(mdhd);
+            match name {
+                BoxType::ElstBox => {
+                    let elst = ElstBox::read_box(reader, 0, s as u32).unwrap();
+                    edts.elst = Some(elst);
+                }
+                _ => break
             }
-            BoxType::HdlrBox => {
-                let hdlr = parse_hdlr_box(f, 0, s as u32).unwrap();
-                mdia.hdlr = Some(hdlr);
-            }
-            BoxType::MinfBox => {
-                let minf = parse_minf_box(f, 0, s as u32).unwrap();
-                mdia.minf = Some(minf);
-            }
-            _ => break
         }
-    }
-    skip(f, current, size);
+        skip(reader, current, size);
 
-    Ok(mdia)
+        Ok(edts)
+    }
 }
 
-fn parse_mdhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MdhdBox> {
-    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-    let version = f.read_u8().unwrap();
-    let flags_a = f.read_u8().unwrap();
-    let flags_b = f.read_u8().unwrap();
-    let flags_c = f.read_u8().unwrap();
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-    let creation_time = f.read_u32::<BigEndian>().unwrap();
-    let modification_time = f.read_u32::<BigEndian>().unwrap();
-    let timescale = f.read_u32::<BigEndian>().unwrap();
-    let duration = f.read_u32::<BigEndian>().unwrap();
-    let language = f.read_u16::<BigEndian>().unwrap();
-    let language_string = get_language_string(language);
-    skip(f, current, size);
+        let version = reader.read_u32::<BigEndian>().unwrap();
+        let entry_count = reader.read_u32::<BigEndian>().unwrap();
 
-    Ok(MdhdBox {
-        version,
-        flags,
-        creation_time,
-        modification_time,
-        timescale,
-        duration,
-        language,
-        language_string,
-    })
+        let mut entries = Vec::new();
+
+        for _i in 0..entry_count {
+            let entry = ElstEntry{
+                segment_duration: reader.read_u32::<BigEndian>().unwrap(),
+                media_time: reader.read_u32::<BigEndian>().unwrap(),
+                media_rate: reader.read_u16::<BigEndian>().unwrap(),
+                media_rate_fraction: reader.read_u16::<BigEndian>().unwrap(),
+            };
+            entries.push(entry);
+        }
+        skip(reader, current, size);
+
+        Ok(ElstBox {
+            version,
+            entry_count,
+            entries,
+        })
+    }
+}
+
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let mut mdia = MdiaBox::new();
+
+        let start = 0u64;
+        while start < size as u64 {
+            // Get box header.
+            let header = read_box_header(reader, start).unwrap();
+            let BoxHeader{ name, size: s, offset: _ } = header;
+
+            match name {
+                BoxType::MdhdBox => {
+                    let mdhd = MdhdBox::read_box(reader, 0, s as u32).unwrap();
+                    mdia.mdhd = Some(mdhd);
+                }
+                BoxType::HdlrBox => {
+                    let hdlr = HdlrBox::read_box(reader, 0, s as u32).unwrap();
+                    mdia.hdlr = Some(hdlr);
+                }
+                BoxType::MinfBox => {
+                    let minf = MinfBox::read_box(reader, 0, s as u32).unwrap();
+                    mdia.minf = Some(minf);
+                }
+                _ => break
+            }
+        }
+        skip(reader, current, size);
+
+        Ok(mdia)
+    }
+}
+
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdhdBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+        let version = reader.read_u8().unwrap();
+        let flags_a = reader.read_u8().unwrap();
+        let flags_b = reader.read_u8().unwrap();
+        let flags_c = reader.read_u8().unwrap();
+        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        let creation_time = reader.read_u32::<BigEndian>().unwrap();
+        let modification_time = reader.read_u32::<BigEndian>().unwrap();
+        let timescale = reader.read_u32::<BigEndian>().unwrap();
+        let duration = reader.read_u32::<BigEndian>().unwrap();
+        let language = reader.read_u16::<BigEndian>().unwrap();
+        let language_string = get_language_string(language);
+        skip(reader, current, size);
+
+        Ok(MdhdBox {
+            version,
+            flags,
+            creation_time,
+            modification_time,
+            timescale,
+            duration,
+            language,
+            language_string,
+        })
+    }
 }
 
 fn get_language_string(language: u16) -> String {
@@ -608,178 +628,190 @@ fn get_language_string(language: u16) -> String {
     return lang_str;
 }
 
-fn parse_hdlr_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<HdlrBox> {
-    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-    let version = f.read_u8().unwrap();
-    let flags_a = f.read_u8().unwrap();
-    let flags_b = f.read_u8().unwrap();
-    let flags_c = f.read_u8().unwrap();
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-    f.read_u32::<BigEndian>().unwrap(); // skip.
-    let handler = f.read_u32::<BigEndian>().unwrap();
+        let version = reader.read_u8().unwrap();
+        let flags_a = reader.read_u8().unwrap();
+        let flags_b = reader.read_u8().unwrap();
+        let flags_c = reader.read_u8().unwrap();
+        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        reader.read_u32::<BigEndian>().unwrap(); // skip.
+        let handler = reader.read_u32::<BigEndian>().unwrap();
 
-    let n = f.seek(SeekFrom::Current(12)).unwrap(); // 12 bytes reserved.
-    let buf_size = (size as u64 - (n - current)) - HEADER_SIZE as u64;
-    let mut buf = vec![0u8; buf_size as usize];
-    f.read_exact(&mut buf).unwrap();
+        let n = reader.seek(SeekFrom::Current(12)).unwrap(); // 12 bytes reserved.
+        let buf_size = (size as u64 - (n - current)) - HEADER_SIZE as u64;
+        let mut buf = vec![0u8; buf_size as usize];
+        reader.read_exact(&mut buf).unwrap();
 
-    let handler_string = match String::from_utf8(buf) {
-        Ok(t) => t,
-        _ => String::from("null"),
-    };
-    skip(f, current, size);
+        let handler_string = match String::from_utf8(buf) {
+            Ok(t) => t,
+            _ => String::from("null"),
+        };
+        skip(reader, current, size);
 
-    Ok(HdlrBox {
-        version,
-        flags,
-        handler_type: From::from(handler),
-        name: handler_string,
-    })
+        Ok(HdlrBox {
+            version,
+            flags,
+            handler_type: From::from(handler),
+            name: handler_string,
+        })
+    }
 }
 
-fn parse_minf_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<MinfBox> {
-    let current =  f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
-    let mut minf = MinfBox::new();
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let mut minf = MinfBox::new();
 
-    let mut start = 0u64;
-    while start < size as u64 {
-        // Get box header.
-        let header = read_box_header(f, start).unwrap();
-        let BoxHeader{ name, size: s, offset: _ } = header;
+        let mut start = 0u64;
+        while start < size as u64 {
+            // Get box header.
+            let header = read_box_header(reader, start).unwrap();
+            let BoxHeader{ name, size: s, offset: _ } = header;
 
-        match name {
-            BoxType::VmhdBox => {
-                let vmhd = parse_vmhd_box(f, 0, s as u32).unwrap();
-                minf.vmhd = Some(vmhd);
+            match name {
+                BoxType::VmhdBox => {
+                    let vmhd = VmhdBox::read_box(reader, 0, s as u32).unwrap();
+                    minf.vmhd = Some(vmhd);
+                }
+                BoxType::SmhdBox => {
+                    start = (s as u32 - HEADER_SIZE) as u64;
+                }
+                BoxType::DinfBox => {
+                    start = (s as u32 - HEADER_SIZE) as u64;
+                }
+                BoxType::StblBox => {
+                    let stbl = StblBox::read_box(reader, 0, s as u32).unwrap();
+                    minf.stbl = Some(stbl);
+                }
+                _ => break
             }
-            BoxType::SmhdBox => {
-                start = (s as u32 - HEADER_SIZE) as u64;
-            }
-            BoxType::DinfBox => {
-                start = (s as u32 - HEADER_SIZE) as u64;
-            }
-            BoxType::StblBox => {
-                let stbl = parse_stbl_box(f, 0, s as u32).unwrap();
-                minf.stbl = Some(stbl);
-            }
-            _ => break
         }
+        skip(reader, current, size);
+
+        Ok(minf)
     }
-    skip(f, current, size);
-
-    Ok(minf)
 }
 
-fn parse_vmhd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<VmhdBox> {
-    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-    let version = f.read_u8().unwrap();
-    let flags_a = f.read_u8().unwrap();
-    let flags_b = f.read_u8().unwrap();
-    let flags_c = f.read_u8().unwrap();
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-    let graphics_mode = f.read_u16::<BigEndian>().unwrap();
-    let op_color = f.read_u16::<BigEndian>().unwrap();
-    skip(f, current, size);
+        let version = reader.read_u8().unwrap();
+        let flags_a = reader.read_u8().unwrap();
+        let flags_b = reader.read_u8().unwrap();
+        let flags_c = reader.read_u8().unwrap();
+        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        let graphics_mode = reader.read_u16::<BigEndian>().unwrap();
+        let op_color = reader.read_u16::<BigEndian>().unwrap();
+        skip(reader, current, size);
 
-    Ok(VmhdBox {
-        version,
-        flags,
-        graphics_mode,
-        op_color,
-    })
+        Ok(VmhdBox {
+            version,
+            flags,
+            graphics_mode,
+            op_color,
+        })
+    }
 }
 
-fn parse_stbl_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<StblBox> {
-    let mut stbl = StblBox::new();
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let mut stbl = StblBox::new();
 
-    let start = 0u64;
-    while start < size as u64 {
-        // Get box header.
-        let header = read_box_header(f, start).unwrap();
-        let BoxHeader{ name, size: s, offset: _ } = header;
+        let start = 0u64;
+        while start < size as u64 {
+            // Get box header.
+            let header = read_box_header(reader, start).unwrap();
+            let BoxHeader{ name, size: s, offset: _ } = header;
 
-        match name {
-            BoxType::StsdBox => {
-                let stsd = parse_stsd_box(f, 0, s as u32).unwrap();
-                stbl.stsd = Some(stsd);
+            match name {
+                BoxType::StsdBox => {
+                    let stsd = StsdBox::read_box(reader, 0, s as u32).unwrap();
+                    stbl.stsd = Some(stsd);
+                }
+                BoxType::SttsBox => {
+                    let stts = SttsBox::read_box(reader, 0, s as u32).unwrap();
+                    stbl.stts = Some(stts);
+                }
+                _ => break
             }
-            BoxType::SttsBox => {
-                let stts = parse_stts_box(f, 0, s as u32).unwrap();
-                stbl.stts = Some(stts);
-            }
-            _ => break
         }
+        Ok(stbl)
     }
-    Ok(stbl)
 }
 
-fn parse_stts_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<SttsBox> {
-    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> { 
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-    let version = f.read_u8().unwrap();
-    let flags_a = f.read_u8().unwrap();
-    let flags_b = f.read_u8().unwrap();
-    let flags_c = f.read_u8().unwrap();
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-    let entry_count = f.read_u32::<BigEndian>().unwrap();
-    let mut sample_counts = Vec::new();
-    let mut sample_deltas = Vec::new();
+        let version = reader.read_u8().unwrap();
+        let flags_a = reader.read_u8().unwrap();
+        let flags_b = reader.read_u8().unwrap();
+        let flags_c = reader.read_u8().unwrap();
+        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        let entry_count = reader.read_u32::<BigEndian>().unwrap();
+        let mut sample_counts = Vec::new();
+        let mut sample_deltas = Vec::new();
 
-    for _i in 0..entry_count {
-        let sc = f.read_u32::<BigEndian>().unwrap();
-        let sd = f.read_u32::<BigEndian>().unwrap();
-        sample_counts.push(sc);
-        sample_deltas.push(sd);
-    }
-    skip(f, current, size);
-
-    Ok(SttsBox {
-        version,
-        flags,
-        entry_count,
-        sample_counts,
-        sample_deltas,
-    })
-}
-
-fn parse_stsd_box(f: &mut BufReader<File>, _offset: u64, size: u32) -> Result<StsdBox> {
-    let current = f.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
-
-    let version = f.read_u8().unwrap();
-    let flags_a = f.read_u8().unwrap();
-    let flags_b = f.read_u8().unwrap();
-    let flags_c = f.read_u8().unwrap();
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
-    f.read_u32::<BigEndian>().unwrap(); // skip.
-
-    let mut start = 0u64;
-    while start < size as u64 {
-        // Get box header.
-        let header = read_box_header(f, start).unwrap();
-        let BoxHeader{ name, size: s, offset: _ } = header;
-
-        match name {
-            BoxType::Avc1Box => {
-                start = (s as u32 - HEADER_SIZE) as u64;
-            }
-            BoxType::Mp4aBox => {
-                start = (s as u32 - HEADER_SIZE) as u64;
-            }
-            _ => break
+        for _i in 0..entry_count {
+            let sc = reader.read_u32::<BigEndian>().unwrap();
+            let sd = reader.read_u32::<BigEndian>().unwrap();
+            sample_counts.push(sc);
+            sample_deltas.push(sd);
         }
-    }
-    skip(f, current, size);
+        skip(reader, current, size);
 
-    Ok(StsdBox {
-        version,
-        flags,
-    })
+        Ok(SttsBox {
+            version,
+            flags,
+            entry_count,
+            sample_counts,
+            sample_deltas,
+        })
+    }
 }
 
-fn skip(f: &mut BufReader<File>, current: u64, size: u32) {
-    let after = f.seek(SeekFrom::Current(0)).unwrap();
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
+    fn read_box(reader: &mut BufReader<R>, _offset: u64, size: u32) -> Result<Self> {
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+
+        let version = reader.read_u8().unwrap();
+        let flags_a = reader.read_u8().unwrap();
+        let flags_b = reader.read_u8().unwrap();
+        let flags_c = reader.read_u8().unwrap();
+        let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+        reader.read_u32::<BigEndian>().unwrap(); // skip.
+
+        let mut start = 0u64;
+        while start < size as u64 {
+            // Get box header.
+            let header = read_box_header(reader, start).unwrap();
+            let BoxHeader{ name, size: s, offset: _ } = header;
+
+            match name {
+                BoxType::Avc1Box => {
+                    start = (s as u32 - HEADER_SIZE) as u64;
+                }
+                BoxType::Mp4aBox => {
+                    start = (s as u32 - HEADER_SIZE) as u64;
+                }
+                _ => break
+            }
+        }
+        skip(reader, current, size);
+
+        Ok(StsdBox {
+            version,
+            flags,
+        })
+    }
+}
+
+fn skip<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u32) {
+    let after = reader.seek(SeekFrom::Current(0)).unwrap();
     let remaining_bytes = (size as u64 - (after - current)) as i64;
-    f.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    reader.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
 }

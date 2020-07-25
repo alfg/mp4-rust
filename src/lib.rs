@@ -67,7 +67,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
         // Match and parse the atom boxes.
         match name {
             BoxType::FtypBox => {
-                let ftyp = parse_ftyp_box(&mut reader, 0, size as u32).unwrap();
+                let ftyp = FtypBox::read_box(&mut reader, 0, size as u32).unwrap();
                 bmff.ftyp = ftyp;
             }
             BoxType::FreeBox => {
@@ -77,7 +77,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
                 start = (size as u32 - HEADER_SIZE) as u64;
             }
             BoxType::MoovBox => {
-                let moov = parse_moov_box(&mut reader, 0, size as u32).unwrap();
+                let moov = MoovBox::read_box(&mut reader, 0, size as u32).unwrap();
                 bmff.moov = Some(moov);
             }
             BoxType::MoofBox => {
@@ -97,7 +97,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
     Ok(bmff)
 }
 
-fn read_box_header(reader: &mut BufReader<File>, start: u64) -> Result<BoxHeader> {
+fn read_box_header<R: Read + Seek>(reader: &mut BufReader<R>, start: u64) -> Result<BoxHeader> {
     // Seek to offset.
     let _r = reader.seek(SeekFrom::Current(start as i64));
 
