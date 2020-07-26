@@ -5,6 +5,8 @@ ISO/IEC 14496-12 - ISO Base Media File Format (QuickTime, MPEG-4, etc)
 
 [![Crates.io](https://img.shields.io/crates/v/mp4)](https://crates.io/crates/mp4)
 [![Crates.io](https://img.shields.io/crates/d/mp4)](https://crates.io/crates/mp4)
+[![Build Status](https://travis-ci.org/alfg/mp4rs.svg?branch=master)](https://travis-ci.org/alfg/mp4rs)
+![Rust](https://github.com/alfg/mp4rs/workflows/Rust/badge.svg)
 
 #### Example
 ```rust
