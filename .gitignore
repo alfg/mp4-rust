@@ -5,3 +5,4 @@
 *.mp4
 .idea/
 .vscode/
+!tests/samples/*.mp4
