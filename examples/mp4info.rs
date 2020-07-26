@@ -1,6 +1,4 @@
-extern crate mp4;
-
-use mp4::TrackType;
+use mp4;
 use std::env;
 use std::fs::File;
 
@@ -71,7 +69,7 @@ fn main() {
                         "    duration:     {:?} (ms)",
                         get_duration_ms(mdhd.duration, mdhd.timescale)
                     );
-                    if get_handler_type(hdlr.handler_type.value.as_ref()) == TrackType::Video {
+                    if get_handler_type(hdlr.handler_type.value.as_ref()) == mp4::TrackType::Video {
                         if let Some(ref s) = stts {
                             println!(
                                 "    frame rate: (computed): {:?}",
@@ -88,12 +86,12 @@ fn main() {
     }
 }
 
-fn get_handler_type(handler: &str) -> TrackType {
-    let mut typ: TrackType = TrackType::Unknown;
+fn get_handler_type(handler: &str) -> mp4::TrackType {
+    let mut typ: mp4::TrackType = mp4::TrackType::Unknown;
     match handler {
-        "vide" => typ = TrackType::Video,
-        "soun" => typ = TrackType::Audio,
-        "meta" => typ = TrackType::Unknown,
+        "vide" => typ = mp4::TrackType::Video,
+        "soun" => typ = mp4::TrackType::Audio,
+        "meta" => typ = mp4::TrackType::Unknown,
         _ => (),
     }
     return typ;
