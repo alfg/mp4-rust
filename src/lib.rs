@@ -40,7 +40,6 @@ impl BMFF {
 struct BoxHeader {
     name: BoxType,
     size: u64,
-    offset: u64,
 }
 
 pub fn read_mp4(f: File) -> Result<BMFF> {
@@ -62,12 +61,12 @@ fn read_boxes(f: File) -> Result<BMFF> {
 
         // Get box header.
         let header = read_box_header(&mut reader, start).unwrap();
-        let BoxHeader{ name, size, offset: _ } = header;
+        let BoxHeader{ name, size } = header;
 
         // Match and parse the atom boxes.
         match name {
             BoxType::FtypBox => {
-                let ftyp = FtypBox::read_box(&mut reader, 0, size as u32).unwrap();
+                let ftyp = FtypBox::read_box(&mut reader, size as u32).unwrap();
                 bmff.ftyp = ftyp;
             }
             BoxType::FreeBox => {
@@ -77,7 +76,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
                 start = (size as u32 - HEADER_SIZE) as u64;
             }
             BoxType::MoovBox => {
-                let moov = MoovBox::read_box(&mut reader, 0, size as u32).unwrap();
+                let moov = MoovBox::read_box(&mut reader, size as u32).unwrap();
                 bmff.moov = Some(moov);
             }
             BoxType::MoofBox => {
@@ -97,6 +96,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
     Ok(bmff)
 }
 
+// TODO: if size is 0, then this box is the last one in the file
 fn read_box_header<R: Read + Seek>(reader: &mut BufReader<R>, start: u64) -> Result<BoxHeader> {
     // Seek to offset.
     let _r = reader.seek(SeekFrom::Current(start as i64));
@@ -108,24 +108,27 @@ fn read_box_header<R: Read + Seek>(reader: &mut BufReader<R>, start: u64) -> Res
     // Get size.
     let s = buf[0..4].try_into().unwrap();
     let size = u32::from_be_bytes(s);
-
-    // TODO: Err if size is 0.
-    // if size == 0 { break; }
     
     // Get box type string.
     let t = buf[4..8].try_into().unwrap();
     let typ = u32::from_be_bytes(t);
 
-    let offset = match size {
-        1 => 4 + 4 + 8,
-        _ => 4 + 4,
-    };
+    // Get largesize if size is 1
+    if size == 1 {
+        reader.read(&mut buf).unwrap();
+        let s = buf.try_into().unwrap();
+        let largesize = u64::from_be_bytes(s);
 
-    Ok(BoxHeader {
-        name: BoxType::from(typ),
-        size: size as u64,
-        offset: offset as u64,
-    })
+        Ok(BoxHeader {
+            name: BoxType::from(typ),
+            size: largesize,
+        })
+    } else {
+        Ok(BoxHeader {
+            name: BoxType::from(typ),
+            size: size as u64,
+        })
+    }
 }
 
 
