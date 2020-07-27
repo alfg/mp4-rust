@@ -8,7 +8,7 @@ use std::convert::TryInto;
 mod atoms;
 use crate::atoms::*;
 
-const HEADER_SIZE: u32 = 8;
+const HEADER_SIZE: u64 = 8;
 
 #[derive(Debug)]
 pub enum Error {
@@ -66,21 +66,21 @@ fn read_boxes(f: File) -> Result<BMFF> {
         // Match and parse the atom boxes.
         match name {
             BoxType::FtypBox => {
-                let ftyp = FtypBox::read_box(&mut reader, size as u32).unwrap();
+                let ftyp = FtypBox::read_box(&mut reader, size).unwrap();
                 bmff.ftyp = ftyp;
             }
             BoxType::FreeBox => {
                 start = 0;
             }
             BoxType::MdatBox => {
-                start = (size as u32 - HEADER_SIZE) as u64;
+                start = size - HEADER_SIZE;
             }
             BoxType::MoovBox => {
-                let moov = MoovBox::read_box(&mut reader, size as u32).unwrap();
+                let moov = MoovBox::read_box(&mut reader, size).unwrap();
                 bmff.moov = Some(moov);
             }
             BoxType::MoofBox => {
-                start = (size as u32 - HEADER_SIZE) as u64;
+                start = size - HEADER_SIZE;
             }
             _ => {
                 // Skip over unsupported boxes, but stop if the size is zero,
@@ -88,7 +88,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
                 if size == 0 {
                     break;
                 } else {
-                    start = (size as u32 - HEADER_SIZE) as u64;
+                    start = size - HEADER_SIZE;
                 }
             }
         };

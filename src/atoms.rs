@@ -122,7 +122,7 @@ impl fmt::Display for FourCC {
 }
 
 pub trait ReadBox<T>: Sized {
-    fn read_box(_: T, size: u32) -> Result<Self>;
+    fn read_box(_: T, size: u64) -> Result<Self>;
 }
 
 #[derive(Debug, Default)]
@@ -304,7 +304,7 @@ pub struct StsdBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let major = reader.read_u32::<BigEndian>().unwrap();
         let minor = reader.read_u32::<BigEndian>().unwrap();
         if size % 4 != 0 {
@@ -327,7 +327,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let mut moov = MoovBox::new();
 
         let mut start = 0u64;
@@ -339,14 +339,14 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
 
             match name {
                 BoxType::MvhdBox => {
-                    moov.mvhd = MvhdBox::read_box(reader, s as u32).unwrap();
+                    moov.mvhd = MvhdBox::read_box(reader, s).unwrap();
                 }
                 BoxType::TrakBox => {
-                    let trak = TrakBox::read_box(reader, s as u32).unwrap();
+                    let trak = TrakBox::read_box(reader, s).unwrap();
                     moov.traks.push(trak);
                 }
                 BoxType::UdtaBox => {
-                    start = (s as u32 - HEADER_SIZE) as u64;
+                    start = s - HEADER_SIZE;
                 }
                 _ => break
             }
@@ -356,7 +356,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         read_box_header_ext!(reader, version, flags);
@@ -381,7 +381,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut trak = TrakBox::new();
 
@@ -393,15 +393,15 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
 
             match name {
                 BoxType::TkhdBox => {
-                    let tkhd = TkhdBox::read_box(reader, s as u32).unwrap();
+                    let tkhd = TkhdBox::read_box(reader, s).unwrap();
                     trak.tkhd = Some(tkhd);
                 }
                 BoxType::EdtsBox => {
-                    let edts = EdtsBox::read_box(reader, s as u32).unwrap();
+                    let edts = EdtsBox::read_box(reader, s).unwrap();
                     trak.edts = Some(edts);
                 }
                 BoxType::MdiaBox => {
-                    let mdia = MdiaBox::read_box(reader, s as u32).unwrap();
+                    let mdia = MdiaBox::read_box(reader, s).unwrap();
                     trak.mdia = Some(mdia);
                 }
                 _ => break
@@ -414,7 +414,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         read_box_header_ext!(reader, version, flags);
@@ -463,7 +463,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut edts = EdtsBox::new();
 
@@ -475,7 +475,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
 
             match name {
                 BoxType::ElstBox => {
-                    let elst = ElstBox::read_box(reader, s as u32).unwrap();
+                    let elst = ElstBox::read_box(reader, s).unwrap();
                     edts.elst = Some(elst);
                 }
                 _ => break
@@ -488,7 +488,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         let version = reader.read_u32::<BigEndian>().unwrap();
@@ -516,7 +516,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut mdia = MdiaBox::new();
 
@@ -528,15 +528,15 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
 
             match name {
                 BoxType::MdhdBox => {
-                    let mdhd = MdhdBox::read_box(reader, s as u32).unwrap();
+                    let mdhd = MdhdBox::read_box(reader, s).unwrap();
                     mdia.mdhd = Some(mdhd);
                 }
                 BoxType::HdlrBox => {
-                    let hdlr = HdlrBox::read_box(reader, s as u32).unwrap();
+                    let hdlr = HdlrBox::read_box(reader, s).unwrap();
                     mdia.hdlr = Some(hdlr);
                 }
                 BoxType::MinfBox => {
-                    let minf = MinfBox::read_box(reader, s as u32).unwrap();
+                    let minf = MinfBox::read_box(reader, s).unwrap();
                     mdia.minf = Some(minf);
                 }
                 _ => break
@@ -549,7 +549,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdhdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         read_box_header_ext!(reader, version, flags);
@@ -591,7 +591,7 @@ fn get_language_string(language: u16) -> String {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         read_box_header_ext!(reader, version, flags);
@@ -620,7 +620,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut minf = MinfBox::new();
 
@@ -632,17 +632,17 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
 
             match name {
                 BoxType::VmhdBox => {
-                    let vmhd = VmhdBox::read_box(reader, s as u32).unwrap();
+                    let vmhd = VmhdBox::read_box(reader, s).unwrap();
                     minf.vmhd = Some(vmhd);
                 }
                 BoxType::SmhdBox => {
-                    start = (s as u32 - HEADER_SIZE) as u64;
+                    start = s - HEADER_SIZE;
                 }
                 BoxType::DinfBox => {
-                    start = (s as u32 - HEADER_SIZE) as u64;
+                    start = s - HEADER_SIZE;
                 }
                 BoxType::StblBox => {
-                    let stbl = StblBox::read_box(reader, s as u32).unwrap();
+                    let stbl = StblBox::read_box(reader, s).unwrap();
                     minf.stbl = Some(stbl);
                 }
                 _ => break
@@ -655,7 +655,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         read_box_header_ext!(reader, version, flags);
@@ -674,7 +674,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let mut stbl = StblBox::new();
 
         let start = 0u64;
@@ -685,11 +685,11 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
 
             match name {
                 BoxType::StsdBox => {
-                    let stsd = StsdBox::read_box(reader, s as u32).unwrap();
+                    let stsd = StsdBox::read_box(reader, s).unwrap();
                     stbl.stsd = Some(stsd);
                 }
                 BoxType::SttsBox => {
-                    let stts = SttsBox::read_box(reader, s as u32).unwrap();
+                    let stts = SttsBox::read_box(reader, s).unwrap();
                     stbl.stts = Some(stts);
                 }
                 _ => break
@@ -700,7 +700,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> { 
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> { 
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         read_box_header_ext!(reader, version, flags);
@@ -728,7 +728,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u32) -> Result<Self> {
+    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
         read_box_header_ext!(reader, version, flags);
@@ -743,10 +743,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
 
             match name {
                 BoxType::Avc1Box => {
-                    start = (s as u32 - HEADER_SIZE) as u64;
+                    start = s - HEADER_SIZE;
                 }
                 BoxType::Mp4aBox => {
-                    start = (s as u32 - HEADER_SIZE) as u64;
+                    start = s - HEADER_SIZE;
                 }
                 _ => break
             }
@@ -760,7 +760,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
     }
 }
 
-fn skip<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u32) {
+fn skip<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u64) {
     let after = reader.seek(SeekFrom::Current(0)).unwrap();
     let remaining_bytes = (size as u64 - (after - current)) as i64;
     reader.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
