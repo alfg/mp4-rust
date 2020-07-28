@@ -1,8 +1,10 @@
 use std::fmt;
-use std::io::{BufReader, SeekFrom, Seek, Read};
-use byteorder::{BigEndian, ReadBytesExt};
+use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use crate::{Error, read_box_header, BoxHeader, HEADER_SIZE};
+
+const HEADER_EXT_SIZE: u64 = 4;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -31,16 +33,6 @@ macro_rules! boxtype {
                 }
             }
         }
-    }
-}
-
-macro_rules! read_box_header_ext {
-    ($r:ident, $v:ident, $ f:ident) => {
-        let $v = $r.read_u8().unwrap();
-        let flags_a = $r.read_u8().unwrap();
-        let flags_b = $r.read_u8().unwrap();
-        let flags_c = $r.read_u8().unwrap();
-        let $f = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
     }
 }
 
@@ -83,7 +75,7 @@ pub struct FourCC {
 }
 
 impl From<u32> for FourCC {
-    fn from(number: u32) -> FourCC {
+    fn from(number: u32) -> Self {
         let mut box_chars = Vec::new();
         for x in 0..4 {
             let c = (number >> (x * 8) & 0x0000_00FF) as u8;
@@ -99,6 +91,20 @@ impl From<u32> for FourCC {
         FourCC {
             value: box_string
         }
+    }
+}
+
+impl From<FourCC> for u32 {
+    fn from(fourcc: FourCC) -> u32 {
+        (&fourcc).into()
+    }
+}
+
+impl From<&FourCC> for u32 {
+    fn from(fourcc: &FourCC) -> u32 {
+        let mut b: [u8; 4] = Default::default();
+        b.copy_from_slice(fourcc.value.as_bytes());
+        u32::from_be_bytes(b)
     }
 }
 
@@ -121,11 +127,20 @@ impl fmt::Display for FourCC {
     }
 }
 
+pub trait Mp4Box: Sized {
+    fn box_type(&self) -> BoxType;
+    fn box_size(&self) -> u64;
+}
+
 pub trait ReadBox<T>: Sized {
     fn read_box(_: T, size: u64) -> Result<Self>;
 }
 
-#[derive(Debug, Default)]
+pub trait WriteBox<T>: Sized {
+    fn write_box(&self, _: T) -> Result<u64>;
+}
+
+#[derive(Debug, Default, PartialEq)]
 pub struct FtypBox {
     pub major_brand: FourCC,
     pub minor_version: u32,
@@ -144,14 +159,14 @@ impl MoovBox {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct MvhdBox {
     pub version: u8,
     pub flags: u32,
-    pub creation_time: u32,
-    pub modification_time: u32,
+    pub creation_time: u64,
+    pub modification_time: u64,
     pub timescale: u32,
-    pub duration: u32,
+    pub duration: u64,
     pub rate: u32,
 }
 
@@ -168,12 +183,12 @@ impl TrakBox {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct TkhdBox {
     pub version: u8,
     pub flags: u32,
-    pub creation_time: u32,
-    pub modification_time: u32,
+    pub creation_time: u64,
+    pub modification_time: u64,
     pub track_id: u32,
     pub duration: u64,
     pub layer:  u16,
@@ -184,7 +199,7 @@ pub struct TkhdBox {
     pub height: u32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Matrix {
     pub a: i32,
     pub b: i32,
@@ -210,15 +225,16 @@ impl EdtsBox {
 
 #[derive(Debug, Default)]
 pub struct ElstBox {
-    pub version: u32,
+    pub version: u8,
+    pub flags: u32,
     pub entry_count: u32,
     pub entries: Vec<ElstEntry>,
 }
 
 #[derive(Debug, Default)]
 pub struct ElstEntry {
-    pub segment_duration: u32,
-    pub media_time: u32,
+    pub segment_duration: u64,
+    pub media_time: u64,
     pub media_rate: u16,
     pub media_rate_fraction: u16,
 }
@@ -240,10 +256,10 @@ impl MdiaBox {
 pub struct MdhdBox {
     pub version: u8,
     pub flags: u32,
-    pub creation_time: u32,
-    pub modification_time: u32,
+    pub creation_time: u64,
+    pub modification_time: u64,
     pub timescale: u32,
-    pub duration: u32,
+    pub duration: u64,
     pub language: u16,
     pub language_string: String,
 }
@@ -273,7 +289,14 @@ pub struct VmhdBox {
     pub version: u8,
     pub flags: u32,
     pub graphics_mode: u16,
-    pub op_color: u16,
+    pub op_color: RgbColor,
+}
+
+#[derive(Debug, Default)]
+pub struct RgbColor {
+    pub red: u16,
+    pub green: u16,
+    pub blue: u16,
 }
 
 #[derive(Debug, Default)]
@@ -293,14 +316,67 @@ pub struct SttsBox {
     pub version: u8,
     pub flags: u32,
     pub entry_count: u32,
-    pub sample_counts: Vec<u32>,
-    pub sample_deltas: Vec<u32>,
+    pub entries: Vec<SttsEntry>,
 }
 
 #[derive(Debug, Default)]
+pub struct SttsEntry {
+    pub sample_count: u32,
+    pub sample_delta: u32,
+}
+
+#[derive(Debug)]
 pub struct StsdBox {
     pub version: u8,
     pub flags: u32,
+    pub entry_count: u32,
+    pub entries: Vec<DumpBox>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct DumpBox {
+    pub name: BoxType,
+    pub size: u64,
+}
+
+fn read_box_header_ext<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
+    let version = reader.read_u8().unwrap();
+    let flags_a = reader.read_u8().unwrap();
+    let flags_b = reader.read_u8().unwrap();
+    let flags_c = reader.read_u8().unwrap();
+    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    Ok((version, flags))
+}
+
+impl<W: Write> WriteBox<&mut BufWriter<W>> for BoxHeader {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        if self.size > u32::MAX as u64 {
+            writer.write_u32::<BigEndian>(1).unwrap();
+            writer.write_u32::<BigEndian>(self.name.into()).unwrap();
+            writer.write_u64::<BigEndian>(self.size).unwrap();
+            Ok(16)
+        } else {
+            writer.write_u32::<BigEndian>(self.size as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.name.into()).unwrap();
+            Ok(8)
+        }
+    }
+}
+
+fn write_box_header_ext<W: Write>(w: &mut BufWriter<W>, v: u8, f: u32) -> Result<u64> {
+    let d = u32::from(v) << 24 | f;
+    w.write_u32::<BigEndian>(d).unwrap();
+    Ok(4)
+}
+
+impl Mp4Box for FtypBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::FtypBox
+    }
+
+    fn box_size(&self) -> u64 {
+        HEADER_SIZE + 8 + (4 * self.compatible_brands.len() as u64)
+    }
 }
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
@@ -326,12 +402,40 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for FtypBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        writer.write_u32::<BigEndian>((&self.major_brand).into()).unwrap();
+        writer.write_u32::<BigEndian>(self.minor_version).unwrap();
+        for b in self.compatible_brands.iter() {
+            writer.write_u32::<BigEndian>(b.into()).unwrap();
+        }
+        Ok(size)
+    }
+}
+
+impl Mp4Box for MoovBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::MoovBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + self.mvhd.box_size();
+        for trak in self.traks.iter() {
+            size += trak.box_size();
+        }
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let mut moov = MoovBox::new();
 
         let mut start = 0u64;
-        while start < size as u64 {
+        while start < size {
 
             // Get box header.
             let header = read_box_header(reader, start).unwrap();
@@ -355,18 +459,62 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for MoovBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        self.mvhd.write_box(writer)?;
+        for trak in self.traks.iter() {
+            trak.write_box(writer)?;
+        }
+        Ok(0)
+    }
+}
+
+impl Mp4Box for MvhdBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::MvhdBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        if self.version == 1 {
+            size += 28;
+        } else {
+            assert_eq!(self.version, 0);
+            size += 16;
+        }
+        size += 80;
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        read_box_header_ext!(reader, version, flags);
+        let (version, flags) = read_box_header_ext(reader).unwrap();
 
-        let creation_time = reader.read_u32::<BigEndian>().unwrap();
-        let modification_time = reader.read_u32::<BigEndian>().unwrap();
-        let timescale = reader.read_u32::<BigEndian>().unwrap();
-        let duration = reader.read_u32::<BigEndian>().unwrap();
+        let (creation_time, modification_time, timescale, duration)
+            = if version  == 1 {
+                (
+                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>().unwrap(),
+                )
+            } else {
+                assert_eq!(version, 0);
+                (
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                )
+            };
         let rate = reader.read_u32::<BigEndian>().unwrap();
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(MvhdBox{
             version,
@@ -380,13 +528,61 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for MvhdBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        if self.version == 1 {
+            writer.write_u64::<BigEndian>(self.creation_time).unwrap();
+            writer.write_u64::<BigEndian>(self.modification_time).unwrap();
+            writer.write_u32::<BigEndian>(self.timescale).unwrap();
+            writer.write_u64::<BigEndian>(self.duration).unwrap();
+        } else {
+            assert_eq!(self.version, 0);
+            writer.write_u32::<BigEndian>(self.creation_time as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.modification_time as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.timescale).unwrap();
+            writer.write_u32::<BigEndian>(self.duration as u32).unwrap();
+        }
+        writer.write_u32::<BigEndian>(self.rate).unwrap();
+
+        // XXX volume, ...
+        skip_write(writer, 76);
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for TrakBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::TrakBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        if let Some(tkhd) = &self.tkhd {
+            size += tkhd.box_size();
+        }
+        if let Some(edts) = &self.edts {
+            size += edts.box_size();
+        }
+        if let Some(mdia) = &self.mdia {
+            size += mdia.box_size();
+        }
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut trak = TrakBox::new();
 
         let start = 0u64;
-        while start < size as u64 {
+        while start < size {
             // Get box header.
             let header = read_box_header(reader, start).unwrap();
             let BoxHeader{ name, size: s } = header;
@@ -407,28 +603,80 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
                 _ => break
             }
         }
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(trak)
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for TrakBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        if let Some(tkhd) = &self.tkhd {
+            tkhd.write_box(writer)?;
+        }
+        if let Some(edts) = &self.edts {
+            edts.write_box(writer)?;
+        }
+        if let Some(mdia) = &self.mdia {
+            mdia.write_box(writer)?;
+        }
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for TkhdBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::TkhdBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        if self.version == 1 {
+            size += 32;
+        } else {
+            assert_eq!(self.version, 0);
+            size += 20;
+        }
+        size += 60;
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        read_box_header_ext!(reader, version, flags);
+        let (version, flags) = read_box_header_ext(reader).unwrap();
 
-        let creation_time = reader.read_u32::<BigEndian>().unwrap();
-        let modification_time = reader.read_u32::<BigEndian>().unwrap();
-        let track_id = reader.read_u32::<BigEndian>().unwrap();
-        let duration = reader.read_u64::<BigEndian>().unwrap();
-        reader.read_u64::<BigEndian>().unwrap(); // skip.
+        let (creation_time, modification_time, track_id, _, duration)
+            = if version == 1 {
+                (
+                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>().unwrap(),
+                )
+        } else {
+                assert_eq!(version, 0);
+                (
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                )
+        };
+        reader.read_u64::<BigEndian>().unwrap(); // reserved
         let layer = reader.read_u16::<BigEndian>().unwrap();
         let alternate_group = reader.read_u16::<BigEndian>().unwrap();
-        let volume = reader.read_u16::<BigEndian>().unwrap() >> 8;
+        let volume = reader.read_u16::<BigEndian>().unwrap();
 
-        reader.read_u8().unwrap(); // skip.
+        reader.read_u16::<BigEndian>().unwrap(); // reserved
         let matrix = Matrix{
             a: reader.read_i32::<byteorder::LittleEndian>().unwrap(),
             b: reader.read_i32::<BigEndian>().unwrap(),
@@ -441,9 +689,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
             w: reader.read_i32::<BigEndian>().unwrap(),
         };
 
-        let width = reader.read_u32::<BigEndian>().unwrap() >> 8;
-        let height = reader.read_u32::<BigEndian>().unwrap() >> 8;
-        skip(reader, current, size);
+        let width = reader.read_u32::<BigEndian>().unwrap() >> 16;
+        let height = reader.read_u32::<BigEndian>().unwrap() >> 16;
+
+        skip_read(reader, current, size);
 
         Ok(TkhdBox {
             version,
@@ -462,13 +711,73 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        if self.version == 1 {
+            writer.write_u64::<BigEndian>(self.creation_time).unwrap();
+            writer.write_u64::<BigEndian>(self.modification_time).unwrap();
+            writer.write_u32::<BigEndian>(self.track_id).unwrap();
+            writer.write_u32::<BigEndian>(0).unwrap(); // reserved
+            writer.write_u64::<BigEndian>(self.duration).unwrap();
+        } else {
+            assert_eq!(self.version, 0);
+            writer.write_u32::<BigEndian>(self.creation_time as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.modification_time as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.track_id).unwrap();
+            writer.write_u32::<BigEndian>(0).unwrap(); // reserved
+            writer.write_u32::<BigEndian>(self.duration as u32).unwrap();
+        }
+
+        writer.write_u64::<BigEndian>(0).unwrap(); // reserved
+        writer.write_u16::<BigEndian>(self.layer).unwrap();
+        writer.write_u16::<BigEndian>(self.alternate_group).unwrap();
+        writer.write_u16::<BigEndian>(self.volume).unwrap();
+
+        writer.write_u16::<BigEndian>(0).unwrap(); // reserved
+
+        writer.write_i32::<byteorder::LittleEndian>(self.matrix.a).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.b).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.u).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.c).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.d).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.v).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.x).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.y).unwrap();
+        writer.write_i32::<BigEndian>(self.matrix.w).unwrap();
+
+        writer.write_u32::<BigEndian>(self.width << 16).unwrap();
+        writer.write_u32::<BigEndian>(self.height << 16).unwrap();
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for EdtsBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::EdtsBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        if let Some(elst) = &self.elst {
+            size += elst.box_size();
+        }
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut edts = EdtsBox::new();
 
         let start = 0u64;
-        while start < size as u64 {
+        while start < size {
             // Get box header.
             let header = read_box_header(reader, start).unwrap();
             let BoxHeader{ name, size: s } = header;
@@ -481,9 +790,39 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
                 _ => break
             }
         }
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(edts)
+    }
+}
+
+impl<W: Write> WriteBox<&mut BufWriter<W>> for EdtsBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        if let Some(elst) = &self.elst {
+            elst.write_box(writer)?;
+        }
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for ElstBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::ElstBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        if self.version == 1 {
+            size += self.entry_count as u64 * 20;
+        } else {
+            assert_eq!(self.version, 0);
+            size += self.entry_count as u64 * 12;
+        }
+        size
     }
 }
 
@@ -491,37 +830,95 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        let version = reader.read_u32::<BigEndian>().unwrap();
+        let (version, flags) = read_box_header_ext(reader).unwrap();
+
         let entry_count = reader.read_u32::<BigEndian>().unwrap();
+        let mut entries = Vec::with_capacity(entry_count as usize);
+        for _ in 0..entry_count {
+            let (segment_duration, media_time)
+                = if version == 1 {
+                    (
+                        reader.read_u64::<BigEndian>().unwrap(),
+                        reader.read_u64::<BigEndian>().unwrap(),
+                    )
+                } else {
+                    (
+                        reader.read_u32::<BigEndian>().unwrap() as u64,
+                        reader.read_u32::<BigEndian>().unwrap() as u64,
+                    )
+                };
 
-        let mut entries = Vec::new();
-
-        for _i in 0..entry_count {
             let entry = ElstEntry{
-                segment_duration: reader.read_u32::<BigEndian>().unwrap(),
-                media_time: reader.read_u32::<BigEndian>().unwrap(),
+                segment_duration,
+                media_time,
                 media_rate: reader.read_u16::<BigEndian>().unwrap(),
                 media_rate_fraction: reader.read_u16::<BigEndian>().unwrap(),
             };
             entries.push(entry);
         }
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(ElstBox {
             version,
+            flags,
             entry_count,
             entries,
         })
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for ElstBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        assert_eq!(self.entry_count as usize, self.entries.len());
+        writer.write_u32::<BigEndian>(self.entry_count).unwrap();
+        for entry in self.entries.iter() {
+            if self.version == 1 {
+                writer.write_u64::<BigEndian>(entry.segment_duration).unwrap();
+                writer.write_u64::<BigEndian>(entry.media_time).unwrap();
+            } else {
+                writer.write_u32::<BigEndian>(entry.segment_duration as u32).unwrap();
+                writer.write_u32::<BigEndian>(entry.media_time as u32).unwrap();
+            }
+            writer.write_u16::<BigEndian>(entry.media_rate).unwrap();
+            writer.write_u16::<BigEndian>(entry.media_rate_fraction).unwrap();
+        }
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for MdiaBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::MdiaBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        if let Some(mdhd) = &self.mdhd {
+            size += mdhd.box_size();
+        }
+        if let Some(hdlr) = &self.hdlr {
+            size += hdlr.box_size();
+        }
+        if let Some(minf) = &self.minf {
+            size += minf.box_size();
+        }
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut mdia = MdiaBox::new();
 
         let start = 0u64;
-        while start < size as u64 {
+        while start < size {
             // Get box header.
             let header = read_box_header(reader, start).unwrap();
             let BoxHeader{ name, size: s } = header;
@@ -542,9 +939,47 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
                 _ => break
             }
         }
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(mdia)
+    }
+}
+
+impl<W: Write> WriteBox<&mut BufWriter<W>> for MdiaBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        if let Some(mdhd) = &self.mdhd {
+            mdhd.write_box(writer)?;
+        }
+        if let Some(hdlr) = &self.hdlr {
+            hdlr.write_box(writer)?;
+        }
+        if let Some(minf) = &self.minf {
+            minf.write_box(writer)?;
+        }
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for MdhdBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::MdhdBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+
+        if self.version == 1 {
+            size += 28;
+        } else {
+            assert_eq!(self.version, 0);
+            size += 16;
+        }
+        size += 4;
+        size
     }
 }
 
@@ -552,15 +987,28 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        read_box_header_ext!(reader, version, flags);
+        let (version, flags) = read_box_header_ext(reader).unwrap();
 
-        let creation_time = reader.read_u32::<BigEndian>().unwrap();
-        let modification_time = reader.read_u32::<BigEndian>().unwrap();
-        let timescale = reader.read_u32::<BigEndian>().unwrap();
-        let duration = reader.read_u32::<BigEndian>().unwrap();
+        let (creation_time, modification_time, timescale, duration)
+            = if version  == 1 {
+                (
+                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>().unwrap(),
+                )
+            } else {
+                assert_eq!(version, 0);
+                (
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>().unwrap(),
+                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                )
+            };
         let language = reader.read_u16::<BigEndian>().unwrap();
         let language_string = get_language_string(language);
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(MdhdBox {
             version,
@@ -572,6 +1020,33 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdhdBox {
             language,
             language_string,
         })
+    }
+}
+
+impl<W: Write> WriteBox<&mut BufWriter<W>> for MdhdBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        if self.version == 1 {
+            writer.write_u64::<BigEndian>(self.creation_time).unwrap();
+            writer.write_u64::<BigEndian>(self.modification_time).unwrap();
+            writer.write_u32::<BigEndian>(self.timescale).unwrap();
+            writer.write_u64::<BigEndian>(self.duration).unwrap();
+        } else {
+            assert_eq!(self.version, 0);
+            writer.write_u32::<BigEndian>(self.creation_time as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.modification_time as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.timescale).unwrap();
+            writer.write_u32::<BigEndian>(self.duration as u32).unwrap();
+        }
+
+        writer.write_u16::<BigEndian>(self.language).unwrap();
+        writer.write_u16::<BigEndian>(0).unwrap(); // pre-defined
+
+        Ok(size)
     }
 }
 
@@ -590,25 +1065,40 @@ fn get_language_string(language: u16) -> String {
     return lang_str;
 }
 
+impl Mp4Box for HdlrBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::HdlrBox
+    }
+
+    fn box_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 20 + self.name.len() as u64 + 1
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        read_box_header_ext!(reader, version, flags);
+        let (version, flags) = read_box_header_ext(reader).unwrap();
 
-        reader.read_u32::<BigEndian>().unwrap(); // skip.
+        reader.read_u32::<BigEndian>().unwrap(); // pre-defined
         let handler = reader.read_u32::<BigEndian>().unwrap();
 
         let n = reader.seek(SeekFrom::Current(12)).unwrap(); // 12 bytes reserved.
-        let buf_size = (size as u64 - (n - current)) - HEADER_SIZE as u64;
+
+        let buf_size = (size - (n - current)) - HEADER_SIZE;
         let mut buf = vec![0u8; buf_size as usize];
         reader.read_exact(&mut buf).unwrap();
 
         let handler_string = match String::from_utf8(buf) {
-            Ok(t) => t,
+            Ok(t) => {
+                assert_eq!(t.len(), buf_size as usize);
+                t
+            },
             _ => String::from("null"),
         };
-        skip(reader, current, size);
+
+        skip_read(reader, current, size);
 
         Ok(HdlrBox {
             version,
@@ -619,13 +1109,52 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for HdlrBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        writer.write_u32::<BigEndian>(0).unwrap(); // pre-defined
+        writer.write_u32::<BigEndian>((&self.handler_type).into()).unwrap();
+
+        // 12 bytes reserved
+        for _ in 0..3 {
+            writer.write_u32::<BigEndian>(0).unwrap();
+        }
+
+        writer.write(self.name.as_bytes()).unwrap();
+        writer.write_u8(0).unwrap();
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for MinfBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::MinfBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        if let Some(vmhd) = &self.vmhd {
+            size += vmhd.box_size();
+        }
+        if let Some(stbl) = &self.stbl {
+            size += stbl.box_size();
+        }
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current =  reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
         let mut minf = MinfBox::new();
 
         let mut start = 0u64;
-        while start < size as u64 {
+        while start < size {
             // Get box header.
             let header = read_box_header(reader, start).unwrap();
             let BoxHeader{ name, size: s } = header;
@@ -648,9 +1177,35 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
                 _ => break
             }
         }
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(minf)
+    }
+}
+
+impl<W: Write> WriteBox<&mut BufWriter<W>> for MinfBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        if let Some(vmhd) = &self.vmhd {
+            vmhd.write_box(writer)?;
+        }
+        if let Some(stbl) = &self.stbl {
+            stbl.write_box(writer)?;
+        }
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for VmhdBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::VmhdBox
+    }
+
+    fn box_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 8
     }
 }
 
@@ -658,11 +1213,15 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        read_box_header_ext!(reader, version, flags);
+        let (version, flags) = read_box_header_ext(reader).unwrap();
 
         let graphics_mode = reader.read_u16::<BigEndian>().unwrap();
-        let op_color = reader.read_u16::<BigEndian>().unwrap();
-        skip(reader, current, size);
+        let op_color = RgbColor {
+            red: reader.read_u16::<BigEndian>().unwrap(),
+            green: reader.read_u16::<BigEndian>().unwrap(),
+            blue: reader.read_u16::<BigEndian>().unwrap(),
+        };
+        skip_read(reader, current, size);
 
         Ok(VmhdBox {
             version,
@@ -673,24 +1232,57 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for VmhdBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        writer.write_u16::<BigEndian>(self.graphics_mode).unwrap();
+        writer.write_u16::<BigEndian>(self.op_color.red).unwrap();
+        writer.write_u16::<BigEndian>(self.op_color.green).unwrap();
+        writer.write_u16::<BigEndian>(self.op_color.blue).unwrap();
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for StblBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::StblBox
+    }
+
+    fn box_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        if let Some(stts) = &self.stts {
+            size += stts.box_size();
+        }
+        if let Some(stsd) = &self.stsd {
+            size += stsd.box_size();
+        }
+        size
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let mut stbl = StblBox::new();
 
         let start = 0u64;
-        while start < size as u64 {
+        while start < size {
             // Get box header.
             let header = read_box_header(reader, start).unwrap();
             let BoxHeader{ name, size: s } = header;
 
             match name {
-                BoxType::StsdBox => {
-                    let stsd = StsdBox::read_box(reader, s).unwrap();
-                    stbl.stsd = Some(stsd);
-                }
                 BoxType::SttsBox => {
                     let stts = SttsBox::read_box(reader, s).unwrap();
                     stbl.stts = Some(stts);
+                }
+                BoxType::StsdBox => {
+                    let stsd = StsdBox::read_box(reader, s).unwrap();
+                    stbl.stsd = Some(stsd);
                 }
                 _ => break
             }
@@ -699,31 +1291,83 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut BufWriter<W>> for StblBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        if let Some(stts) = &self.stts {
+            stts.write_box(writer)?;
+        }
+        if let Some(stsd) = &self.stsd {
+            stsd.write_box(writer)?;
+        }
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for SttsBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::SttsBox
+    }
+
+    fn box_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entry_count as u64)
+    }
+}
+
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> { 
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        read_box_header_ext!(reader, version, flags);
+        let (version, flags) = read_box_header_ext(reader).unwrap();
 
         let entry_count = reader.read_u32::<BigEndian>().unwrap();
-        let mut sample_counts = Vec::new();
-        let mut sample_deltas = Vec::new();
-
+        let mut entries = Vec::with_capacity(entry_count as usize);
         for _i in 0..entry_count {
-            let sc = reader.read_u32::<BigEndian>().unwrap();
-            let sd = reader.read_u32::<BigEndian>().unwrap();
-            sample_counts.push(sc);
-            sample_deltas.push(sd);
+            let entry = SttsEntry {
+                sample_count: reader.read_u32::<BigEndian>().unwrap(),
+                sample_delta: reader.read_u32::<BigEndian>().unwrap(),
+            };
+            entries.push(entry);
         }
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(SttsBox {
             version,
             flags,
             entry_count,
-            sample_counts,
-            sample_deltas,
+            entries,
         })
+    }
+}
+
+impl<W: Write> WriteBox<&mut BufWriter<W>> for SttsBox {
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        writer.write_u32::<BigEndian>(self.entry_count).unwrap();
+        for entry in self.entries.iter() {
+            writer.write_u32::<BigEndian>(entry.sample_count).unwrap();
+            writer.write_u32::<BigEndian>(entry.sample_delta).unwrap();
+        }
+
+        Ok(size)
+    }
+}
+
+impl Mp4Box for StsdBox {
+    fn box_type(&self) -> BoxType {
+        BoxType::StsdBox
+    }
+
+    fn box_size(&self) -> u64 {
+        // TODO
+        0
     }
 }
 
@@ -731,37 +1375,172 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
 
-        read_box_header_ext!(reader, version, flags);
+        let (version, flags) = read_box_header_ext(reader).unwrap();
 
-        reader.read_u32::<BigEndian>().unwrap(); // skip.
+        let entry_count = reader.read_u32::<BigEndian>().unwrap();
+        let mut entries = Vec::with_capacity(entry_count as usize);
 
         let mut start = 0u64;
-        while start < size as u64 {
+        while start < size {
             // Get box header.
             let header = read_box_header(reader, start).unwrap();
             let BoxHeader{ name, size: s } = header;
 
             match name {
-                BoxType::Avc1Box => {
-                    start = s - HEADER_SIZE;
-                }
-                BoxType::Mp4aBox => {
-                    start = s - HEADER_SIZE;
-                }
+                BoxType::Avc1Box => {}
+                BoxType::Mp4aBox => {}
                 _ => break
             }
+            start += s - HEADER_SIZE;
+            entries.push(DumpBox {name, size: s})
         }
-        skip(reader, current, size);
+        skip_read(reader, current, size);
 
         Ok(StsdBox {
             version,
             flags,
+            entry_count,
+            entries,
         })
     }
 }
 
-fn skip<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u64) {
+impl<W: Write> WriteBox<&mut BufWriter<W>> for StsdBox {
+    fn write_box(&self, _writer: &mut BufWriter<W>) -> Result<u64> {
+        // TODO
+        Ok(0)
+    }
+}
+
+fn skip_read<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u64) {
     let after = reader.seek(SeekFrom::Current(0)).unwrap();
-    let remaining_bytes = (size as u64 - (after - current)) as i64;
+    let remaining_bytes = (size - (after - current)) as i64;
     reader.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+}
+
+fn skip_write<W: Write>(writer: &mut BufWriter<W>, size: u64) {
+    for _ in 0..size {
+        writer.write_u8(0).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_fourcc() {
+        let ftyp_fcc = 0x66747970;
+        let ftyp_value = FourCC::from(ftyp_fcc);
+        assert_eq!(ftyp_value.value, "ftyp");
+        let ftyp_fcc2 = ftyp_value.into();
+        assert_eq!(ftyp_fcc, ftyp_fcc2);
+    }
+
+    #[test]
+    fn test_ftyp() {
+        let src_box = FtypBox {
+            major_brand: FourCC { value: String::from("isom") },
+            minor_version: 0,
+            compatible_brands: vec![
+                FourCC { value: String::from("isom") },
+                FourCC { value: String::from("iso2") },
+                FourCC { value: String::from("avc1") },
+                FourCC { value: String::from("mp41") },
+            ]
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::FtypBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = FtypBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
+    }
+
+    #[test]
+    fn test_mvhd() {
+        let src_box = MvhdBox {
+            version: 0,
+            flags: 0,
+            creation_time: 100,
+            modification_time: 200,
+            timescale: 1000,
+            duration: 634634,
+            rate: 0x00010000,
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::MvhdBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
+    }
+
+    #[test]
+    fn test_tkhd() {
+        let src_box = TkhdBox {
+            version: 0,
+            flags: 0,
+            creation_time: 100,
+            modification_time: 200,
+            track_id: 1,
+            duration: 634634,
+            layer: 0,
+            alternate_group: 0,
+            volume: 0x0100,
+            matrix: Matrix {
+                a: 0x00010000,
+                b: 0,
+                u: 0,
+                c: 0,
+                d: 0x00010000,
+                v: 0,
+                x: 0,
+                y: 0,
+                w: 0x40000000,
+            },
+            width: 512,
+            height: 288,
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::TkhdBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
+    }
 }

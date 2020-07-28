@@ -1,5 +1,3 @@
-extern crate byteorder;
-
 use std::io::prelude::*;
 use std::io::{BufReader, Read, SeekFrom};
 use std::fs::File;
@@ -8,6 +6,7 @@ use std::convert::TryInto;
 mod atoms;
 use crate::atoms::*;
 
+// XXX if box has largesize
 const HEADER_SIZE: u64 = 8;
 
 #[derive(Debug)]
@@ -40,6 +39,12 @@ impl BMFF {
 struct BoxHeader {
     name: BoxType,
     size: u64,
+}
+
+impl BoxHeader {
+    fn new(name: BoxType, size: u64) -> Self {
+        Self { name, size }
+    }
 }
 
 pub fn read_mp4(f: File) -> Result<BMFF> {
