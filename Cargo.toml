@@ -18,4 +18,5 @@ keywords = ["mp4", "isobmff"]
 license = "MIT"
 
 [dependencies]
+thiserror = "^1.0"
 byteorder = "1"
