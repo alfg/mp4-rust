@@ -1,12 +1,8 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
 use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE, HEADER_EXT_SIZE};
-use crate::{read_box_header_ext, write_box_header_ext, skip_read};
+use crate::*;
 
 
 #[derive(Debug, Default)]
@@ -42,30 +38,30 @@ impl Mp4Box for MdhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
 
-        let (version, flags) = read_box_header_ext(reader).unwrap();
+        let (version, flags) = read_box_header_ext(reader)?;
 
         let (creation_time, modification_time, timescale, duration)
             = if version  == 1 {
                 (
-                    reader.read_u64::<BigEndian>().unwrap(),
-                    reader.read_u64::<BigEndian>().unwrap(),
-                    reader.read_u32::<BigEndian>().unwrap(),
-                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>()?,
+                    reader.read_u64::<BigEndian>()?,
+                    reader.read_u32::<BigEndian>()?,
+                    reader.read_u64::<BigEndian>()?,
                 )
             } else {
                 assert_eq!(version, 0);
                 (
-                    reader.read_u32::<BigEndian>().unwrap() as u64,
-                    reader.read_u32::<BigEndian>().unwrap() as u64,
-                    reader.read_u32::<BigEndian>().unwrap(),
-                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>()? as u64,
+                    reader.read_u32::<BigEndian>()? as u64,
+                    reader.read_u32::<BigEndian>()?,
+                    reader.read_u32::<BigEndian>()? as u64,
                 )
             };
-        let language = reader.read_u16::<BigEndian>().unwrap();
+        let language = reader.read_u16::<BigEndian>()?;
         let language_string = get_language_string(language);
-        skip_read(reader, current, size);
+        skip_read(reader, current, size)?;
 
         Ok(MdhdBox {
             version,
@@ -88,20 +84,20 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for MdhdBox {
         write_box_header_ext(writer, self.version, self.flags)?;
 
         if self.version == 1 {
-            writer.write_u64::<BigEndian>(self.creation_time).unwrap();
-            writer.write_u64::<BigEndian>(self.modification_time).unwrap();
-            writer.write_u32::<BigEndian>(self.timescale).unwrap();
-            writer.write_u64::<BigEndian>(self.duration).unwrap();
+            writer.write_u64::<BigEndian>(self.creation_time)?;
+            writer.write_u64::<BigEndian>(self.modification_time)?;
+            writer.write_u32::<BigEndian>(self.timescale)?;
+            writer.write_u64::<BigEndian>(self.duration)?;
         } else {
             assert_eq!(self.version, 0);
-            writer.write_u32::<BigEndian>(self.creation_time as u32).unwrap();
-            writer.write_u32::<BigEndian>(self.modification_time as u32).unwrap();
-            writer.write_u32::<BigEndian>(self.timescale).unwrap();
-            writer.write_u32::<BigEndian>(self.duration as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.creation_time as u32)?;
+            writer.write_u32::<BigEndian>(self.modification_time as u32)?;
+            writer.write_u32::<BigEndian>(self.timescale)?;
+            writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
 
-        writer.write_u16::<BigEndian>(self.language).unwrap();
-        writer.write_u16::<BigEndian>(0).unwrap(); // pre-defined
+        writer.write_u16::<BigEndian>(self.language)?;
+        writer.write_u16::<BigEndian>(0)?; // pre-defined
 
         Ok(size)
     }

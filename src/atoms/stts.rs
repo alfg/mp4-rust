@@ -1,11 +1,7 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE, HEADER_EXT_SIZE};
-use crate::{read_box_header_ext, write_box_header_ext, skip_read};
+use crate::*;
 
 
 #[derive(Debug, Default)]
@@ -34,20 +30,20 @@ impl Mp4Box for SttsBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
 
-        let (version, flags) = read_box_header_ext(reader).unwrap();
+        let (version, flags) = read_box_header_ext(reader)?;
 
-        let entry_count = reader.read_u32::<BigEndian>().unwrap();
+        let entry_count = reader.read_u32::<BigEndian>()?;
         let mut entries = Vec::with_capacity(entry_count as usize);
         for _i in 0..entry_count {
             let entry = SttsEntry {
-                sample_count: reader.read_u32::<BigEndian>().unwrap(),
-                sample_delta: reader.read_u32::<BigEndian>().unwrap(),
+                sample_count: reader.read_u32::<BigEndian>()?,
+                sample_delta: reader.read_u32::<BigEndian>()?,
             };
             entries.push(entry);
         }
-        skip_read(reader, current, size);
+        skip_read(reader, current, size)?;
 
         Ok(SttsBox {
             version,
@@ -65,10 +61,10 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for SttsBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        writer.write_u32::<BigEndian>(self.entry_count).unwrap();
+        writer.write_u32::<BigEndian>(self.entry_count)?;
         for entry in self.entries.iter() {
-            writer.write_u32::<BigEndian>(entry.sample_count).unwrap();
-            writer.write_u32::<BigEndian>(entry.sample_delta).unwrap();
+            writer.write_u32::<BigEndian>(entry.sample_count)?;
+            writer.write_u32::<BigEndian>(entry.sample_delta)?;
         }
 
         Ok(size)

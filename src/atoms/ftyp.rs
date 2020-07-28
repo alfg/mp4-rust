@@ -1,10 +1,7 @@
 use std::io::{BufReader, Seek, Read, BufWriter, Write};
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Result, Error, FourCC};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE};
+use crate::*;
 
 
 #[derive(Debug, Default, PartialEq)]
@@ -26,8 +23,8 @@ impl Mp4Box for FtypBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let major = reader.read_u32::<BigEndian>().unwrap();
-        let minor = reader.read_u32::<BigEndian>().unwrap();
+        let major = reader.read_u32::<BigEndian>()?;
+        let minor = reader.read_u32::<BigEndian>()?;
         if size % 4 != 0 {
             return Err(Error::InvalidData("invalid ftyp size"));
         }
@@ -35,7 +32,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
 
         let mut brands = Vec::new();
         for _ in 0..brand_count {
-            let b = reader.read_u32::<BigEndian>().unwrap();
+            let b = reader.read_u32::<BigEndian>()?;
             brands.push(From::from(b));
         }
 
@@ -52,10 +49,10 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for FtypBox {
         let size = self.box_size();
         BoxHeader::new(self.box_type(), size).write_box(writer)?;
 
-        writer.write_u32::<BigEndian>((&self.major_brand).into()).unwrap();
-        writer.write_u32::<BigEndian>(self.minor_version).unwrap();
+        writer.write_u32::<BigEndian>((&self.major_brand).into())?;
+        writer.write_u32::<BigEndian>(self.minor_version)?;
         for b in self.compatible_brands.iter() {
-            writer.write_u32::<BigEndian>(b.into()).unwrap();
+            writer.write_u32::<BigEndian>(b.into())?;
         }
         Ok(size)
     }

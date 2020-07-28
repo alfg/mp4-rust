@@ -1,9 +1,8 @@
 use std::fmt;
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, BoxHeader, HEADER_SIZE};
+use crate::*;
 
 mod ftyp;
 mod moov;
@@ -25,8 +24,6 @@ pub use ftyp::FtypBox;
 pub use moov::MoovBox;
 
 pub const HEADER_EXT_SIZE: u64 = 4;
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! boxtype {
     ($( $name:ident => $value:expr ),*) => {
@@ -161,45 +158,48 @@ pub trait WriteBox<T>: Sized {
 }
 
 pub fn read_box_header_ext<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
-    let version = reader.read_u8().unwrap();
-    let flags_a = reader.read_u8().unwrap();
-    let flags_b = reader.read_u8().unwrap();
-    let flags_c = reader.read_u8().unwrap();
+    let version = reader.read_u8()?;
+    let flags_a = reader.read_u8()?;
+    let flags_b = reader.read_u8()?;
+    let flags_c = reader.read_u8()?;
     let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
     Ok((version, flags))
 }
 
 pub fn write_box_header_ext<W: Write>(w: &mut BufWriter<W>, v: u8, f: u32) -> Result<u64> {
     let d = u32::from(v) << 24 | f;
-    w.write_u32::<BigEndian>(d).unwrap();
+    w.write_u32::<BigEndian>(d)?;
     Ok(4)
 }
 
 impl<W: Write> WriteBox<&mut BufWriter<W>> for BoxHeader {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         if self.size > u32::MAX as u64 {
-            writer.write_u32::<BigEndian>(1).unwrap();
-            writer.write_u32::<BigEndian>(self.name.into()).unwrap();
-            writer.write_u64::<BigEndian>(self.size).unwrap();
+            writer.write_u32::<BigEndian>(1)?;
+            writer.write_u32::<BigEndian>(self.name.into())?;
+            writer.write_u64::<BigEndian>(self.size)?;
             Ok(16)
         } else {
-            writer.write_u32::<BigEndian>(self.size as u32).unwrap();
-            writer.write_u32::<BigEndian>(self.name.into()).unwrap();
+            writer.write_u32::<BigEndian>(self.size as u32)?;
+            writer.write_u32::<BigEndian>(self.name.into())?;
             Ok(8)
         }
     }
 }
 
-pub fn skip_read<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u64) {
-    let after = reader.seek(SeekFrom::Current(0)).unwrap();
+pub fn skip_read<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u64) -> Result<i64> {
+    let after = reader.seek(SeekFrom::Current(0))?;
     let remaining_bytes = (size - (after - current)) as i64;
-    reader.seek(SeekFrom::Current(remaining_bytes - HEADER_SIZE as i64)).unwrap();
+    let size = remaining_bytes - HEADER_SIZE as i64;
+    reader.seek(SeekFrom::Current(size))?;
+    Ok(size)
 }
 
-pub fn skip_write<W: Write>(writer: &mut BufWriter<W>, size: u64) {
+pub fn skip_write<W: Write>(writer: &mut BufWriter<W>, size: u64) -> Result<u64> {
     for _ in 0..size {
-        writer.write_u8(0).unwrap();
+        writer.write_u8(0)?;
     }
+    Ok(size)
 }
 
 #[cfg(test)]

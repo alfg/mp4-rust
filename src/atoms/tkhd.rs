@@ -1,11 +1,7 @@
 use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE, HEADER_EXT_SIZE};
-use crate::{read_box_header_ext, write_box_header_ext, skip_read};
+use crate::*;
 
 
 #[derive(Debug, Default, PartialEq)]
@@ -57,51 +53,51 @@ impl Mp4Box for TkhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
 
-        let (version, flags) = read_box_header_ext(reader).unwrap();
+        let (version, flags) = read_box_header_ext(reader)?;
 
         let (creation_time, modification_time, track_id, _, duration)
             = if version == 1 {
                 (
-                    reader.read_u64::<BigEndian>().unwrap(),
-                    reader.read_u64::<BigEndian>().unwrap(),
-                    reader.read_u32::<BigEndian>().unwrap(),
-                    reader.read_u32::<BigEndian>().unwrap(),
-                    reader.read_u64::<BigEndian>().unwrap(),
+                    reader.read_u64::<BigEndian>()?,
+                    reader.read_u64::<BigEndian>()?,
+                    reader.read_u32::<BigEndian>()?,
+                    reader.read_u32::<BigEndian>()?,
+                    reader.read_u64::<BigEndian>()?,
                 )
         } else {
                 assert_eq!(version, 0);
                 (
-                    reader.read_u32::<BigEndian>().unwrap() as u64,
-                    reader.read_u32::<BigEndian>().unwrap() as u64,
-                    reader.read_u32::<BigEndian>().unwrap(),
-                    reader.read_u32::<BigEndian>().unwrap(),
-                    reader.read_u32::<BigEndian>().unwrap() as u64,
+                    reader.read_u32::<BigEndian>()? as u64,
+                    reader.read_u32::<BigEndian>()? as u64,
+                    reader.read_u32::<BigEndian>()?,
+                    reader.read_u32::<BigEndian>()?,
+                    reader.read_u32::<BigEndian>()? as u64,
                 )
         };
-        reader.read_u64::<BigEndian>().unwrap(); // reserved
-        let layer = reader.read_u16::<BigEndian>().unwrap();
-        let alternate_group = reader.read_u16::<BigEndian>().unwrap();
-        let volume = reader.read_u16::<BigEndian>().unwrap();
+        reader.read_u64::<BigEndian>()?; // reserved
+        let layer = reader.read_u16::<BigEndian>()?;
+        let alternate_group = reader.read_u16::<BigEndian>()?;
+        let volume = reader.read_u16::<BigEndian>()?;
 
-        reader.read_u16::<BigEndian>().unwrap(); // reserved
+        reader.read_u16::<BigEndian>()?; // reserved
         let matrix = Matrix{
-            a: reader.read_i32::<byteorder::LittleEndian>().unwrap(),
-            b: reader.read_i32::<BigEndian>().unwrap(),
-            u: reader.read_i32::<BigEndian>().unwrap(),
-            c: reader.read_i32::<BigEndian>().unwrap(),
-            d: reader.read_i32::<BigEndian>().unwrap(),
-            v: reader.read_i32::<BigEndian>().unwrap(),
-            x: reader.read_i32::<BigEndian>().unwrap(),
-            y: reader.read_i32::<BigEndian>().unwrap(),
-            w: reader.read_i32::<BigEndian>().unwrap(),
+            a: reader.read_i32::<byteorder::LittleEndian>()?,
+            b: reader.read_i32::<BigEndian>()?,
+            u: reader.read_i32::<BigEndian>()?,
+            c: reader.read_i32::<BigEndian>()?,
+            d: reader.read_i32::<BigEndian>()?,
+            v: reader.read_i32::<BigEndian>()?,
+            x: reader.read_i32::<BigEndian>()?,
+            y: reader.read_i32::<BigEndian>()?,
+            w: reader.read_i32::<BigEndian>()?,
         };
 
-        let width = reader.read_u32::<BigEndian>().unwrap() >> 16;
-        let height = reader.read_u32::<BigEndian>().unwrap() >> 16;
+        let width = reader.read_u32::<BigEndian>()? >> 16;
+        let height = reader.read_u32::<BigEndian>()? >> 16;
 
-        skip_read(reader, current, size);
+        skip_read(reader, current, size)?;
 
         Ok(TkhdBox {
             version,
@@ -128,39 +124,39 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
         write_box_header_ext(writer, self.version, self.flags)?;
 
         if self.version == 1 {
-            writer.write_u64::<BigEndian>(self.creation_time).unwrap();
-            writer.write_u64::<BigEndian>(self.modification_time).unwrap();
-            writer.write_u32::<BigEndian>(self.track_id).unwrap();
-            writer.write_u32::<BigEndian>(0).unwrap(); // reserved
-            writer.write_u64::<BigEndian>(self.duration).unwrap();
+            writer.write_u64::<BigEndian>(self.creation_time)?;
+            writer.write_u64::<BigEndian>(self.modification_time)?;
+            writer.write_u32::<BigEndian>(self.track_id)?;
+            writer.write_u32::<BigEndian>(0)?; // reserved
+            writer.write_u64::<BigEndian>(self.duration)?;
         } else {
             assert_eq!(self.version, 0);
-            writer.write_u32::<BigEndian>(self.creation_time as u32).unwrap();
-            writer.write_u32::<BigEndian>(self.modification_time as u32).unwrap();
-            writer.write_u32::<BigEndian>(self.track_id).unwrap();
-            writer.write_u32::<BigEndian>(0).unwrap(); // reserved
-            writer.write_u32::<BigEndian>(self.duration as u32).unwrap();
+            writer.write_u32::<BigEndian>(self.creation_time as u32)?;
+            writer.write_u32::<BigEndian>(self.modification_time as u32)?;
+            writer.write_u32::<BigEndian>(self.track_id)?;
+            writer.write_u32::<BigEndian>(0)?; // reserved
+            writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
 
-        writer.write_u64::<BigEndian>(0).unwrap(); // reserved
-        writer.write_u16::<BigEndian>(self.layer).unwrap();
-        writer.write_u16::<BigEndian>(self.alternate_group).unwrap();
-        writer.write_u16::<BigEndian>(self.volume).unwrap();
+        writer.write_u64::<BigEndian>(0)?; // reserved
+        writer.write_u16::<BigEndian>(self.layer)?;
+        writer.write_u16::<BigEndian>(self.alternate_group)?;
+        writer.write_u16::<BigEndian>(self.volume)?;
 
-        writer.write_u16::<BigEndian>(0).unwrap(); // reserved
+        writer.write_u16::<BigEndian>(0)?; // reserved
 
-        writer.write_i32::<byteorder::LittleEndian>(self.matrix.a).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.b).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.u).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.c).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.d).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.v).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.x).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.y).unwrap();
-        writer.write_i32::<BigEndian>(self.matrix.w).unwrap();
+        writer.write_i32::<byteorder::LittleEndian>(self.matrix.a)?;
+        writer.write_i32::<BigEndian>(self.matrix.b)?;
+        writer.write_i32::<BigEndian>(self.matrix.u)?;
+        writer.write_i32::<BigEndian>(self.matrix.c)?;
+        writer.write_i32::<BigEndian>(self.matrix.d)?;
+        writer.write_i32::<BigEndian>(self.matrix.v)?;
+        writer.write_i32::<BigEndian>(self.matrix.x)?;
+        writer.write_i32::<BigEndian>(self.matrix.y)?;
+        writer.write_i32::<BigEndian>(self.matrix.w)?;
 
-        writer.write_u32::<BigEndian>(self.width << 16).unwrap();
-        writer.write_u32::<BigEndian>(self.height << 16).unwrap();
+        writer.write_u32::<BigEndian>(self.width << 16)?;
+        writer.write_u32::<BigEndian>(self.height << 16)?;
 
         Ok(size)
     }

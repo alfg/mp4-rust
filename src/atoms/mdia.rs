@@ -1,9 +1,6 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE};
-use crate::{read_box_header, skip_read};
+use crate::*;
 use crate::atoms::{mdhd::MdhdBox, hdlr::HdlrBox, minf::MinfBox};
 
 
@@ -42,32 +39,32 @@ impl Mp4Box for MdiaBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
         let mut mdia = MdiaBox::new();
 
         let start = 0u64;
         while start < size {
             // Get box header.
-            let header = read_box_header(reader, start).unwrap();
+            let header = read_box_header(reader, start)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
                 BoxType::MdhdBox => {
-                    let mdhd = MdhdBox::read_box(reader, s).unwrap();
+                    let mdhd = MdhdBox::read_box(reader, s)?;
                     mdia.mdhd = Some(mdhd);
                 }
                 BoxType::HdlrBox => {
-                    let hdlr = HdlrBox::read_box(reader, s).unwrap();
+                    let hdlr = HdlrBox::read_box(reader, s)?;
                     mdia.hdlr = Some(hdlr);
                 }
                 BoxType::MinfBox => {
-                    let minf = MinfBox::read_box(reader, s).unwrap();
+                    let minf = MinfBox::read_box(reader, s)?;
                     mdia.minf = Some(minf);
                 }
                 _ => break
             }
         }
-        skip_read(reader, current, size);
+        skip_read(reader, current, size)?;
 
         Ok(mdia)
     }

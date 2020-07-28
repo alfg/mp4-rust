@@ -1,11 +1,7 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE, HEADER_EXT_SIZE};
-use crate::{read_box_header_ext, write_box_header_ext, skip_read};
+use crate::*;
 
 
 #[derive(Debug, Default)]
@@ -35,17 +31,17 @@ impl Mp4Box for VmhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
 
-        let (version, flags) = read_box_header_ext(reader).unwrap();
+        let (version, flags) = read_box_header_ext(reader)?;
 
-        let graphics_mode = reader.read_u16::<BigEndian>().unwrap();
+        let graphics_mode = reader.read_u16::<BigEndian>()?;
         let op_color = RgbColor {
-            red: reader.read_u16::<BigEndian>().unwrap(),
-            green: reader.read_u16::<BigEndian>().unwrap(),
-            blue: reader.read_u16::<BigEndian>().unwrap(),
+            red: reader.read_u16::<BigEndian>()?,
+            green: reader.read_u16::<BigEndian>()?,
+            blue: reader.read_u16::<BigEndian>()?,
         };
-        skip_read(reader, current, size);
+        skip_read(reader, current, size)?;
 
         Ok(VmhdBox {
             version,
@@ -63,10 +59,10 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for VmhdBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        writer.write_u16::<BigEndian>(self.graphics_mode).unwrap();
-        writer.write_u16::<BigEndian>(self.op_color.red).unwrap();
-        writer.write_u16::<BigEndian>(self.op_color.green).unwrap();
-        writer.write_u16::<BigEndian>(self.op_color.blue).unwrap();
+        writer.write_u16::<BigEndian>(self.graphics_mode)?;
+        writer.write_u16::<BigEndian>(self.op_color.red)?;
+        writer.write_u16::<BigEndian>(self.op_color.green)?;
+        writer.write_u16::<BigEndian>(self.op_color.blue)?;
 
         Ok(size)
     }

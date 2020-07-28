@@ -1,9 +1,6 @@
 use std::io::{BufReader, Seek, Read, BufWriter, Write};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE};
-use crate::{read_box_header};
+use crate::*;
 use crate::atoms::{mvhd::MvhdBox, trak::TrakBox};
 
 
@@ -41,15 +38,15 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
         while start < size {
 
             // Get box header.
-            let header = read_box_header(reader, start).unwrap();
+            let header = read_box_header(reader, start)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
                 BoxType::MvhdBox => {
-                    moov.mvhd = MvhdBox::read_box(reader, s).unwrap();
+                    moov.mvhd = MvhdBox::read_box(reader, s)?;
                 }
                 BoxType::TrakBox => {
-                    let trak = TrakBox::read_box(reader, s).unwrap();
+                    let trak = TrakBox::read_box(reader, s)?;
                     moov.traks.push(trak);
                 }
                 BoxType::UdtaBox => {

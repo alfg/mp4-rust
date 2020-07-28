@@ -1,11 +1,7 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
-
 use byteorder::{BigEndian, ReadBytesExt};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE};
-use crate::{read_box_header, read_box_header_ext, skip_read};
+use crate::*;
 
 
 #[derive(Debug)]
@@ -28,16 +24,16 @@ impl Mp4Box for StsdBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0)).unwrap(); // Current cursor position.
+        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
 
-        let (version, flags) = read_box_header_ext(reader).unwrap();
+        let (version, flags) = read_box_header_ext(reader)?;
 
-        let entry_count = reader.read_u32::<BigEndian>().unwrap();
+        let entry_count = reader.read_u32::<BigEndian>()?;
 
         let mut start = 0u64;
         while start < size {
             // Get box header.
-            let header = read_box_header(reader, start).unwrap();
+            let header = read_box_header(reader, start)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -47,7 +43,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
             }
             start += s - HEADER_SIZE;
         }
-        skip_read(reader, current, size);
+        skip_read(reader, current, size)?;
 
         Ok(StsdBox {
             version,

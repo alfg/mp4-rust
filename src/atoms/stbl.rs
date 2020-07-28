@@ -1,9 +1,6 @@
 use std::io::{BufReader, Seek, Read, BufWriter, Write};
 
-use crate::{Result};
-use crate::{BoxType, BoxHeader, Mp4Box, ReadBox, WriteBox};
-use crate::{HEADER_SIZE};
-use crate::{read_box_header};
+use crate::*;
 use crate::atoms::{stts::SttsBox, stsd::StsdBox};
 
 
@@ -43,16 +40,16 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
         let start = 0u64;
         while start < size {
             // Get box header.
-            let header = read_box_header(reader, start).unwrap();
+            let header = read_box_header(reader, start)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
                 BoxType::SttsBox => {
-                    let stts = SttsBox::read_box(reader, s).unwrap();
+                    let stts = SttsBox::read_box(reader, s)?;
                     stbl.stts = Some(stts);
                 }
                 BoxType::StsdBox => {
-                    let stsd = StsdBox::read_box(reader, s).unwrap();
+                    let stsd = StsdBox::read_box(reader, s)?;
                     stbl.stsd = Some(stsd);
                 }
                 _ => break
