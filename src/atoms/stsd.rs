@@ -8,7 +8,6 @@ use crate::*;
 pub struct StsdBox {
     pub version: u8,
     pub flags: u32,
-    pub entry_count: u32,
 }
 
 impl Mp4Box for StsdBox {
@@ -28,7 +27,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let entry_count = reader.read_u32::<BigEndian>()?;
+        let _entry_count = reader.read_u32::<BigEndian>()?;
 
         let mut start = 0u64;
         while start < size {
@@ -48,7 +47,6 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
         Ok(StsdBox {
             version,
             flags,
-            entry_count,
         })
     }
 }

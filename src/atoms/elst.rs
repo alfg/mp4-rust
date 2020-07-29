@@ -8,7 +8,6 @@ use crate::*;
 pub struct ElstBox {
     pub version: u8,
     pub flags: u32,
-    pub entry_count: u32,
     pub entries: Vec<ElstEntry>,
 }
 
@@ -28,10 +27,10 @@ impl Mp4Box for ElstBox {
     fn box_size(&self) -> u64 {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if self.version == 1 {
-            size += self.entry_count as u64 * 20;
+            size += self.entries.len() as u64 * 20;
         } else {
             assert_eq!(self.version, 0);
-            size += self.entry_count as u64 * 12;
+            size += self.entries.len() as u64 * 12;
         }
         size
     }
@@ -72,7 +71,6 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
         Ok(ElstBox {
             version,
             flags,
-            entry_count,
             entries,
         })
     }
@@ -85,8 +83,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for ElstBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        assert_eq!(self.entry_count as usize, self.entries.len());
-        writer.write_u32::<BigEndian>(self.entry_count)?;
+        writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
         for entry in self.entries.iter() {
             if self.version == 1 {
                 writer.write_u64::<BigEndian>(entry.segment_duration)?;
@@ -114,7 +111,6 @@ mod tests {
         let src_box = ElstBox {
             version: 0,
             flags: 0,
-            entry_count: 1,
             entries: vec![ElstEntry {
                 segment_duration: 634634,
                 media_time: 0,
@@ -146,7 +142,6 @@ mod tests {
         let src_box = ElstBox {
             version: 1,
             flags: 0,
-            entry_count: 1,
             entries: vec![ElstEntry {
                 segment_duration: 634634,
                 media_time: 0,

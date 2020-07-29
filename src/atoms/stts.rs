@@ -8,7 +8,6 @@ use crate::*;
 pub struct SttsBox {
     pub version: u8,
     pub flags: u32,
-    pub entry_count: u32,
     pub entries: Vec<SttsEntry>,
 }
 
@@ -24,7 +23,7 @@ impl Mp4Box for SttsBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entry_count as u64)
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entries.len() as u64)
     }
 }
 
@@ -48,7 +47,6 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
         Ok(SttsBox {
             version,
             flags,
-            entry_count,
             entries,
         })
     }
@@ -61,7 +59,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for SttsBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        writer.write_u32::<BigEndian>(self.entry_count)?;
+        writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
         for entry in self.entries.iter() {
             writer.write_u32::<BigEndian>(entry.sample_count)?;
             writer.write_u32::<BigEndian>(entry.sample_delta)?;
@@ -82,7 +80,6 @@ mod tests {
         let src_box = SttsBox {
             version: 0,
             flags: 0,
-            entry_count: 2,
             entries: vec![
                 SttsEntry {sample_count: 29726, sample_delta: 1024},
                 SttsEntry {sample_count: 1, sample_delta: 512},
@@ -112,7 +109,6 @@ mod tests {
         let src_box = SttsBox {
             version: 1,
             flags: 0,
-            entry_count: 2,
             entries: vec![
                 SttsEntry {sample_count: 29726, sample_delta: 1024},
                 SttsEntry {sample_count: 1, sample_delta: 512},
