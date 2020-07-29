@@ -58,7 +58,7 @@ fn main() {
 
                     println!("  media:");
                     if let Some(ref s) = stts {
-                        println!("    sample count: {:?}", s.sample_counts[0]);
+                        println!("    sample count: {:?}", s.entries[0].sample_count);
                     }
                     println!("    timescale:    {:?}", mdhd.timescale);
                     println!(
@@ -73,7 +73,7 @@ fn main() {
                         if let Some(ref s) = stts {
                             println!(
                                 "    frame rate: (computed): {:?}",
-                                get_framerate(&s.sample_counts, mdhd.duration, mdhd.timescale)
+                                get_framerate(s.entries[0].sample_count, mdhd.duration, mdhd.timescale)
                             );
                         }
                     }
@@ -97,18 +97,18 @@ fn get_handler_type(handler: &str) -> mp4::TrackType {
     return typ;
 }
 
-fn get_duration_ms(duration: u32, timescale: u32) -> String {
+fn get_duration_ms(duration: u64, timescale: u32) -> String {
     let ms = (duration as f64 / timescale as f64) * 1000.0;
     return format!("{:.2}", ms.floor());
 }
 
-fn get_framerate(sample_counts: &Vec<u32>, duration: u32, timescale: u32) -> String {
-    let sc = (sample_counts[0] as f64) * 1000.0;
+fn get_framerate(sample_count: u32, duration: u64, timescale: u32) -> String {
+    let sc = (sample_count as f64) * 1000.0;
     let ms = (duration as f64 / timescale as f64) * 1000.0;
     return format!("{:.2}", sc / ms.floor());
 }
 
-fn creation_time(creation_time: u32) -> u32 {
+fn creation_time(creation_time: u64) -> u64 {
     // convert from MP4 epoch (1904-01-01) to Unix epoch (1970-01-01)
     if creation_time >= 2082844800 {
         creation_time - 2082844800

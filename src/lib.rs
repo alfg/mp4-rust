@@ -1,19 +1,17 @@
-extern crate byteorder;
-
-use std::io::prelude::*;
-use std::io::{BufReader, Read, SeekFrom};
+use std::io::{BufReader, Read, SeekFrom, Seek};
 use std::fs::File;
 use std::convert::TryInto;
 
 mod atoms;
 use crate::atoms::*;
 
-const HEADER_SIZE: u32 = 8;
+mod error;
+pub use error::Error;
 
-#[derive(Debug)]
-pub enum Error {
-    InvalidData(&'static str),
-}
+pub type Result<T> = std::result::Result<T, Error>;
+
+// XXX if box has largesize
+const HEADER_SIZE: u64 = 8;
 
 #[derive(Debug, PartialEq)]
 pub enum TrackType {
@@ -42,16 +40,22 @@ struct BoxHeader {
     size: u64,
 }
 
+impl BoxHeader {
+    fn new(name: BoxType, size: u64) -> Self {
+        Self { name, size }
+    }
+}
+
 pub fn read_mp4(f: File) -> Result<BMFF> {
 
     // Open file and read boxes.
-    let bmff = read_boxes(f).unwrap();
+    let bmff = read_boxes(f)?;
 
     Ok(bmff)
 }
 
 fn read_boxes(f: File) -> Result<BMFF> {
-    let filesize = f.metadata().unwrap().len();
+    let filesize = f.metadata()?.len();
     let mut reader = BufReader::new(f);
     let mut bmff = BMFF::new();
     bmff.size  =  filesize;
@@ -60,27 +64,27 @@ fn read_boxes(f: File) -> Result<BMFF> {
     while start < filesize {
 
         // Get box header.
-        let header = read_box_header(&mut reader, start).unwrap();
+        let header = read_box_header(&mut reader, start)?;
         let BoxHeader{ name, size } = header;
 
         // Match and parse the atom boxes.
         match name {
             BoxType::FtypBox => {
-                let ftyp = FtypBox::read_box(&mut reader, size as u32).unwrap();
+                let ftyp = FtypBox::read_box(&mut reader, size)?;
                 bmff.ftyp = ftyp;
             }
             BoxType::FreeBox => {
                 start = 0;
             }
             BoxType::MdatBox => {
-                start = (size as u32 - HEADER_SIZE) as u64;
+                start = size - HEADER_SIZE;
             }
             BoxType::MoovBox => {
-                let moov = MoovBox::read_box(&mut reader, size as u32).unwrap();
+                let moov = MoovBox::read_box(&mut reader, size)?;
                 bmff.moov = Some(moov);
             }
             BoxType::MoofBox => {
-                start = (size as u32 - HEADER_SIZE) as u64;
+                start = size - HEADER_SIZE;
             }
             _ => {
                 // Skip over unsupported boxes, but stop if the size is zero,
@@ -88,7 +92,7 @@ fn read_boxes(f: File) -> Result<BMFF> {
                 if size == 0 {
                     break;
                 } else {
-                    start = (size as u32 - HEADER_SIZE) as u64;
+                    start = size - HEADER_SIZE;
                 }
             }
         };
@@ -103,7 +107,7 @@ fn read_box_header<R: Read + Seek>(reader: &mut BufReader<R>, start: u64) -> Res
 
     // Create and read to buf.
     let mut buf = [0u8;8]; // 8 bytes for box header.
-    reader.read(&mut buf).unwrap();
+    reader.read(&mut buf)?;
 
     // Get size.
     let s = buf[0..4].try_into().unwrap();
@@ -115,7 +119,7 @@ fn read_box_header<R: Read + Seek>(reader: &mut BufReader<R>, start: u64) -> Res
 
     // Get largesize if size is 1
     if size == 1 {
-        reader.read(&mut buf).unwrap();
+        reader.read(&mut buf)?;
         let s = buf.try_into().unwrap();
         let largesize = u64::from_be_bytes(s);
 
