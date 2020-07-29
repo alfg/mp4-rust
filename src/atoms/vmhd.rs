@@ -4,7 +4,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::*;
 
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct VmhdBox {
     pub version: u8,
     pub flags: u32,
@@ -12,7 +12,7 @@ pub struct VmhdBox {
     pub op_color: RgbColor,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct RgbColor {
     pub red: u16,
     pub green: u16,
@@ -65,5 +65,40 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for VmhdBox {
         writer.write_u16::<BigEndian>(self.op_color.blue)?;
 
         Ok(size)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read_box_header;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_vmhd() {
+        let src_box = VmhdBox {
+            version: 0,
+            flags: 1,
+            graphics_mode: 0,
+            op_color: RgbColor { red: 0, green: 0, blue: 0},
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::VmhdBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = VmhdBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
     }
 }
