@@ -4,7 +4,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::*;
 
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct SttsBox {
     pub version: u8,
     pub flags: u32,
@@ -12,7 +12,7 @@ pub struct SttsBox {
     pub entries: Vec<SttsEntry>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct SttsEntry {
     pub sample_count: u32,
     pub sample_delta: u32,
@@ -68,5 +68,72 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for SttsBox {
         }
 
         Ok(size)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read_box_header;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_stts32() {
+        let src_box = SttsBox {
+            version: 0,
+            flags: 0,
+            entry_count: 2,
+            entries: vec![
+                SttsEntry {sample_count: 29726, sample_delta: 1024},
+                SttsEntry {sample_count: 1, sample_delta: 512},
+            ],
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::SttsBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = SttsBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
+    }
+
+    #[test]
+    fn test_stts64() {
+        let src_box = SttsBox {
+            version: 1,
+            flags: 0,
+            entry_count: 2,
+            entries: vec![
+                SttsEntry {sample_count: 29726, sample_delta: 1024},
+                SttsEntry {sample_count: 1, sample_delta: 512},
+            ],
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::SttsBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = SttsBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
     }
 }

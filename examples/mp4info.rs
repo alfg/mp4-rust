@@ -54,7 +54,7 @@ fn main() {
                         "  type:     {:?}",
                         get_handler_type(hdlr.handler_type.value.as_ref())
                     );
-                    println!("  language: {:?}", mdhd.language_string);
+                    println!("  language: {:?}", mdhd.language);
 
                     println!("  media:");
                     if let Some(ref s) = stts {

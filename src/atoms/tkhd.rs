@@ -169,9 +169,54 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn test_tkhd() {
+    fn test_tkhd32() {
         let src_box = TkhdBox {
             version: 0,
+            flags: 0,
+            creation_time: 100,
+            modification_time: 200,
+            track_id: 1,
+            duration: 634634,
+            layer: 0,
+            alternate_group: 0,
+            volume: 0x0100,
+            matrix: Matrix {
+                a: 0x00010000,
+                b: 0,
+                u: 0,
+                c: 0,
+                d: 0x00010000,
+                v: 0,
+                x: 0,
+                y: 0,
+                w: 0x40000000,
+            },
+            width: 512,
+            height: 288,
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::TkhdBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
+    }
+
+    #[test]
+    fn test_tkhd64() {
+        let src_box = TkhdBox {
+            version: 1,
             flags: 0,
             creation_time: 100,
             modification_time: 200,

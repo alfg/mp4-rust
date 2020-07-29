@@ -4,7 +4,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::*;
 
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct ElstBox {
     pub version: u8,
     pub flags: u32,
@@ -12,7 +12,7 @@ pub struct ElstBox {
     pub entries: Vec<ElstEntry>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct ElstEntry {
     pub segment_duration: u64,
     pub media_time: u64,
@@ -26,7 +26,7 @@ impl Mp4Box for ElstBox {
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if self.version == 1 {
             size += self.entry_count as u64 * 20;
         } else {
@@ -100,5 +100,76 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for ElstBox {
         }
 
         Ok(size)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read_box_header;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_elst32() {
+        let src_box = ElstBox {
+            version: 0,
+            flags: 0,
+            entry_count: 1,
+            entries: vec![ElstEntry {
+                segment_duration: 634634,
+                media_time: 0,
+                media_rate: 1,
+                media_rate_fraction: 0,
+            }],
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::ElstBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = ElstBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
+    }
+
+    #[test]
+    fn test_elst64() {
+        let src_box = ElstBox {
+            version: 1,
+            flags: 0,
+            entry_count: 1,
+            entries: vec![ElstEntry {
+                segment_duration: 634634,
+                media_time: 0,
+                media_rate: 1,
+                media_rate_fraction: 0,
+            }],
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::ElstBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = ElstBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
     }
 }
