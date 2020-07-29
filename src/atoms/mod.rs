@@ -19,6 +19,7 @@ mod vmhd;
 mod stbl;
 mod stts;
 mod stsd;
+mod avc;
 
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
@@ -76,6 +77,7 @@ boxtype!{
     DinfBox => 0x64696e66,
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
+    AvcCBox => 0x61766343,
     Mp4aBox => 0x6d703461
 }
 

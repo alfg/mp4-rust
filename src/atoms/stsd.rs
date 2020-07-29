@@ -2,12 +2,14 @@ use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::*;
+use crate::atoms::{avc::Avc1Box};
 
 
 #[derive(Debug)]
 pub struct StsdBox {
     pub version: u8,
     pub flags: u32,
+    pub avc1: Option<Avc1Box>,
 }
 
 impl Mp4Box for StsdBox {
@@ -29,6 +31,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
 
         let _entry_count = reader.read_u32::<BigEndian>()?;
 
+        let mut avc1 = None;
         let mut start = 0u64;
         while start < size {
             // Get box header.
@@ -36,17 +39,21 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
             let BoxHeader{ name, size: s } = header;
 
             match name {
-                BoxType::Avc1Box => {}
-                BoxType::Mp4aBox => {}
+                BoxType::Avc1Box => {
+                    avc1 = Some(Avc1Box::read_box(reader, s)?);
+                }
+                BoxType::Mp4aBox => {
+                    start += s - HEADER_SIZE;
+                }
                 _ => break
             }
-            start += s - HEADER_SIZE;
         }
         skip_read(reader, current, size)?;
 
         Ok(StsdBox {
             version,
             flags,
+            avc1,
         })
     }
 }
