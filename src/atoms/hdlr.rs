@@ -4,7 +4,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::*;
 
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct HdlrBox {
     pub version: u8,
     pub flags: u32,
@@ -33,7 +33,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
 
         let n = reader.seek(SeekFrom::Current(12))?; // 12 bytes reserved.
 
-        let buf_size = (size - (n - current)) - HEADER_SIZE;
+        let buf_size = (size - (n - current)) - HEADER_SIZE - 1;
         let mut buf = vec![0u8; buf_size as usize];
         reader.read_exact(&mut buf)?;
 
@@ -75,5 +75,39 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for HdlrBox {
         writer.write_u8(0)?;
 
         Ok(size)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read_box_header;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_hdlr() {
+        let src_box = HdlrBox {
+            version: 0,
+            flags: 0,
+            handler_type: FourCC::from("vide"),
+            name: String::from("VideoHandler"),
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::HdlrBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
     }
 }

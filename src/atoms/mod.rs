@@ -125,6 +125,28 @@ impl From<&FourCC> for u32 {
     }
 }
 
+impl From<String> for FourCC {
+    fn from(fourcc: String) -> FourCC {
+        let value = if fourcc.len() > 4 {
+            fourcc[0..4].to_string()
+        } else {
+            fourcc
+        };
+        FourCC {value}
+    }
+}
+
+impl From<&str> for FourCC {
+    fn from(fourcc: &str) -> FourCC {
+        let value = if fourcc.len() > 4 {
+            fourcc[0..4].to_string()
+        } else {
+            fourcc.to_string()
+        };
+        FourCC {value}
+    }
+}
+
 impl From<BoxType> for FourCC {
     fn from(t: BoxType) -> FourCC {
         let box_num: u32 = Into::into(t);

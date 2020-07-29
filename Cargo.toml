@@ -20,3 +20,4 @@ license = "MIT"
 [dependencies]
 thiserror = "^1.0"
 byteorder = "1"
+num-rational = "0.3"

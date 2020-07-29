@@ -1,10 +1,11 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use num_rational::Ratio;
 
 use crate::*;
 
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct MvhdBox {
     pub version: u8,
     pub flags: u32,
@@ -12,7 +13,21 @@ pub struct MvhdBox {
     pub modification_time: u64,
     pub timescale: u32,
     pub duration: u64,
-    pub rate: u32,
+    pub rate: Ratio<u32>,
+}
+
+impl Default for MvhdBox {
+    fn default() -> Self {
+        MvhdBox {
+            version: 0,
+            flags: 0,
+            creation_time: 0,
+            modification_time: 0,
+            timescale: 1000,
+            duration: 0,
+            rate: Ratio::new_raw(0x00010000, 0x10000),
+        }
+    }
 }
 
 impl Mp4Box for MvhdBox {
@@ -56,7 +71,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
                     reader.read_u32::<BigEndian>()? as u64,
                 )
             };
-        let rate = reader.read_u32::<BigEndian>()?;
+        let numer = reader.read_u32::<BigEndian>()?;
+        let rate = Ratio::new_raw(numer, 0x10000);
         skip_read(reader, current, size)?;
 
         Ok(MvhdBox{
@@ -90,7 +106,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for MvhdBox {
             writer.write_u32::<BigEndian>(self.timescale)?;
             writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
-        writer.write_u32::<BigEndian>(self.rate)?;
+        writer.write_u32::<BigEndian>(*self.rate.numer())?;
 
         // XXX volume, ...
         skip_write(writer, 76)?;
@@ -106,7 +122,7 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn test_mvhd() {
+    fn test_mvhd32() {
         let src_box = MvhdBox {
             version: 0,
             flags: 0,
@@ -114,7 +130,37 @@ mod tests {
             modification_time: 200,
             timescale: 1000,
             duration: 634634,
-            rate: 0x00010000,
+            rate: Ratio::new_raw(0x00010000, 0x10000),
+        };
+        let mut buf = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buf);
+            src_box.write_box(&mut writer).unwrap();
+        }
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        {
+            let mut reader = BufReader::new(Cursor::new(&buf));
+            let header = read_box_header(&mut reader, 0).unwrap();
+            assert_eq!(header.name, BoxType::MvhdBox);
+            assert_eq!(src_box.box_size(), header.size);
+
+            let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
+
+            assert_eq!(src_box, dst_box);
+        }
+    }
+
+    #[test]
+    fn test_mvhd64() {
+        let src_box = MvhdBox {
+            version: 1,
+            flags: 0,
+            creation_time: 100,
+            modification_time: 200,
+            timescale: 1000,
+            duration: 634634,
+            rate: Ratio::new_raw(0x00010000, 0x10000),
         };
         let mut buf = Vec::new();
         {
