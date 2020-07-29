@@ -1,10 +1,11 @@
 use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use num_rational::Ratio;
 
 use crate::*;
 
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TkhdBox {
     pub version: u8,
     pub flags: u32,
@@ -14,10 +15,29 @@ pub struct TkhdBox {
     pub duration: u64,
     pub layer:  u16,
     pub alternate_group: u16,
-    pub volume: u16,
+    pub volume: Ratio<u16>,
     pub matrix: Matrix,
     pub width: u32,
     pub height: u32,
+}
+
+impl Default for TkhdBox {
+    fn default() -> Self {
+        TkhdBox {
+            version: 0,
+            flags: 0,
+            creation_time: 0,
+            modification_time: 0,
+            track_id: 0,
+            duration: 0,
+            layer: 0,
+            alternate_group: 0,
+            volume: Ratio::new_raw(0x0100, 0x100),
+            matrix: Matrix::default(),
+            width: 0,
+            height: 0,
+        }
+    }
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -79,7 +99,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
         reader.read_u64::<BigEndian>()?; // reserved
         let layer = reader.read_u16::<BigEndian>()?;
         let alternate_group = reader.read_u16::<BigEndian>()?;
-        let volume = reader.read_u16::<BigEndian>()?;
+        let volume_numer = reader.read_u16::<BigEndian>()?;
+        let volume = Ratio::new_raw(volume_numer, 0x100);
 
         reader.read_u16::<BigEndian>()?; // reserved
         let matrix = Matrix{
@@ -141,7 +162,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
         writer.write_u64::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(self.layer)?;
         writer.write_u16::<BigEndian>(self.alternate_group)?;
-        writer.write_u16::<BigEndian>(self.volume)?;
+        writer.write_u16::<BigEndian>(*self.volume.numer())?;
 
         writer.write_u16::<BigEndian>(0)?; // reserved
 
@@ -179,7 +200,7 @@ mod tests {
             duration: 634634,
             layer: 0,
             alternate_group: 0,
-            volume: 0x0100,
+            volume: Ratio::new_raw(0x0100, 0x100),
             matrix: Matrix {
                 a: 0x00010000,
                 b: 0,
@@ -224,7 +245,7 @@ mod tests {
             duration: 634634,
             layer: 0,
             alternate_group: 0,
-            volume: 0x0100,
+            volume: Ratio::new_raw(0x0100, 0x100),
             matrix: Matrix {
                 a: 0x00010000,
                 b: 0,
