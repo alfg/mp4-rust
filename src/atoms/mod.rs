@@ -20,6 +20,7 @@ mod stbl;
 mod stts;
 mod stsd;
 mod avc;
+mod mp4a;
 
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
@@ -78,7 +79,8 @@ boxtype!{
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
     AvcCBox => 0x61766343,
-    Mp4aBox => 0x6d703461
+    Mp4aBox => 0x6d703461,
+    EsdsBox => 0x65736473
 }
 
 impl fmt::Debug for BoxType {
@@ -183,16 +185,13 @@ pub trait WriteBox<T>: Sized {
 
 pub fn read_box_header_ext<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
     let version = reader.read_u8()?;
-    let flags_a = reader.read_u8()?;
-    let flags_b = reader.read_u8()?;
-    let flags_c = reader.read_u8()?;
-    let flags = u32::from(flags_a) << 16 | u32::from(flags_b) << 8 | u32::from(flags_c);
+    let flags = reader.read_u24::<BigEndian>()?;
     Ok((version, flags))
 }
 
 pub fn write_box_header_ext<W: Write>(w: &mut BufWriter<W>, v: u8, f: u32) -> Result<u64> {
-    let d = u32::from(v) << 24 | f;
-    w.write_u32::<BigEndian>(d)?;
+    w.write_u8(v)?;
+    w.write_u24::<BigEndian>(f)?;
     Ok(4)
 }
 

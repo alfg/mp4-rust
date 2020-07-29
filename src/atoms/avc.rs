@@ -70,7 +70,6 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
 
         let header = read_box_header(reader, 0)?;
         let BoxHeader{ name, size: s } = header;
-        println!("{:?}", header);
         if name == BoxType::AvcCBox {
             let avcc = AvcCBox::read_box(reader, s)?;
 
@@ -122,6 +121,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for Avc1Box {
         Ok(size)
     }
 }
+
 
 #[derive(Debug, Default, PartialEq)]
 pub struct AvcCBox {
