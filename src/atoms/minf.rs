@@ -1,12 +1,17 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
 
 use crate::*;
-use crate::atoms::{vmhd::VmhdBox, stbl::StblBox};
+use crate::atoms::{
+    vmhd::VmhdBox,
+    smhd::SmhdBox,
+    stbl::StblBox
+};
 
 
 #[derive(Debug, Default)]
 pub struct MinfBox {
     pub vmhd: Option<VmhdBox>,
+    pub smhd: Option<SmhdBox>,
     pub stbl: Option<StblBox>,
 }
 
@@ -25,6 +30,9 @@ impl Mp4Box for MinfBox {
         let mut size = HEADER_SIZE;
         if let Some(vmhd) = &self.vmhd {
             size += vmhd.box_size();
+        }
+        if let Some(smhd) = &self.smhd {
+            size += smhd.box_size();
         }
         if let Some(stbl) = &self.stbl {
             size += stbl.box_size();
@@ -51,7 +59,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
                     let vmhd = VmhdBox::read_box(reader, s)?;
                     minf.vmhd = Some(vmhd);
                 }
-                BoxType::SmhdBox => {}
+                BoxType::SmhdBox => {
+                    let smhd = SmhdBox::read_box(reader, s)?;
+                    minf.smhd = Some(smhd);
+                }
                 BoxType::DinfBox => {}
                 BoxType::StblBox => {
                     let stbl = StblBox::read_box(reader, s)?;
@@ -76,6 +87,9 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for MinfBox {
 
         if let Some(vmhd) = &self.vmhd {
             vmhd.write_box(writer)?;
+        }
+        if let Some(smhd) = &self.smhd {
+            smhd.write_box(writer)?;
         }
         if let Some(stbl) = &self.stbl {
             stbl.write_box(writer)?;

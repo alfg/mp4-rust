@@ -16,6 +16,7 @@ mod mdhd;
 mod hdlr;
 mod minf;
 mod vmhd;
+mod smhd;
 mod stbl;
 mod stsd;
 mod stts;
