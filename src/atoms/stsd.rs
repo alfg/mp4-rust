@@ -2,6 +2,7 @@ use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
+use crate::atoms::*;
 use crate::atoms::{avc::Avc1Box, mp4a::Mp4aBox};
 
 
@@ -41,7 +42,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
         let mut mp4a = None;
 
         // Get box header.
-        let header = read_box_header(reader)?;
+        let header = BoxHeader::read(reader)?;
         let BoxHeader{ name, size: s } = header;
 
         match name {
@@ -68,7 +69,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for StsdBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

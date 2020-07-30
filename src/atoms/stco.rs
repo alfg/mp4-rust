@@ -2,6 +2,7 @@ use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, Default, PartialEq)]
@@ -47,7 +48,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StcoBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for StcoBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -63,7 +64,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for StcoBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_box_header;
+    use crate::atoms::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -82,7 +83,7 @@ mod tests {
 
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader).unwrap();
+            let header = BoxHeader::read(&mut reader).unwrap();
             assert_eq!(header.name, BoxType::StcoBox);
             assert_eq!(src_box.box_size(), header.size);
 

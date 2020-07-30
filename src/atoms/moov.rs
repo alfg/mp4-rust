@@ -1,6 +1,7 @@
-use std::io::{BufReader, Seek, Read, BufWriter, Write};
+use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
 
 use crate::*;
+use crate::atoms::*;
 use crate::atoms::{mvhd::MvhdBox, trak::TrakBox};
 
 
@@ -40,7 +41,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
         let end = start + size;
         while current < end {
             // Get box header.
-            let header = read_box_header(reader)?;
+            let header = BoxHeader::read(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -51,8 +52,14 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
                     let trak = TrakBox::read_box(reader, s)?;
                     moov.traks.push(trak);
                 }
-                BoxType::UdtaBox => {}
-                _ => {}
+                BoxType::UdtaBox => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
             }
 
             current = reader.seek(SeekFrom::Current(0))?;
@@ -67,7 +74,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for MoovBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         self.mvhd.write_box(writer)?;
         for trak in self.traks.iter() {

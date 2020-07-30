@@ -31,6 +31,8 @@ mod mp4a;
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
 
+const HEADER_SIZE: u64 = 8;
+// const HEADER_LARGE_SIZE: u64 = 16;
 pub const HEADER_EXT_SIZE: u64 = 4;
 
 macro_rules! boxtype {
@@ -194,20 +196,50 @@ pub trait WriteBox<T>: Sized {
     fn write_box(&self, _: T) -> Result<u64>;
 }
 
-pub fn read_box_header_ext<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
-    let version = reader.read_u8()?;
-    let flags = reader.read_u24::<BigEndian>()?;
-    Ok((version, flags))
+#[derive(Debug, Clone, Copy)]
+pub struct BoxHeader {
+    pub name: BoxType,
+    pub size: u64,
 }
 
-pub fn write_box_header_ext<W: Write>(w: &mut BufWriter<W>, v: u8, f: u32) -> Result<u64> {
-    w.write_u8(v)?;
-    w.write_u24::<BigEndian>(f)?;
-    Ok(4)
-}
+impl BoxHeader {
+    fn new(name: BoxType, size: u64) -> Self {
+        Self { name, size }
+    }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for BoxHeader {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+    // TODO: if size is 0, then this box is the last one in the file
+    pub fn read<R: Read>(reader: &mut BufReader<R>) -> Result<Self> {
+        // Create and read to buf.
+        let mut buf = [0u8;8]; // 8 bytes for box header.
+        reader.read(&mut buf)?;
+
+        // Get size.
+        let s = buf[0..4].try_into().unwrap();
+        let size = u32::from_be_bytes(s);
+
+        // Get box type string.
+        let t = buf[4..8].try_into().unwrap();
+        let typ = u32::from_be_bytes(t);
+
+        // Get largesize if size is 1
+        if size == 1 {
+            reader.read(&mut buf)?;
+            let s = buf.try_into().unwrap();
+            let largesize = u64::from_be_bytes(s);
+
+            Ok(BoxHeader {
+                name: BoxType::from(typ),
+                size: largesize,
+            })
+        } else {
+            Ok(BoxHeader {
+                name: BoxType::from(typ),
+                size: size as u64,
+            })
+        }
+    }
+
+    fn write<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         if self.size > u32::MAX as u64 {
             writer.write_u32::<BigEndian>(1)?;
             writer.write_u32::<BigEndian>(self.name.into())?;
@@ -219,6 +251,18 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for BoxHeader {
             Ok(8)
         }
     }
+}
+
+pub fn read_box_header_ext<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
+    let version = reader.read_u8()?;
+    let flags = reader.read_u24::<BigEndian>()?;
+    Ok((version, flags))
+}
+
+pub fn write_box_header_ext<W: Write>(w: &mut BufWriter<W>, v: u8, f: u32) -> Result<u64> {
+    w.write_u8(v)?;
+    w.write_u24::<BigEndian>(f)?;
+    Ok(4)
 }
 
 pub fn get_box_start<R: Seek>(reader: &mut BufReader<R>) -> Result<u64> {
@@ -233,6 +277,12 @@ pub fn skip_read<R: Read + Seek>(reader: &mut BufReader<R>, size: i64) -> Result
 
 pub fn skip_read_to<R: Read + Seek>(reader: &mut BufReader<R>, pos: u64) -> Result<()> {
     reader.seek(SeekFrom::Start(pos))?;
+    Ok(())
+}
+
+pub fn skip_box<R: Read + Seek>(reader: &mut BufReader<R>, size: u64) -> Result<()> {
+    let start = get_box_start(reader)?;
+    skip_read_to(reader, start + size)?;
     Ok(())
 }
 

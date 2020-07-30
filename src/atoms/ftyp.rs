@@ -2,6 +2,7 @@ use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, Default, PartialEq)]
@@ -51,7 +52,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for FtypBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         writer.write_u32::<BigEndian>((&self.major_brand).into())?;
         writer.write_u32::<BigEndian>(self.minor_version)?;
@@ -65,7 +66,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for FtypBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_box_header;
+    use crate::atoms::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -89,7 +90,7 @@ mod tests {
 
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader).unwrap();
+            let header = BoxHeader::read(&mut reader).unwrap();
             assert_eq!(header.name, BoxType::FtypBox);
             assert_eq!(src_box.box_size(), header.size);
 

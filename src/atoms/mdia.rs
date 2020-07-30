@@ -1,6 +1,7 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
 
 use crate::*;
+use crate::atoms::*;
 use crate::atoms::{mdhd::MdhdBox, hdlr::HdlrBox, minf::MinfBox};
 
 
@@ -47,7 +48,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
         let end = start + size;
         while current < end {
             // Get box header.
-            let header = read_box_header(reader)?;
+            let header = BoxHeader::read(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -63,7 +64,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
                     let minf = MinfBox::read_box(reader, s)?;
                     mdia.minf = Some(minf);
                 }
-                _ => {}
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
             }
 
             current = reader.seek(SeekFrom::Current(0))?;
@@ -78,7 +82,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for MdiaBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         if let Some(mdhd) = &self.mdhd {
             mdhd.write_box(writer)?;

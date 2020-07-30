@@ -3,6 +3,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, PartialEq)]
@@ -65,7 +66,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
         let depth = reader.read_u16::<BigEndian>()?;
         reader.read_i16::<BigEndian>()?; // pre-defined
 
-        let header = read_box_header(reader)?;
+        let header = BoxHeader::read(reader)?;
         let BoxHeader{ name, size: s } = header;
         if name == BoxType::AvcCBox {
             let avcc = AvcCBox::read_box(reader, s)?;
@@ -91,7 +92,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for Avc1Box {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(0)?; // reserved
@@ -187,7 +188,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for AvcCBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for AvcCBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         writer.write_u8(self.configuration_version)?;
         writer.write_u8(self.avc_profile_indication)?;

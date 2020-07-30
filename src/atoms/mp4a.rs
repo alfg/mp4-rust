@@ -2,6 +2,7 @@ use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, PartialEq)]
@@ -49,7 +50,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Mp4aBox {
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
         let samplerate = reader.read_u32::<BigEndian>()?;
 
-        let header = read_box_header(reader)?;
+        let header = BoxHeader::read(reader)?;
         let BoxHeader{ name, size: s } = header;
         if name == BoxType::EsdsBox {
             let esds = EsdsBox::read_box(reader, s)?;
@@ -72,7 +73,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Mp4aBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for Mp4aBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(0)?; // reserved
@@ -129,7 +130,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EsdsBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for EsdsBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

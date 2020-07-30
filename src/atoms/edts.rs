@@ -1,6 +1,7 @@
 use std::io::{BufReader, Seek, Read, BufWriter, Write};
 
 use crate::*;
+use crate::atoms::*;
 use crate::atoms::elst::ElstBox;
 
 
@@ -35,7 +36,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
 
         let mut edts = EdtsBox::new();
 
-        let header = read_box_header(reader)?;
+        let header = BoxHeader::read(reader)?;
         let BoxHeader{ name, size: s } = header;
 
         match name {
@@ -55,7 +56,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EdtsBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for EdtsBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         if let Some(elst) = &self.elst {
             elst.write_box(writer)?;

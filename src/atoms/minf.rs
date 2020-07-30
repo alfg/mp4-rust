@@ -1,11 +1,8 @@
 use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
 
 use crate::*;
-use crate::atoms::{
-    vmhd::VmhdBox,
-    smhd::SmhdBox,
-    stbl::StblBox
-};
+use crate::atoms::*;
+use crate::atoms::{vmhd::VmhdBox, smhd::SmhdBox, stbl::StblBox};
 
 
 #[derive(Debug, Default)]
@@ -51,7 +48,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
         let end = start + size;
         while current < end {
             // Get box header.
-            let header = read_box_header(reader)?;
+            let header = BoxHeader::read(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -63,12 +60,17 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
                     let smhd = SmhdBox::read_box(reader, s)?;
                     minf.smhd = Some(smhd);
                 }
-                BoxType::DinfBox => {}
+                BoxType::DinfBox => {// XXX warn!()
+                    skip_box(reader, s)?;
+                }
                 BoxType::StblBox => {
                     let stbl = StblBox::read_box(reader, s)?;
                     minf.stbl = Some(stbl);
                 }
-                _ => {}
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
             }
 
             current = reader.seek(SeekFrom::Current(0))?;
@@ -83,7 +85,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for MinfBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         if let Some(vmhd) = &self.vmhd {
             vmhd.write_box(writer)?;

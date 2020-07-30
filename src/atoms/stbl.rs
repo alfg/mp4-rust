@@ -1,6 +1,7 @@
-use std::io::{BufReader, Seek, Read, BufWriter, Write};
+use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
 
 use crate::*;
+use crate::atoms::*;
 use crate::atoms::{
     stsd::StsdBox,
     stts::SttsBox,
@@ -71,7 +72,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
         let end = start + size;
         while current < end {
             // Get box header.
-            let header = read_box_header(reader)?;
+            let header = BoxHeader::read(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -103,7 +104,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
                     let co64 = Co64Box::read_box(reader, s)?;
                     stbl.co64 = Some(co64);
                 }
-                _ => {}
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
             }
             current = reader.seek(SeekFrom::Current(0))?;
         }
@@ -117,7 +121,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for StblBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         if let Some(stsd) = &self.stsd {
             stsd.write_box(writer)?;
