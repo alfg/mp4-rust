@@ -198,10 +198,9 @@ pub struct ESDescriptor {
     pub size: u32,
 
     pub es_id: u16,
-    pub flags: u8,
 
-    pub dec_conf: DecoderConfigDescriptor,
-    pub sl_conf: Option<SLPacketHeaderConfiguration>,
+    pub dec_config: DecoderConfigDescriptor,
+    pub sl_config: SLConfigDescriptor,
 }
 
 impl Descriptor for ESDescriptor {
@@ -213,7 +212,7 @@ impl Descriptor for ESDescriptor {
     fn desc_size() -> u32 {
         2 + 3
             + DecoderConfigDescriptor::desc_size()
-            + SLPacketHeaderConfiguration::desc_size()
+            + SLConfigDescriptor::desc_size()
     }
 }
 
@@ -225,18 +224,17 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for ESDescriptor {
         }
 
         let es_id = reader.read_u16::<BigEndian>()?;
-        let flags = reader.read_u8()?;
+        reader.read_u8()?; // XXX flags must be 0
 
-        let dec_conf = DecoderConfigDescriptor::read_desc(reader)?;
-        // XXX sl_conf
+        let dec_config = DecoderConfigDescriptor::read_desc(reader)?;
+        let sl_config = SLConfigDescriptor::read_desc(reader)?;
 
         Ok(ESDescriptor {
             tag,
             size,
             es_id,
-            flags,
-            dec_conf,
-            sl_conf: None,
+            dec_config,
+            sl_config,
         })
     }
 }
@@ -261,7 +259,7 @@ pub struct DecoderConfigDescriptor {
     pub max_bitrate: u32,
     pub avg_bitrate: u32,
 
-    pub dec_spec: AudioSpecificConfig,
+    pub dec_specific: DecoderSpecificDescriptor,
 }
 
 impl Descriptor for DecoderConfigDescriptor {
@@ -271,7 +269,7 @@ impl Descriptor for DecoderConfigDescriptor {
 
     // XXX size > 0x7F
     fn desc_size() -> u32 {
-        2 + 12 + AudioSpecificConfig::desc_size()
+        2 + 13 + DecoderSpecificDescriptor::desc_size()
     }
 }
 
@@ -290,7 +288,12 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for DecoderConfigDescriptor {
         let max_bitrate = reader.read_u32::<BigEndian>()?;
         let avg_bitrate = reader.read_u32::<BigEndian>()?;
 
-        let dec_spec = AudioSpecificConfig::read_desc(reader)?;
+        let dec_specific = DecoderSpecificDescriptor::read_desc(reader)?;
+
+        // XXX skip_read
+        for _ in DecoderConfigDescriptor::desc_size()..size-1 {
+            reader.read_u8()?;
+        }
 
         Ok(DecoderConfigDescriptor {
             tag,
@@ -301,7 +304,7 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for DecoderConfigDescriptor {
             buffer_size_db,
             max_bitrate,
             avg_bitrate,
-            dec_spec,
+            dec_specific,
         })
     }
 }
@@ -315,7 +318,7 @@ impl<W: Write> WriteDesc<&mut BufWriter<W>> for DecoderConfigDescriptor {
 }
 
 #[derive(Debug, Default, PartialEq)]
-pub struct AudioSpecificConfig {
+pub struct DecoderSpecificDescriptor {
     pub tag: u8,
     pub size: u32,
     pub profile: u8,
@@ -323,7 +326,7 @@ pub struct AudioSpecificConfig {
     pub chan_conf: u8,
 }
 
-impl Descriptor for AudioSpecificConfig {
+impl Descriptor for DecoderSpecificDescriptor {
     fn desc_tag() -> u8 {
         0x05
     }
@@ -334,11 +337,11 @@ impl Descriptor for AudioSpecificConfig {
     }
 }
 
-impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for AudioSpecificConfig {
+impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for DecoderSpecificDescriptor {
     fn read_desc(reader: &mut BufReader<R>) -> Result<Self> {
         let (tag, size) = read_desc(reader)?;
         if tag != Self::desc_tag() {
-            return Err(Error::InvalidData("AudioSpecificConfig not found"));
+            return Err(Error::InvalidData("DecoderSpecificDescriptor not found"));
         }
 
         let byte_a = reader.read_u8()?;
@@ -347,7 +350,7 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for AudioSpecificConfig {
         let freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
         let chan_conf = (byte_b >> 3) & 0x0F;
 
-        Ok(AudioSpecificConfig {
+        Ok(DecoderSpecificDescriptor {
             tag,
             size,
             profile,
@@ -357,7 +360,7 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for AudioSpecificConfig {
     }
 }
 
-impl<W: Write> WriteDesc<&mut BufWriter<W>> for AudioSpecificConfig {
+impl<W: Write> WriteDesc<&mut BufWriter<W>> for DecoderSpecificDescriptor {
     fn write_desc(&self, writer: &mut BufWriter<W>) -> Result<u32> {
         write_desc(writer, self.tag, self.size)?;
 
@@ -366,12 +369,12 @@ impl<W: Write> WriteDesc<&mut BufWriter<W>> for AudioSpecificConfig {
 }
 
 #[derive(Debug, Default, PartialEq)]
-pub struct SLPacketHeaderConfiguration {
+pub struct SLConfigDescriptor {
     pub tag: u8,
     pub size: u32,
 }
 
-impl Descriptor for SLPacketHeaderConfiguration {
+impl Descriptor for SLConfigDescriptor {
     fn desc_tag() -> u8 {
         0x06
     }
@@ -382,23 +385,23 @@ impl Descriptor for SLPacketHeaderConfiguration {
     }
 }
 
-impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for SLPacketHeaderConfiguration {
+impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for SLConfigDescriptor {
     fn read_desc(reader: &mut BufReader<R>) -> Result<Self> {
         let (tag, size) = read_desc(reader)?;
         if tag != Self::desc_tag() {
-            return Err(Error::InvalidData("SLPacketHeaderConfiguration not found"));
+            return Err(Error::InvalidData("SLConfigDescriptor not found"));
         }
 
         reader.read_u8()?; // pre-defined
 
-        Ok(SLPacketHeaderConfiguration {
+        Ok(SLConfigDescriptor {
             tag,
             size,
         })
     }
 }
 
-impl<W: Write> WriteDesc<&mut BufWriter<W>> for SLPacketHeaderConfiguration {
+impl<W: Write> WriteDesc<&mut BufWriter<W>> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut BufWriter<W>) -> Result<u32> {
         write_desc(writer, self.tag, self.size)?;
 
