@@ -1,4 +1,4 @@
-use std::io::{BufReader, Seek, Read, BufWriter, Write};
+use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
@@ -30,8 +30,8 @@ impl Mp4Box for StsdBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
@@ -66,8 +66,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for StsdBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for StsdBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 

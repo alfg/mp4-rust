@@ -1,5 +1,5 @@
 use std::fmt;
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{Seek, SeekFrom, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
@@ -208,7 +208,7 @@ impl BoxHeader {
     }
 
     // TODO: if size is 0, then this box is the last one in the file
-    pub fn read<R: Read>(reader: &mut BufReader<R>) -> Result<Self> {
+    pub fn read<R: Read>(reader: &mut R) -> Result<Self> {
         // Create and read to buf.
         let mut buf = [0u8;8]; // 8 bytes for box header.
         reader.read(&mut buf)?;
@@ -239,7 +239,7 @@ impl BoxHeader {
         }
     }
 
-    fn write<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+    fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         if self.size > u32::MAX as u64 {
             writer.write_u32::<BigEndian>(1)?;
             writer.write_u32::<BigEndian>(self.name.into())?;
@@ -253,40 +253,40 @@ impl BoxHeader {
     }
 }
 
-pub fn read_box_header_ext<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
+pub fn read_box_header_ext<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     let version = reader.read_u8()?;
     let flags = reader.read_u24::<BigEndian>()?;
     Ok((version, flags))
 }
 
-pub fn write_box_header_ext<W: Write>(w: &mut BufWriter<W>, v: u8, f: u32) -> Result<u64> {
+pub fn write_box_header_ext<W: Write>(w: &mut W, v: u8, f: u32) -> Result<u64> {
     w.write_u8(v)?;
     w.write_u24::<BigEndian>(f)?;
     Ok(4)
 }
 
-pub fn get_box_start<R: Seek>(reader: &mut BufReader<R>) -> Result<u64> {
+pub fn get_box_start<R: Seek>(reader: &mut R) -> Result<u64> {
     Ok(reader.seek(SeekFrom::Current(0))? - HEADER_SIZE)
 }
 
-pub fn skip_read<R: Read + Seek>(reader: &mut BufReader<R>, size: i64) -> Result<()> {
+pub fn skip_read<R: Read + Seek>(reader: &mut R, size: i64) -> Result<()> {
     assert!(size >= 0);
     reader.seek(SeekFrom::Current(size))?;
     Ok(())
 }
 
-pub fn skip_read_to<R: Read + Seek>(reader: &mut BufReader<R>, pos: u64) -> Result<()> {
+pub fn skip_read_to<R: Read + Seek>(reader: &mut R, pos: u64) -> Result<()> {
     reader.seek(SeekFrom::Start(pos))?;
     Ok(())
 }
 
-pub fn skip_box<R: Read + Seek>(reader: &mut BufReader<R>, size: u64) -> Result<()> {
+pub fn skip_box<R: Read + Seek>(reader: &mut R, size: u64) -> Result<()> {
     let start = get_box_start(reader)?;
     skip_read_to(reader, start + size)?;
     Ok(())
 }
 
-pub fn skip_write<W: Write>(writer: &mut BufWriter<W>, size: u64) -> Result<()> {
+pub fn skip_write<W: Write>(writer: &mut W, size: u64) -> Result<()> {
     for _ in 0..size {
         writer.write_u8(0)?;
     }

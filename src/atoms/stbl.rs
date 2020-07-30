@@ -1,4 +1,4 @@
-use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
+use std::io::{Seek, SeekFrom, Read, Write};
 
 use crate::*;
 use crate::atoms::*;
@@ -62,8 +62,8 @@ impl Mp4Box for StblBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = get_box_start(reader)?;
 
         let mut stbl = StblBox::new();
@@ -118,8 +118,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StblBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for StblBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for StblBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 

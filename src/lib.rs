@@ -1,5 +1,4 @@
-use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::fs::File;
+use std::io::{Seek, SeekFrom, Read};
 use std::convert::TryInto;
 
 mod atoms;
@@ -18,66 +17,63 @@ pub enum TrackType {
     Unknown,
 }
 
-#[derive(Debug, Default)]
-pub struct BMFF {
+#[derive(Debug)]
+pub struct Mp4Reader<R> {
+    reader: R,
     pub ftyp: FtypBox,
     pub moov: Option<MoovBox>,
-    pub size: u64,
+    size: u64,
 }
 
-impl BMFF {
-    pub fn new() -> BMFF {
-        Default::default()
+impl<R: Read + Seek> Mp4Reader<R> {
+    pub fn new(reader: R) -> Self {
+        Mp4Reader {
+            reader,
+            ftyp: FtypBox::default(),
+            moov: None,
+            size: 0,
+        }
     }
 
-    pub fn read_from_file(f: File) -> Result<BMFF> {
-        let size = f.metadata()?.len();
-        let mut reader = BufReader::new(f);
-
-        let mut bmff = BMFF::new();
-        bmff.size = bmff.read(&mut reader, size)?;
-
-        Ok(bmff)
+    pub fn size(&self) -> u64 {
+        self.size
     }
 
-    pub fn read<R: Read + Seek>(
-        &mut self,
-        reader: &mut BufReader<R>,
-        size: u64
-    ) -> Result<u64> {
-        let start = reader.seek(SeekFrom::Current(0))?;
+    pub fn read(&mut self, size: u64) -> Result<()> {
+        let start = self.reader.seek(SeekFrom::Current(0))?;
         let mut current = start;
         while current < size {
             // Get box header.
-            let header = BoxHeader::read(reader)?;
+            let header = BoxHeader::read(&mut self.reader)?;
             let BoxHeader{ name, size: s } = header;
 
             // Match and parse the atom boxes.
             match name {
                 BoxType::FtypBox => {
-                    let ftyp = FtypBox::read_box(reader, s)?;
+                    let ftyp = FtypBox::read_box(&mut self.reader, s)?;
                     self.ftyp = ftyp;
                 }
                 BoxType::FreeBox => {
-                    skip_box(reader, s)?;
+                    skip_box(&mut self.reader, s)?;
                 }
                 BoxType::MdatBox => {
-                    skip_box(reader, s)?;
+                    skip_box(&mut self.reader, s)?;
                 }
                 BoxType::MoovBox => {
-                    let moov = MoovBox::read_box(reader, s)?;
+                    let moov = MoovBox::read_box(&mut self.reader, s)?;
                     self.moov = Some(moov);
                 }
                 BoxType::MoofBox => {
-                    skip_box(reader, s)?;
+                    skip_box(&mut self.reader, s)?;
                 }
                 _ => {
                     // XXX warn!()
-                    skip_box(reader, s)?;
+                    skip_box(&mut self.reader, s)?;
                 }
             }
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = self.reader.seek(SeekFrom::Current(0))?;
         }
-        Ok(current - start)
+        self.size = current - start;
+        Ok(())
     }
 }

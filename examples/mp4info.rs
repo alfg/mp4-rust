@@ -1,6 +1,7 @@
 use mp4;
 use std::env;
 use std::fs::File;
+use std::io::BufReader;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -9,15 +10,18 @@ fn main() {
         2 => {
             let filename = &args[1];
             let f = File::open(filename).unwrap();
+            let size = f.metadata().unwrap().len();
+            let reader = BufReader::new(f);
 
-            let bmff = mp4::BMFF::read_from_file(f).unwrap();
-            let moov = bmff.moov.unwrap();
+            let mut mp4 = mp4::Mp4Reader::new(reader);
+            mp4.read(size).unwrap();
 
-            // Print results.
             println!("File:");
-            println!("  size:  {}", bmff.size);
+            println!("  size:  {}", mp4.size());
             println!("  brands:     {:?} {:?}\n",
-                     bmff.ftyp.major_brand, bmff.ftyp.compatible_brands);
+                     mp4.ftyp.major_brand, mp4.ftyp.compatible_brands);
+
+            let moov = mp4.moov.unwrap();
 
             println!("Movie:");
             println!("  version:       {:?}", moov.mvhd.version);

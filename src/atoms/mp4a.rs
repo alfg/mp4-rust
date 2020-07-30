@@ -1,4 +1,4 @@
-use std::io::{BufReader, Seek, Read, BufWriter, Write};
+use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
@@ -36,8 +36,8 @@ impl Mp4Box for Mp4aBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Mp4aBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = get_box_start(reader)?;
 
         reader.read_u32::<BigEndian>()?; // reserved
@@ -70,8 +70,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Mp4aBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for Mp4aBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for Mp4aBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
@@ -109,8 +109,8 @@ impl Mp4Box for EsdsBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EsdsBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
@@ -127,8 +127,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EsdsBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for EsdsBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for EsdsBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
@@ -152,7 +152,7 @@ trait WriteDesc<T>: Sized {
     fn write_desc(&self, _: T) -> Result<u32>;
 }
 
-fn read_desc<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
+fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     let tag = reader.read_u8()?;
 
     let mut size: u32 = 0;
@@ -167,7 +167,7 @@ fn read_desc<R: Read>(reader: &mut BufReader<R>) -> Result<(u8, u32)> {
     Ok((tag, size))
 }
 
-fn write_desc<W: Write>(writer: &mut BufWriter<W>, tag: u8, size: u32) -> Result<u64> {
+fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
     writer.write_u8(tag)?;
 
     if size > 0x0FFFFFFF {
@@ -217,8 +217,8 @@ impl Descriptor for ESDescriptor {
     }
 }
 
-impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for ESDescriptor {
-    fn read_desc(reader: &mut BufReader<R>) -> Result<Self> {
+impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
+    fn read_desc(reader: &mut R) -> Result<Self> {
         let (tag, size) = read_desc(reader)?;
         if tag != Self::desc_tag() {
             return Err(Error::InvalidData("ESDescriptor not found"));
@@ -240,8 +240,8 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for ESDescriptor {
     }
 }
 
-impl<W: Write> WriteDesc<&mut BufWriter<W>> for ESDescriptor {
-    fn write_desc(&self, writer: &mut BufWriter<W>) -> Result<u32> {
+impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
+    fn write_desc(&self, writer: &mut W) -> Result<u32> {
         write_desc(writer, self.tag, self.size)?;
 
         Ok(self.size)
@@ -274,8 +274,8 @@ impl Descriptor for DecoderConfigDescriptor {
     }
 }
 
-impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for DecoderConfigDescriptor {
-    fn read_desc(reader: &mut BufReader<R>) -> Result<Self> {
+impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
+    fn read_desc(reader: &mut R) -> Result<Self> {
         let (tag, size) = read_desc(reader)?;
         if tag != Self::desc_tag() {
             return Err(Error::InvalidData("DecoderConfigDescriptor not found"));
@@ -310,8 +310,8 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for DecoderConfigDescriptor {
     }
 }
 
-impl<W: Write> WriteDesc<&mut BufWriter<W>> for DecoderConfigDescriptor {
-    fn write_desc(&self, writer: &mut BufWriter<W>) -> Result<u32> {
+impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
+    fn write_desc(&self, writer: &mut W) -> Result<u32> {
         write_desc(writer, self.tag, self.size)?;
 
         Ok(self.size)
@@ -338,8 +338,8 @@ impl Descriptor for DecoderSpecificDescriptor {
     }
 }
 
-impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for DecoderSpecificDescriptor {
-    fn read_desc(reader: &mut BufReader<R>) -> Result<Self> {
+impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
+    fn read_desc(reader: &mut R) -> Result<Self> {
         let (tag, size) = read_desc(reader)?;
         if tag != Self::desc_tag() {
             return Err(Error::InvalidData("DecoderSpecificDescriptor not found"));
@@ -361,8 +361,8 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for DecoderSpecificDescriptor {
     }
 }
 
-impl<W: Write> WriteDesc<&mut BufWriter<W>> for DecoderSpecificDescriptor {
-    fn write_desc(&self, writer: &mut BufWriter<W>) -> Result<u32> {
+impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
+    fn write_desc(&self, writer: &mut W) -> Result<u32> {
         write_desc(writer, self.tag, self.size)?;
 
         Ok(self.size)
@@ -386,8 +386,8 @@ impl Descriptor for SLConfigDescriptor {
     }
 }
 
-impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for SLConfigDescriptor {
-    fn read_desc(reader: &mut BufReader<R>) -> Result<Self> {
+impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
+    fn read_desc(reader: &mut R) -> Result<Self> {
         let (tag, size) = read_desc(reader)?;
         if tag != Self::desc_tag() {
             return Err(Error::InvalidData("SLConfigDescriptor not found"));
@@ -402,8 +402,8 @@ impl<R: Read + Seek> ReadDesc<&mut BufReader<R>> for SLConfigDescriptor {
     }
 }
 
-impl<W: Write> WriteDesc<&mut BufWriter<W>> for SLConfigDescriptor {
-    fn write_desc(&self, writer: &mut BufWriter<W>) -> Result<u32> {
+impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
+    fn write_desc(&self, writer: &mut W) -> Result<u32> {
         write_desc(writer, self.tag, self.size)?;
 
         Ok(self.size)

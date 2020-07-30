@@ -1,4 +1,4 @@
-use std::io::{BufReader, Seek, Read, BufWriter, Write};
+use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
 
@@ -43,8 +43,8 @@ impl Mp4Box for Avc1Box {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = get_box_start(reader)?;
 
         reader.read_u32::<BigEndian>()?; // reserved
@@ -89,8 +89,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for Avc1Box {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for Avc1Box {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
@@ -149,8 +149,8 @@ impl Mp4Box for AvcCBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for AvcCBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = get_box_start(reader)?;
 
         let configuration_version = reader.read_u8()?;
@@ -185,8 +185,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for AvcCBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for AvcCBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for AvcCBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
@@ -218,7 +218,7 @@ impl NalUnit {
         2 + self.bytes.len()
     }
 
-    pub fn read<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<Self> {
+    pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self> {
         let length = reader.read_u16::<BigEndian>()? as usize;
         let mut bytes = vec![0u8; length];
         reader.read(&mut bytes)?;
@@ -227,7 +227,7 @@ impl NalUnit {
         })
     }
 
-    pub fn write<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         writer.write_u16::<BigEndian>(self.bytes.len() as u16)?;
         writer.write(&self.bytes)?;
         Ok(self.size() as u64)

@@ -1,18 +1,23 @@
 use mp4;
 use std::fs::File;
+use std::io::BufReader;
 
 
 #[test]
 fn test_read_mp4() {
     let filename = "tests/samples/minimal.mp4";
     let f = File::open(filename).unwrap();
-    let bmff = mp4::BMFF::read_from_file(f).unwrap();
+    let size = f.metadata().unwrap().len();
+    let reader = BufReader::new(f);
 
-    assert_eq!(2591, bmff.size);
+    let mut mp4 = mp4::Mp4Reader::new(reader);
+    mp4.read(size).unwrap();
+
+    assert_eq!(2591, mp4.size());
 
     // ftyp.
-    println!("{:?}", bmff.ftyp.compatible_brands);
-    assert_eq!(4, bmff.ftyp.compatible_brands.len());
+    println!("{:?}", mp4.ftyp.compatible_brands);
+    assert_eq!(4, mp4.ftyp.compatible_brands.len());
 
     // Check compatible_brands.
     let brands = vec![
@@ -23,12 +28,12 @@ fn test_read_mp4() {
     ];
 
     for b in brands {
-        let t = bmff.ftyp.compatible_brands.iter().any(|x| x.to_string() == b);
+        let t = mp4.ftyp.compatible_brands.iter().any(|x| x.to_string() == b);
         assert_eq!(t, true);
     }
 
     // moov.
-    let moov = bmff.moov.unwrap();
+    let moov = mp4.moov.unwrap();
     assert_eq!(moov.mvhd.version, 0);
     assert_eq!(moov.mvhd.creation_time, 0);
     assert_eq!(moov.mvhd.duration, 62);
