@@ -17,7 +17,7 @@ impl MoovBox {
 }
 
 impl Mp4Box for MoovBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::MoovBox
     }
 
@@ -32,13 +32,15 @@ impl Mp4Box for MoovBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+        let start = get_box_start(reader)?;
+
         let mut moov = MoovBox::new();
 
-        let mut start = 0u64;
-        while start < size {
-
+        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let end = start + size;
+        while current < end {
             // Get box header.
-            let header = read_box_header(reader, start)?;
+            let header = read_box_header(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -49,12 +51,15 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
                     let trak = TrakBox::read_box(reader, s)?;
                     moov.traks.push(trak);
                 }
-                BoxType::UdtaBox => {
-                    start = s - HEADER_SIZE;
-                }
-                _ => break
+                BoxType::UdtaBox => {}
+                _ => {}
             }
+
+            current = reader.seek(SeekFrom::Current(0))?;
         }
+
+        skip_read_to(reader, start + size)?;
+
         Ok(moov)
     }
 }
@@ -62,7 +67,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MoovBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for MoovBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         self.mvhd.write_box(writer)?;
         for trak in self.traks.iter() {

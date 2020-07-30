@@ -1,4 +1,4 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
@@ -20,7 +20,7 @@ pub struct RgbColor {
 }
 
 impl Mp4Box for VmhdBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::VmhdBox
     }
 
@@ -31,7 +31,7 @@ impl Mp4Box for VmhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -41,7 +41,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
             green: reader.read_u16::<BigEndian>()?,
             blue: reader.read_u16::<BigEndian>()?,
         };
-        skip_read(reader, current, size)?;
+
+        skip_read_to(reader, start + size)?;
 
         Ok(VmhdBox {
             version,
@@ -55,7 +56,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for VmhdBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for VmhdBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -92,7 +93,7 @@ mod tests {
 
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
+            let header = read_box_header(&mut reader).unwrap();
             assert_eq!(header.name, BoxType::VmhdBox);
             assert_eq!(src_box.box_size(), header.size);
 

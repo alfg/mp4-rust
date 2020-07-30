@@ -17,8 +17,13 @@ mod hdlr;
 mod minf;
 mod vmhd;
 mod stbl;
-mod stts;
 mod stsd;
+mod stts;
+mod stss;
+mod stsc;
+mod stsz;
+mod stco;
+mod co64;
 mod avc;
 mod mp4a;
 
@@ -73,6 +78,11 @@ boxtype!{
     StblBox => 0x7374626c,
     StsdBox => 0x73747364,
     SttsBox => 0x73747473,
+    StssBox => 0x73747373,
+    StscBox => 0x73747363,
+    StszBox => 0x7374737A,
+    StcoBox => 0x7374636F,
+    Co64Box => 0x636F3634,
     TrakBox => 0x7472616b,
     UdtaBox => 0x75647461,
     DinfBox => 0x64696e66,
@@ -171,7 +181,7 @@ impl fmt::Display for FourCC {
 }
 
 pub trait Mp4Box: Sized {
-    fn box_type(&self) -> BoxType;
+    fn box_type() -> BoxType;
     fn box_size(&self) -> u64;
 }
 
@@ -210,19 +220,26 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for BoxHeader {
     }
 }
 
-pub fn skip_read<R: Read + Seek>(reader: &mut BufReader<R>, current: u64, size: u64) -> Result<i64> {
-    let after = reader.seek(SeekFrom::Current(0))?;
-    let remaining_bytes = (size - (after - current)) as i64;
-    let size = remaining_bytes - HEADER_SIZE as i64;
-    reader.seek(SeekFrom::Current(size))?;
-    Ok(size)
+pub fn get_box_start<R: Seek>(reader: &mut BufReader<R>) -> Result<u64> {
+    Ok(reader.seek(SeekFrom::Current(0))? - HEADER_SIZE)
 }
 
-pub fn skip_write<W: Write>(writer: &mut BufWriter<W>, size: u64) -> Result<u64> {
+pub fn skip_read<R: Read + Seek>(reader: &mut BufReader<R>, size: i64) -> Result<()> {
+    assert!(size >= 0);
+    reader.seek(SeekFrom::Current(size))?;
+    Ok(())
+}
+
+pub fn skip_read_to<R: Read + Seek>(reader: &mut BufReader<R>, pos: u64) -> Result<()> {
+    reader.seek(SeekFrom::Start(pos))?;
+    Ok(())
+}
+
+pub fn skip_write<W: Write>(writer: &mut BufWriter<W>, size: u64) -> Result<()> {
     for _ in 0..size {
         writer.write_u8(0)?;
     }
-    Ok(size)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -237,10 +254,4 @@ mod tests {
         let ftyp_fcc2 = ftyp_value.into();
         assert_eq!(ftyp_fcc, ftyp_fcc2);
     }
-
-    // #[test]
-    // fn test_a() {
-    //     let a: u32 = FourCC::from("co64").into();
-    //     assert_eq!(a, 0);
-    // }
 }

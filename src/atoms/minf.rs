@@ -17,7 +17,7 @@ impl MinfBox {
 }
 
 impl Mp4Box for MinfBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::MinfBox
     }
 
@@ -35,13 +35,15 @@ impl Mp4Box for MinfBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
+
         let mut minf = MinfBox::new();
 
-        let mut start = 0u64;
-        while start < size {
+        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let end = start + size;
+        while current < end {
             // Get box header.
-            let header = read_box_header(reader, start)?;
+            let header = read_box_header(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -49,20 +51,19 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
                     let vmhd = VmhdBox::read_box(reader, s)?;
                     minf.vmhd = Some(vmhd);
                 }
-                BoxType::SmhdBox => {
-                    start = s - HEADER_SIZE;
-                }
-                BoxType::DinfBox => {
-                    start = s - HEADER_SIZE;
-                }
+                BoxType::SmhdBox => {}
+                BoxType::DinfBox => {}
                 BoxType::StblBox => {
                     let stbl = StblBox::read_box(reader, s)?;
                     minf.stbl = Some(stbl);
                 }
-                _ => break
+                _ => {}
             }
+
+            current = reader.seek(SeekFrom::Current(0))?;
         }
-        skip_read(reader, current, size)?;
+
+        skip_read_to(reader, start + size)?;
 
         Ok(minf)
     }
@@ -71,7 +72,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MinfBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for MinfBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         if let Some(vmhd) = &self.vmhd {
             vmhd.write_box(writer)?;

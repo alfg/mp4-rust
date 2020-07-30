@@ -1,4 +1,4 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
@@ -26,7 +26,7 @@ impl Default for Mp4aBox {
 }
 
 impl Mp4Box for Mp4aBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::Mp4aBox
     }
 
@@ -37,7 +37,7 @@ impl Mp4Box for Mp4aBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Mp4aBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
@@ -49,12 +49,12 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Mp4aBox {
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
         let samplerate = reader.read_u32::<BigEndian>()?;
 
-        let header = read_box_header(reader, 0)?;
+        let header = read_box_header(reader)?;
         let BoxHeader{ name, size: s } = header;
         if name == BoxType::EsdsBox {
             let esds = EsdsBox::read_box(reader, s)?;
 
-            skip_read(reader, current, size)?;
+            skip_read_to(reader, start + size)?;
 
             Ok(Mp4aBox {
                 data_reference_index,
@@ -72,7 +72,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Mp4aBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for Mp4aBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(0)?; // reserved
@@ -99,7 +99,7 @@ pub struct EsdsBox {
 }
 
 impl Mp4Box for EsdsBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::EsdsBox
     }
 
@@ -110,13 +110,13 @@ impl Mp4Box for EsdsBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EsdsBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
         let es_desc = ESDescriptor::read_desc(reader)?;
 
-        skip_read(reader, current, size)?;
+        skip_read_to(reader, start + size)?;
 
         Ok(EsdsBox {
             version,
@@ -129,7 +129,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for EsdsBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for EsdsBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

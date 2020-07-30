@@ -1,4 +1,4 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
@@ -20,7 +20,7 @@ pub struct ElstEntry {
 }
 
 impl Mp4Box for ElstBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::ElstBox
     }
 
@@ -38,7 +38,7 @@ impl Mp4Box for ElstBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -66,7 +66,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
             };
             entries.push(entry);
         }
-        skip_read(reader, current, size)?;
+
+        skip_read_to(reader, start + size)?;
 
         Ok(ElstBox {
             version,
@@ -79,7 +80,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for ElstBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for ElstBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -127,7 +128,7 @@ mod tests {
 
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
+            let header = read_box_header(&mut reader).unwrap();
             assert_eq!(header.name, BoxType::ElstBox);
             assert_eq!(src_box.box_size(), header.size);
 
@@ -158,7 +159,7 @@ mod tests {
 
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
+            let header = read_box_header(&mut reader).unwrap();
             assert_eq!(header.name, BoxType::ElstBox);
             assert_eq!(src_box.box_size(), header.size);
 

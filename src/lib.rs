@@ -60,11 +60,11 @@ fn read_boxes(f: File) -> Result<BMFF> {
     let mut bmff = BMFF::new();
     bmff.size  =  filesize;
 
-    let mut start = 0u64;
-    while start < filesize {
+    let mut current = reader.seek(SeekFrom::Current(0))?;
+    while current < filesize {
 
         // Get box header.
-        let header = read_box_header(&mut reader, start)?;
+        let header = read_box_header(&mut reader)?;
         let BoxHeader{ name, size } = header;
 
         // Match and parse the atom boxes.
@@ -73,38 +73,22 @@ fn read_boxes(f: File) -> Result<BMFF> {
                 let ftyp = FtypBox::read_box(&mut reader, size)?;
                 bmff.ftyp = ftyp;
             }
-            BoxType::FreeBox => {
-                start = 0;
-            }
-            BoxType::MdatBox => {
-                start = size - HEADER_SIZE;
-            }
+            BoxType::FreeBox => {}
+            BoxType::MdatBox => {}
             BoxType::MoovBox => {
                 let moov = MoovBox::read_box(&mut reader, size)?;
                 bmff.moov = Some(moov);
             }
-            BoxType::MoofBox => {
-                start = size - HEADER_SIZE;
-            }
-            _ => {
-                // Skip over unsupported boxes, but stop if the size is zero,
-                // meaning the last box has been reached.
-                if size == 0 {
-                    break;
-                } else {
-                    start = size - HEADER_SIZE;
-                }
-            }
-        };
+            BoxType::MoofBox => {}
+            _ => {}
+        }
+        current = reader.seek(SeekFrom::Current(0))?;
     }
     Ok(bmff)
 }
 
 // TODO: if size is 0, then this box is the last one in the file
-fn read_box_header<R: Read + Seek>(reader: &mut BufReader<R>, start: u64) -> Result<BoxHeader> {
-    // Seek to offset.
-    let _r = reader.seek(SeekFrom::Current(start as i64));
-
+fn read_box_header<R: Read>(reader: &mut BufReader<R>) -> Result<BoxHeader> {
     // Create and read to buf.
     let mut buf = [0u8;8]; // 8 bytes for box header.
     reader.read(&mut buf)?;

@@ -1,4 +1,4 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
 
@@ -33,7 +33,7 @@ impl Default for Avc1Box {
 }
 
 impl Mp4Box for Avc1Box {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::Avc1Box
     }
 
@@ -44,7 +44,7 @@ impl Mp4Box for Avc1Box {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
@@ -61,19 +61,16 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
         let vertresolution = Ratio::new_raw(vertnumer, 0x10000);
         reader.read_u32::<BigEndian>()?; // reserved
         let frame_count = reader.read_u16::<BigEndian>()?;
-        // skip compressorname
-        for _ in 0..4 {
-            reader.read_u64::<BigEndian>()?;
-        }
+        skip_read(reader, 32)?; // compressorname
         let depth = reader.read_u16::<BigEndian>()?;
         reader.read_i16::<BigEndian>()?; // pre-defined
 
-        let header = read_box_header(reader, 0)?;
+        let header = read_box_header(reader)?;
         let BoxHeader{ name, size: s } = header;
         if name == BoxType::AvcCBox {
             let avcc = AvcCBox::read_box(reader, s)?;
 
-            skip_read(reader, current, size)?;
+            skip_read_to(reader, start + size)?;
 
             Ok(Avc1Box {
                 data_reference_index,
@@ -94,7 +91,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for Avc1Box {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for Avc1Box {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(0)?; // reserved
@@ -135,7 +132,7 @@ pub struct AvcCBox {
 }
 
 impl Mp4Box for AvcCBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::AvcCBox
     }
 
@@ -153,7 +150,7 @@ impl Mp4Box for AvcCBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for AvcCBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         let configuration_version = reader.read_u8()?;
         let avc_profile_indication = reader.read_u8()?;
@@ -173,8 +170,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for AvcCBox {
             picture_parameter_sets.push(nal_unit);
         }
 
-        // TODO
-        skip_read(reader, current, size)?;
+        skip_read_to(reader, start + size)?;
 
         Ok(AvcCBox {
             configuration_version,
@@ -191,7 +187,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for AvcCBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for AvcCBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         writer.write_u8(self.configuration_version)?;
         writer.write_u8(self.avc_profile_indication)?;

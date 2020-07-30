@@ -18,7 +18,7 @@ impl TrakBox {
 }
 
 impl Mp4Box for TrakBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::TrakBox
     }
 
@@ -39,13 +39,15 @@ impl Mp4Box for TrakBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
+
         let mut trak = TrakBox::new();
 
-        let start = 0u64;
-        while start < size {
+        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let end = start + size;
+        while current < end {
             // Get box header.
-            let header = read_box_header(reader, start)?;
+            let header = read_box_header(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -61,10 +63,13 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
                     let mdia = MdiaBox::read_box(reader, s)?;
                     trak.mdia = Some(mdia);
                 }
-                _ => break
+                _ => {}
             }
+
+            current = reader.seek(SeekFrom::Current(0))?;
         }
-        skip_read(reader, current, size)?;
+
+        skip_read_to(reader, start + size)?;
 
         Ok(trak)
     }
@@ -73,7 +78,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TrakBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for TrakBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         if let Some(tkhd) = &self.tkhd {
             tkhd.write_box(writer)?;

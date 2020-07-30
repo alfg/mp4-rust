@@ -1,4 +1,4 @@
-use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
+use std::io::{BufReader, Seek, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
 
@@ -54,7 +54,7 @@ pub struct Matrix {
 }
 
 impl Mp4Box for TkhdBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::TkhdBox
     }
 
@@ -73,7 +73,7 @@ impl Mp4Box for TkhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -118,7 +118,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
         let width = reader.read_u32::<BigEndian>()? >> 16;
         let height = reader.read_u32::<BigEndian>()? >> 16;
 
-        skip_read(reader, current, size)?;
+        skip_read_to(reader, start + size)?;
 
         Ok(TkhdBox {
             version,
@@ -140,7 +140,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
 impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -224,7 +224,7 @@ mod tests {
 
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
+            let header = read_box_header(&mut reader).unwrap();
             assert_eq!(header.name, BoxType::TkhdBox);
             assert_eq!(src_box.box_size(), header.size);
 
@@ -269,7 +269,7 @@ mod tests {
 
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
+            let header = read_box_header(&mut reader).unwrap();
             assert_eq!(header.name, BoxType::TkhdBox);
             assert_eq!(src_box.box_size(), header.size);
 
