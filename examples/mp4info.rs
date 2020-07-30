@@ -10,23 +10,19 @@ fn main() {
             let filename = &args[1];
             let f = File::open(filename).unwrap();
 
-            let bmff = mp4::read_mp4(f).unwrap();
+            let bmff = mp4::BMFF::read_from_file(f).unwrap();
             let moov = bmff.moov.unwrap();
 
             // Print results.
             println!("File:");
-            println!("  file size:  {}", bmff.size);
-            println!(
-                "  brands:     {:?} {:?}\n",
-                bmff.ftyp.major_brand, bmff.ftyp.compatible_brands
-            );
+            println!("  size:  {}", bmff.size);
+            println!("  brands:     {:?} {:?}\n",
+                     bmff.ftyp.major_brand, bmff.ftyp.compatible_brands);
 
             println!("Movie:");
             println!("  version:       {:?}", moov.mvhd.version);
-            println!(
-                "  creation time: {}",
-                creation_time(moov.mvhd.creation_time)
-            );
+            println!("  creation time: {}",
+                     creation_time(moov.mvhd.creation_time));
             println!("  duration:      {:?}", moov.mvhd.duration);
             println!("  timescale:     {:?}\n", moov.mvhd.timescale);
 
@@ -50,10 +46,8 @@ fn main() {
                         .map(|m| m.stbl.as_ref().map(|s| s.stts.as_ref()).flatten())
                         .flatten();
 
-                    println!(
-                        "  type:     {:?}",
-                        get_handler_type(hdlr.handler_type.value.as_ref())
-                    );
+                    println!("  type:     {:?}",
+                             get_handler_type(hdlr.handler_type.value.as_ref()));
                     println!("  language: {:?}", mdhd.language);
 
                     println!("  media:");
@@ -61,20 +55,15 @@ fn main() {
                         println!("    sample count: {:?}", s.entries[0].sample_count);
                     }
                     println!("    timescale:    {:?}", mdhd.timescale);
-                    println!(
-                        "    duration:     {:?} (media timescale units)",
-                        mdhd.duration
-                    );
-                    println!(
-                        "    duration:     {:?} (ms)",
-                        get_duration_ms(mdhd.duration, mdhd.timescale)
-                    );
+                    println!("    duration:     {:?} (media timescale units)",
+                             mdhd.duration);
+                    println!("    duration:     {:?} (ms)",
+                             get_duration_ms(mdhd.duration, mdhd.timescale));
                     if get_handler_type(hdlr.handler_type.value.as_ref()) == mp4::TrackType::Video {
                         if let Some(ref s) = stts {
-                            println!(
-                                "    frame rate: (computed): {:?}",
-                                get_framerate(s.entries[0].sample_count, mdhd.duration, mdhd.timescale)
-                            );
+                            println!("    frame rate: (computed): {:?}",
+                                     get_framerate(s.entries[0].sample_count,
+                                                   mdhd.duration, mdhd.timescale));
                         }
                     }
                 }

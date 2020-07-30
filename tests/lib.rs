@@ -6,7 +6,7 @@ use std::fs::File;
 fn test_read_mp4() {
     let filename = "tests/samples/minimal.mp4";
     let f = File::open(filename).unwrap();
-    let bmff = mp4::read_mp4(f).unwrap();
+    let bmff = mp4::BMFF::read_from_file(f).unwrap();
 
     assert_eq!(2591, bmff.size);
 

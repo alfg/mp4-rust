@@ -1,4 +1,4 @@
-use std::io::{BufReader, SeekFrom, Seek};
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::fs::File;
 use std::convert::TryInto;
 
@@ -26,56 +26,58 @@ pub struct BMFF {
 }
 
 impl BMFF {
-    fn new() -> BMFF {
+    pub fn new() -> BMFF {
         Default::default()
     }
-}
 
-pub fn read_mp4(f: File) -> Result<BMFF> {
+    pub fn read_from_file(f: File) -> Result<BMFF> {
+        let size = f.metadata()?.len();
+        let mut reader = BufReader::new(f);
 
-    // Open file and read boxes.
-    let bmff = read_boxes(f)?;
+        let mut bmff = BMFF::new();
+        bmff.size = bmff.read(&mut reader, size)?;
 
-    Ok(bmff)
-}
-
-fn read_boxes(f: File) -> Result<BMFF> {
-    let filesize = f.metadata()?.len();
-    let mut reader = BufReader::new(f);
-    let mut bmff = BMFF::new();
-    bmff.size  =  filesize;
-
-    let mut current = reader.seek(SeekFrom::Current(0))?;
-    while current < filesize {
-        // Get box header.
-        let header = BoxHeader::read(&mut reader)?;
-        let BoxHeader{ name, size } = header;
-
-        // Match and parse the atom boxes.
-        match name {
-            BoxType::FtypBox => {
-                let ftyp = FtypBox::read_box(&mut reader, size)?;
-                bmff.ftyp = ftyp;
-            }
-            BoxType::FreeBox => {
-                skip_box(&mut reader, size)?;
-            }
-            BoxType::MdatBox => {
-                skip_box(&mut reader, size)?;
-            }
-            BoxType::MoovBox => {
-                let moov = MoovBox::read_box(&mut reader, size)?;
-                bmff.moov = Some(moov);
-            }
-            BoxType::MoofBox => {
-                skip_box(&mut reader, size)?;
-            }
-            _ => {
-                // XXX warn!()
-                skip_box(&mut reader, size)?;
-            }
-        }
-        current = reader.seek(SeekFrom::Current(0))?;
+        Ok(bmff)
     }
-    Ok(bmff)
+
+    pub fn read<R: Read + Seek>(
+        &mut self,
+        reader: &mut BufReader<R>,
+        size: u64
+    ) -> Result<u64> {
+        let start = reader.seek(SeekFrom::Current(0))?;
+        let mut current = start;
+        while current < size {
+            // Get box header.
+            let header = BoxHeader::read(reader)?;
+            let BoxHeader{ name, size: s } = header;
+
+            // Match and parse the atom boxes.
+            match name {
+                BoxType::FtypBox => {
+                    let ftyp = FtypBox::read_box(reader, s)?;
+                    self.ftyp = ftyp;
+                }
+                BoxType::FreeBox => {
+                    skip_box(reader, s)?;
+                }
+                BoxType::MdatBox => {
+                    skip_box(reader, s)?;
+                }
+                BoxType::MoovBox => {
+                    let moov = MoovBox::read_box(reader, s)?;
+                    self.moov = Some(moov);
+                }
+                BoxType::MoofBox => {
+                    skip_box(reader, s)?;
+                }
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
+            }
+            current = reader.seek(SeekFrom::Current(0))?;
+        }
+        Ok(current - start)
+    }
 }
