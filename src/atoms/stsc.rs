@@ -5,29 +5,30 @@ use crate::*;
 
 
 #[derive(Debug, Default, PartialEq)]
-pub struct SttsBox {
+pub struct StscBox {
     pub version: u8,
     pub flags: u32,
-    pub entries: Vec<SttsEntry>,
+    pub entries: Vec<StscEntry>,
 }
 
 #[derive(Debug, Default, PartialEq)]
-pub struct SttsEntry {
-    pub sample_count: u32,
-    pub sample_delta: u32,
+pub struct StscEntry {
+    pub first_chunk: u32,
+    pub samples_per_chunk: u32,
+    pub sample_description_index: u32,
 }
 
-impl Mp4Box for SttsBox {
+impl Mp4Box for StscBox {
     fn box_type() -> BoxType {
-        BoxType::SttsBox
+        BoxType::StscBox
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entries.len() as u64)
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (12 * self.entries.len() as u64)
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
+impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StscBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
         let start = get_box_start(reader)?;
 
@@ -36,16 +37,17 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
         let entry_count = reader.read_u32::<BigEndian>()?;
         let mut entries = Vec::with_capacity(entry_count as usize);
         for _i in 0..entry_count {
-            let entry = SttsEntry {
-                sample_count: reader.read_u32::<BigEndian>()?,
-                sample_delta: reader.read_u32::<BigEndian>()?,
+            let entry = StscEntry {
+                first_chunk: reader.read_u32::<BigEndian>()?,
+                samples_per_chunk: reader.read_u32::<BigEndian>()?,
+                sample_description_index: reader.read_u32::<BigEndian>()?,
             };
             entries.push(entry);
         }
 
         skip_read_to(reader, start + size)?;
 
-        Ok(SttsBox {
+        Ok(StscBox {
             version,
             flags,
             entries,
@@ -53,7 +55,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for SttsBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for SttsBox {
+impl<W: Write> WriteBox<&mut BufWriter<W>> for StscBox {
     fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write_box(writer)?;
@@ -62,8 +64,9 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for SttsBox {
 
         writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
         for entry in self.entries.iter() {
-            writer.write_u32::<BigEndian>(entry.sample_count)?;
-            writer.write_u32::<BigEndian>(entry.sample_delta)?;
+            writer.write_u32::<BigEndian>(entry.first_chunk)?;
+            writer.write_u32::<BigEndian>(entry.samples_per_chunk)?;
+            writer.write_u32::<BigEndian>(entry.sample_description_index)?;
         }
 
         Ok(size)
@@ -77,13 +80,21 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn test_stts32() {
-        let src_box = SttsBox {
+    fn test_stsc() {
+        let src_box = StscBox {
             version: 0,
             flags: 0,
             entries: vec![
-                SttsEntry {sample_count: 29726, sample_delta: 1024},
-                SttsEntry {sample_count: 1, sample_delta: 512},
+                StscEntry {
+                    first_chunk: 1,
+                    samples_per_chunk: 1,
+                    sample_description_index: 1,
+                },
+                StscEntry {
+                    first_chunk: 19026,
+                    samples_per_chunk: 14,
+                    sample_description_index: 1
+                },
             ],
         };
         let mut buf = Vec::new();
@@ -96,39 +107,10 @@ mod tests {
         {
             let mut reader = BufReader::new(Cursor::new(&buf));
             let header = read_box_header(&mut reader).unwrap();
-            assert_eq!(header.name, BoxType::SttsBox);
+            assert_eq!(header.name, BoxType::StscBox);
             assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = SttsBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
-    }
-
-    #[test]
-    fn test_stts64() {
-        let src_box = SttsBox {
-            version: 1,
-            flags: 0,
-            entries: vec![
-                SttsEntry {sample_count: 29726, sample_delta: 1024},
-                SttsEntry {sample_count: 1, sample_delta: 512},
-            ],
-        };
-        let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader).unwrap();
-            assert_eq!(header.name, BoxType::SttsBox);
-            assert_eq!(src_box.box_size(), header.size);
-
-            let dst_box = SttsBox::read_box(&mut reader, header.size).unwrap();
+            let dst_box = StscBox::read_box(&mut reader, header.size).unwrap();
 
             assert_eq!(src_box, dst_box);
         }

@@ -1,5 +1,5 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
-use byteorder::{BigEndian, ReadBytesExt};
+use std::io::{BufReader, Seek, Read, BufWriter, Write};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
 use crate::atoms::{avc::Avc1Box, mp4a::Mp4aBox};
@@ -14,7 +14,7 @@ pub struct StsdBox {
 }
 
 impl Mp4Box for StsdBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::StsdBox
     }
 
@@ -31,17 +31,17 @@ impl Mp4Box for StsdBox {
 
 impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
     fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let _entry_count = reader.read_u32::<BigEndian>()?;
+        reader.read_u32::<BigEndian>()?; // XXX entry_count
 
         let mut avc1 = None;
         let mut mp4a = None;
 
         // Get box header.
-        let header = read_box_header(reader, 0)?;
+        let header = read_box_header(reader)?;
         let BoxHeader{ name, size: s } = header;
 
         match name {
@@ -54,7 +54,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
             _ => {}
         }
 
-        skip_read(reader, current, size)?;
+        skip_read_to(reader, start + size)?;
 
         Ok(StsdBox {
             version,
@@ -66,8 +66,20 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
 }
 
 impl<W: Write> WriteBox<&mut BufWriter<W>> for StsdBox {
-    fn write_box(&self, _writer: &mut BufWriter<W>) -> Result<u64> {
-        // TODO
-        Ok(0)
+    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(Self::box_type(), size).write_box(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        writer.write_u32::<BigEndian>(1)?; // entry_count
+
+        if let Some(avc1) = &self.avc1 {
+            avc1.write_box(writer)?;
+        } else if let Some(mp4a) = &self.mp4a {
+            mp4a.write_box(writer)?;
+        }
+
+        Ok(size)
     }
 }

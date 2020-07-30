@@ -237,4 +237,10 @@ mod tests {
         let ftyp_fcc2 = ftyp_value.into();
         assert_eq!(ftyp_fcc, ftyp_fcc2);
     }
+
+    // #[test]
+    // fn test_a() {
+    //     let a: u32 = FourCC::from("co64").into();
+    //     assert_eq!(a, 0);
+    // }
 }
