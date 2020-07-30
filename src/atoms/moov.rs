@@ -49,7 +49,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
                     moov.mvhd = MvhdBox::read_box(reader, s)?;
                 }
                 BoxType::TrakBox => {
-                    let trak = TrakBox::read_box(reader, s)?;
+                    let mut trak = TrakBox::read_box(reader, s)?;
+                    trak.id = moov.traks.len() as u32 + 1;
                     moov.traks.push(trak);
                 }
                 BoxType::UdtaBox => {

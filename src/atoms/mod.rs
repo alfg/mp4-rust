@@ -103,6 +103,13 @@ impl fmt::Debug for BoxType {
     }
 }
 
+impl fmt::Display for BoxType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let fourcc: FourCC = From::from(self.clone());
+        write!(f, "{}", fourcc)
+    }
+}
+
 #[derive(Default, PartialEq, Clone)]
 pub struct FourCC {
     pub value: String

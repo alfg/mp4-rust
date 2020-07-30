@@ -17,6 +17,7 @@ pub struct StscEntry {
     pub first_chunk: u32,
     pub samples_per_chunk: u32,
     pub sample_description_index: u32,
+    pub first_sample: u32,
 }
 
 impl Mp4Box for StscBox {
@@ -37,13 +38,27 @@ impl<R: Read + Seek> ReadBox<&mut R> for StscBox {
 
         let entry_count = reader.read_u32::<BigEndian>()?;
         let mut entries = Vec::with_capacity(entry_count as usize);
-        for _i in 0..entry_count {
+        for _ in 0..entry_count {
             let entry = StscEntry {
                 first_chunk: reader.read_u32::<BigEndian>()?,
                 samples_per_chunk: reader.read_u32::<BigEndian>()?,
                 sample_description_index: reader.read_u32::<BigEndian>()?,
+                first_sample: 0,
             };
             entries.push(entry);
+        }
+
+        let mut sample_id = 1;
+        for i in 0..entry_count {
+            let (first_chunk, samples_per_chunk) = {
+                let mut entry = entries.get_mut(i as usize).unwrap();
+                entry.first_sample = sample_id;
+                (entry.first_chunk, entry.samples_per_chunk)
+            };
+            if i < entry_count - 1 {
+                let next_entry = entries.get(i as usize + 1).unwrap();
+                sample_id += (next_entry.first_chunk - first_chunk) * samples_per_chunk;
+            }
         }
 
         skip_read_to(reader, start + size)?;
