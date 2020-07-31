@@ -1,59 +1,86 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
-use byteorder::{BigEndian, ReadBytesExt};
+use std::io::{Seek, Read, Write};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
+use crate::atoms::*;
+use crate::atoms::{avc::Avc1Box, mp4a::Mp4aBox};
 
 
 #[derive(Debug)]
 pub struct StsdBox {
     pub version: u8,
     pub flags: u32,
+    pub avc1: Option<Avc1Box>,
+    pub mp4a: Option<Mp4aBox>,
 }
 
 impl Mp4Box for StsdBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::StsdBox
     }
 
     fn box_size(&self) -> u64 {
-        // TODO
-        0
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        if let Some(ref avc1) = self.avc1 {
+            size += avc1.box_size();
+        } else if let Some(ref mp4a) = self.mp4a {
+            size += mp4a.box_size();
+        }
+        size
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for StsdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let _entry_count = reader.read_u32::<BigEndian>()?;
+        reader.read_u32::<BigEndian>()?; // XXX entry_count
 
-        let mut start = 0u64;
-        while start < size {
-            // Get box header.
-            let header = read_box_header(reader, start)?;
-            let BoxHeader{ name, size: s } = header;
+        let mut avc1 = None;
+        let mut mp4a = None;
 
-            match name {
-                BoxType::Avc1Box => {}
-                BoxType::Mp4aBox => {}
-                _ => break
+        // Get box header.
+        let header = BoxHeader::read(reader)?;
+        let BoxHeader{ name, size: s } = header;
+
+        match name {
+            BoxType::Avc1Box => {
+                avc1 = Some(Avc1Box::read_box(reader, s)?);
             }
-            start += s - HEADER_SIZE;
+            BoxType::Mp4aBox => {
+                mp4a = Some(Mp4aBox::read_box(reader, s)?);
+            }
+            _ => {}
         }
-        skip_read(reader, current, size)?;
+
+        skip_read_to(reader, start + size)?;
 
         Ok(StsdBox {
             version,
             flags,
+            avc1,
+            mp4a,
         })
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for StsdBox {
-    fn write_box(&self, _writer: &mut BufWriter<W>) -> Result<u64> {
-        // TODO
-        Ok(0)
+impl<W: Write> WriteBox<&mut W> for StsdBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
+
+        write_box_header_ext(writer, self.version, self.flags)?;
+
+        writer.write_u32::<BigEndian>(1)?; // entry_count
+
+        if let Some(ref avc1) = self.avc1 {
+            avc1.write_box(writer)?;
+        } else if let Some(ref mp4a) = self.mp4a {
+            mp4a.write_box(writer)?;
+        }
+
+        Ok(size)
     }
 }

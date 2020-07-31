@@ -1,8 +1,9 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, PartialEq)]
@@ -31,7 +32,7 @@ impl Default for MvhdBox {
 }
 
 impl Mp4Box for MvhdBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::MvhdBox
     }
 
@@ -48,9 +49,9 @@ impl Mp4Box for MvhdBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -73,7 +74,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
             };
         let numer = reader.read_u32::<BigEndian>()?;
         let rate = Ratio::new_raw(numer, 0x10000);
-        skip_read(reader, current, size)?;
+
+        skip_read_to(reader, start + size)?;
 
         Ok(MvhdBox{
             version,
@@ -87,10 +89,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MvhdBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for MvhdBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for MvhdBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -118,7 +120,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for MvhdBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_box_header;
+    use crate::atoms::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -133,22 +135,16 @@ mod tests {
             rate: Ratio::new_raw(0x00010000, 0x10000),
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::MvhdBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::MvhdBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 
     #[test]
@@ -163,21 +159,15 @@ mod tests {
             rate: Ratio::new_raw(0x00010000, 0x10000),
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::MvhdBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::MvhdBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 }

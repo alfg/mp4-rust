@@ -1,6 +1,7 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{Seek, SeekFrom, Read, Write};
 
 use crate::*;
+use crate::atoms::*;
 use crate::atoms::{mdhd::MdhdBox, hdlr::HdlrBox, minf::MinfBox};
 
 
@@ -18,34 +19,36 @@ impl MdiaBox {
 }
 
 impl Mp4Box for MdiaBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::MdiaBox
     }
 
     fn box_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
-        if let Some(mdhd) = &self.mdhd {
+        if let Some(ref mdhd) = self.mdhd {
             size += mdhd.box_size();
         }
-        if let Some(hdlr) = &self.hdlr {
+        if let Some(ref hdlr) = self.hdlr {
             size += hdlr.box_size();
         }
-        if let Some(minf) = &self.minf {
+        if let Some(ref minf) = self.minf {
             size += minf.box_size();
         }
         size
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut R> for MdiaBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = get_box_start(reader)?;
+
         let mut mdia = MdiaBox::new();
 
-        let start = 0u64;
-        while start < size {
+        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let end = start + size;
+        while current < end {
             // Get box header.
-            let header = read_box_header(reader, start)?;
+            let header = BoxHeader::read(reader)?;
             let BoxHeader{ name, size: s } = header;
 
             match name {
@@ -61,27 +64,33 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for MdiaBox {
                     let minf = MinfBox::read_box(reader, s)?;
                     mdia.minf = Some(minf);
                 }
-                _ => break
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
             }
+
+            current = reader.seek(SeekFrom::Current(0))?;
         }
-        skip_read(reader, current, size)?;
+
+        skip_read_to(reader, start + size)?;
 
         Ok(mdia)
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for MdiaBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for MdiaBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
-        if let Some(mdhd) = &self.mdhd {
+        if let Some(ref mdhd) = self.mdhd {
             mdhd.write_box(writer)?;
         }
-        if let Some(hdlr) = &self.hdlr {
+        if let Some(ref hdlr) = self.hdlr {
             hdlr.write_box(writer)?;
         }
-        if let Some(minf) = &self.minf {
+        if let Some(ref minf) = self.minf {
             minf.write_box(writer)?;
         }
 

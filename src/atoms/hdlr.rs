@@ -1,7 +1,8 @@
-use std::io::{BufReader, SeekFrom, Seek, Read, BufWriter, Write};
+use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, Default, PartialEq)]
@@ -13,7 +14,7 @@ pub struct HdlrBox {
 }
 
 impl Mp4Box for HdlrBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::HdlrBox
     }
 
@@ -22,18 +23,18 @@ impl Mp4Box for HdlrBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
         reader.read_u32::<BigEndian>()?; // pre-defined
         let handler = reader.read_u32::<BigEndian>()?;
 
-        let n = reader.seek(SeekFrom::Current(12))?; // 12 bytes reserved.
+        skip_read(reader, 12)?; // reserved
 
-        let buf_size = (size - (n - current)) - HEADER_SIZE - 1;
+        let buf_size = size - HEADER_SIZE - HEADER_EXT_SIZE - 20 - 1;
         let mut buf = vec![0u8; buf_size as usize];
         reader.read_exact(&mut buf)?;
 
@@ -45,7 +46,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
             _ => String::from("null"),
         };
 
-        skip_read(reader, current, size)?;
+        skip_read_to(reader, start + size)?;
 
         Ok(HdlrBox {
             version,
@@ -56,10 +57,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for HdlrBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for HdlrBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for HdlrBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -81,7 +82,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for HdlrBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_box_header;
+    use crate::atoms::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -93,21 +94,15 @@ mod tests {
             name: String::from("VideoHandler"),
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::HdlrBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::HdlrBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 }

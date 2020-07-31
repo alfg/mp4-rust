@@ -1,8 +1,9 @@
-use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
+use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, PartialEq)]
@@ -54,7 +55,7 @@ pub struct Matrix {
 }
 
 impl Mp4Box for TkhdBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::TkhdBox
     }
 
@@ -71,9 +72,9 @@ impl Mp4Box for TkhdBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = get_box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -118,7 +119,7 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
         let width = reader.read_u32::<BigEndian>()? >> 16;
         let height = reader.read_u32::<BigEndian>()? >> 16;
 
-        skip_read(reader, current, size)?;
+        skip_read_to(reader, start + size)?;
 
         Ok(TkhdBox {
             version,
@@ -137,10 +138,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for TkhdBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -186,7 +187,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_box_header;
+    use crate::atoms::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -216,22 +217,16 @@ mod tests {
             height: 288,
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::TkhdBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::TkhdBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 
     #[test]
@@ -261,21 +256,15 @@ mod tests {
             height: 288,
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::TkhdBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::TkhdBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 }

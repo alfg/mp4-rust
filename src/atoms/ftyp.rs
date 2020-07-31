@@ -1,7 +1,8 @@
-use std::io::{BufReader, Seek, Read, BufWriter, Write};
+use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::*;
+use crate::atoms::*;
 
 
 #[derive(Debug, Default, PartialEq)]
@@ -12,7 +13,7 @@ pub struct FtypBox {
 }
 
 impl Mp4Box for FtypBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::FtypBox
     }
 
@@ -21,8 +22,10 @@ impl Mp4Box for FtypBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
+impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = get_box_start(reader)?;
+
         let major = reader.read_u32::<BigEndian>()?;
         let minor = reader.read_u32::<BigEndian>()?;
         if size % 4 != 0 {
@@ -36,6 +39,8 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
             brands.push(From::from(b));
         }
 
+        skip_read_to(reader, start + size)?;
+
         Ok(FtypBox {
             major_brand: From::from(major),
             minor_version: minor,
@@ -44,10 +49,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for FtypBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for FtypBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for FtypBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         writer.write_u32::<BigEndian>((&self.major_brand).into())?;
         writer.write_u32::<BigEndian>(self.minor_version)?;
@@ -61,7 +66,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for FtypBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_box_header;
+    use crate::atoms::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -77,21 +82,15 @@ mod tests {
             ]
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::FtypBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::FtypBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = FtypBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = FtypBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 }
