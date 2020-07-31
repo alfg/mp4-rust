@@ -5,6 +5,7 @@ use crate::atoms::*;
 use crate::atoms::{
     stsd::StsdBox,
     stts::SttsBox,
+    ctts::CttsBox,
     stss::StssBox,
     stsc::StscBox,
     stsz::StszBox,
@@ -17,6 +18,7 @@ use crate::atoms::{
 pub struct StblBox {
     pub stsd: Option<StsdBox>,
     pub stts: Option<SttsBox>,
+    pub ctts: Option<CttsBox>,
     pub stss: Option<StssBox>,
     pub stsc: Option<StscBox>,
     pub stsz: Option<StszBox>,
@@ -37,25 +39,28 @@ impl Mp4Box for StblBox {
 
     fn box_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
-        if let Some(stsd) = &self.stsd {
+        if let Some(ref stsd) = self.stsd {
             size += stsd.box_size();
         }
-        if let Some(stts) = &self.stts {
+        if let Some(ref stts) = self.stts {
             size += stts.box_size();
         }
-        if let Some(stss) = &self.stss {
+        if let Some(ref ctts) = self.ctts {
+            size += ctts.box_size();
+        }
+        if let Some(ref stss) = self.stss {
             size += stss.box_size();
         }
-        if let Some(stsc) = &self.stsc {
+        if let Some(ref stsc) = self.stsc {
             size += stsc.box_size();
         }
-        if let Some(stsz) = &self.stsz {
+        if let Some(ref stsz) = self.stsz {
             size += stsz.box_size();
         }
-        if let Some(stco) = &self.stco {
+        if let Some(ref stco) = self.stco {
             size += stco.box_size();
         }
-        if let Some(co64) = &self.co64 {
+        if let Some(ref co64) = self.co64 {
             size += co64.box_size();
         }
         size
@@ -83,6 +88,10 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
                 BoxType::SttsBox => {
                     let stts = SttsBox::read_box(reader, s)?;
                     stbl.stts = Some(stts);
+                }
+                BoxType::CttsBox => {
+                    let ctts = CttsBox::read_box(reader, s)?;
+                    stbl.ctts = Some(ctts);
                 }
                 BoxType::StssBox => {
                     let stss = StssBox::read_box(reader, s)?;
@@ -123,25 +132,28 @@ impl<W: Write> WriteBox<&mut W> for StblBox {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
-        if let Some(stsd) = &self.stsd {
+        if let Some(ref stsd) = self.stsd {
             stsd.write_box(writer)?;
         }
-        if let Some(stts) = &self.stts {
+        if let Some(ref stts) = self.stts {
             stts.write_box(writer)?;
         }
-        if let Some(stss) = &self.stss {
+        if let Some(ref ctts) = self.ctts {
+            ctts.write_box(writer)?;
+        }
+        if let Some(ref stss) = self.stss {
             stss.write_box(writer)?;
         }
-        if let Some(stsc) = &self.stsc {
+        if let Some(ref stsc) = self.stsc {
             stsc.write_box(writer)?;
         }
-        if let Some(stsz) = &self.stsz {
+        if let Some(ref stsz) = self.stsz {
             stsz.write_box(writer)?;
         }
-        if let Some(stco) = &self.stco {
+        if let Some(ref stco) = self.stco {
             stco.write_box(writer)?;
         }
-        if let Some(co64) = &self.co64 {
+        if let Some(ref co64) = self.co64 {
             co64.write_box(writer)?;
         }
 

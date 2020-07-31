@@ -25,13 +25,13 @@ impl Mp4Box for MdiaBox {
 
     fn box_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
-        if let Some(mdhd) = &self.mdhd {
+        if let Some(ref mdhd) = self.mdhd {
             size += mdhd.box_size();
         }
-        if let Some(hdlr) = &self.hdlr {
+        if let Some(ref hdlr) = self.hdlr {
             size += hdlr.box_size();
         }
-        if let Some(minf) = &self.minf {
+        if let Some(ref minf) = self.minf {
             size += minf.box_size();
         }
         size
@@ -84,13 +84,13 @@ impl<W: Write> WriteBox<&mut W> for MdiaBox {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
-        if let Some(mdhd) = &self.mdhd {
+        if let Some(ref mdhd) = self.mdhd {
             mdhd.write_box(writer)?;
         }
-        if let Some(hdlr) = &self.hdlr {
+        if let Some(ref hdlr) = self.hdlr {
             hdlr.write_box(writer)?;
         }
-        if let Some(minf) = &self.minf {
+        if let Some(ref minf) = self.minf {
             minf.write_box(writer)?;
         }
 

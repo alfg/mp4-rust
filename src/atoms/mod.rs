@@ -20,6 +20,7 @@ mod smhd;
 mod stbl;
 mod stsd;
 mod stts;
+mod ctts;
 mod stss;
 mod stsc;
 mod stsz;
@@ -81,6 +82,7 @@ boxtype!{
     StblBox => 0x7374626c,
     StsdBox => 0x73747364,
     SttsBox => 0x73747473,
+    CttsBox => 0x63747473,
     StssBox => 0x73747373,
     StscBox => 0x73747363,
     StszBox => 0x7374737A,

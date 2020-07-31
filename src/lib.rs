@@ -1,6 +1,8 @@
+use std::fmt;
 use std::io::{Seek, SeekFrom, Read};
 use std::convert::TryInto;
-use bytes::Buf;
+
+pub use bytes::Bytes;
 
 mod atoms;
 use crate::atoms::*;
@@ -19,12 +21,31 @@ pub enum TrackType {
 }
 
 #[derive(Debug)]
-pub struct Sample<B> {
+pub struct Mp4Sample {
     pub start_time: u64,
     pub duration: u32,
-    pub rendering_offset: u32,
+    pub rendering_offset: i32,
     pub is_sync: bool,
-    pub data: B,
+    pub bytes: Bytes,
+}
+
+impl PartialEq for Mp4Sample {
+    fn eq(&self, other: &Self) -> bool {
+        self.start_time == other.start_time
+            && self.duration == other.duration
+            && self.rendering_offset == other.rendering_offset
+            && self.is_sync == other.is_sync
+            && self.bytes.len() == other.bytes.len() // XXX for easy check
+    }
+}
+
+impl fmt::Display for Mp4Sample {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "start_time {}, duration {}, rendering_offset {}, is_sync {}, length {}",
+               self.start_time, self.duration, self.rendering_offset, self.is_sync,
+               self.bytes.len())
+    }
 }
 
 #[derive(Debug)]
@@ -87,16 +108,20 @@ impl<R: Read + Seek> Mp4Reader<R> {
         Ok(())
     }
 
-    pub fn read_sample<B: Buf>(
-        &mut self,
-        track_id: u32,
-        sample_id: u32,
-    ) -> Result<Option<Sample<B>>> {
+    pub fn track_count(&self) -> Result<u32> {
+        if let Some(ref moov) = self.moov {
+            Ok(moov.traks.len() as u32)
+        } else {
+            Err(Error::BoxNotFound(MoovBox::box_type()))
+        }
+    }
+
+    pub fn sample_count(&self, track_id: u32) -> Result<u32> {
         if track_id == 0 {
             return Err(Error::TrakNotFound(track_id));
         }
 
-        let moov = if let Some(moov) = &self.moov {
+        let moov = if let Some(ref moov) = self.moov {
             moov
         } else {
             return Err(Error::BoxNotFound(MoovBox::box_type()));
@@ -108,11 +133,30 @@ impl<R: Read + Seek> Mp4Reader<R> {
             return Err(Error::TrakNotFound(track_id));
         };
 
-        let _sample_offset = trak.sample_offset(sample_id)?;
-        let _sample_size = trak.sample_size(sample_id)?;
+        trak.sample_count()
+    }
 
-        // TODO
+    pub fn read_sample(
+        &mut self,
+        track_id: u32,
+        sample_id: u32,
+    ) -> Result<Option<Mp4Sample>> {
+        if track_id == 0 {
+            return Err(Error::TrakNotFound(track_id));
+        }
 
-        Ok(None)
+        let moov = if let Some(ref moov) = self.moov {
+            moov
+        } else {
+            return Err(Error::BoxNotFound(MoovBox::box_type()));
+        };
+
+        let trak = if let Some(trak) = moov.traks.get(track_id as usize - 1) {
+            trak
+        } else {
+            return Err(Error::TrakNotFound(track_id));
+        };
+
+        trak.read_sample(&mut self.reader, sample_id)
     }
 }

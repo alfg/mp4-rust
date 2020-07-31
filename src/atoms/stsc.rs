@@ -105,11 +105,13 @@ mod tests {
                     first_chunk: 1,
                     samples_per_chunk: 1,
                     sample_description_index: 1,
+                    first_sample: 1,
                 },
                 StscEntry {
                     first_chunk: 19026,
                     samples_per_chunk: 14,
-                    sample_description_index: 1
+                    sample_description_index: 1,
+                    first_sample: 19026,
                 },
             ],
         };

@@ -23,7 +23,7 @@ impl Mp4Box for EdtsBox {
 
     fn box_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
-        if let Some(elst) = &self.elst {
+        if let Some(ref elst) = self.elst {
             size += elst.box_size();
         }
         size
@@ -58,7 +58,7 @@ impl<W: Write> WriteBox<&mut W> for EdtsBox {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
-        if let Some(elst) = &self.elst {
+        if let Some(ref elst) = self.elst {
             elst.write_box(writer)?;
         }
 

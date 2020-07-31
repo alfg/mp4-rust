@@ -21,9 +21,9 @@ impl Mp4Box for StsdBox {
 
     fn box_size(&self) -> u64 {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-        if let Some(avc1) = &self.avc1 {
+        if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
-        } else if let Some(mp4a) = &self.mp4a {
+        } else if let Some(ref mp4a) = self.mp4a {
             size += mp4a.box_size();
         }
         size
@@ -75,9 +75,9 @@ impl<W: Write> WriteBox<&mut W> for StsdBox {
 
         writer.write_u32::<BigEndian>(1)?; // entry_count
 
-        if let Some(avc1) = &self.avc1 {
+        if let Some(ref avc1) = self.avc1 {
             avc1.write_box(writer)?;
-        } else if let Some(mp4a) = &self.mp4a {
+        } else if let Some(ref mp4a) = self.mp4a {
             mp4a.write_box(writer)?;
         }
 
