@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct HdlrBox {
     pub version: u8,
     pub flags: u32,
@@ -42,7 +40,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
             Ok(t) => {
                 assert_eq!(t.len(), buf_size as usize);
                 t
-            },
+            }
             _ => String::from("null"),
         };
 

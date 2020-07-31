@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct FtypBox {
     pub major_brand: FourCC,
     pub minor_version: u32,
@@ -72,14 +70,24 @@ mod tests {
     #[test]
     fn test_ftyp() {
         let src_box = FtypBox {
-            major_brand: FourCC { value: String::from("isom") },
+            major_brand: FourCC {
+                value: String::from("isom"),
+            },
             minor_version: 0,
             compatible_brands: vec![
-                FourCC { value: String::from("isom") },
-                FourCC { value: String::from("iso2") },
-                FourCC { value: String::from("avc1") },
-                FourCC { value: String::from("mp41") },
-            ]
+                FourCC {
+                    value: String::from("isom"),
+                },
+                FourCC {
+                    value: String::from("iso2"),
+                },
+                FourCC {
+                    value: String::from("avc1"),
+                },
+                FourCC {
+                    value: String::from("mp41"),
+                },
+            ],
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

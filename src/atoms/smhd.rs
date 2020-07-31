@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SmhdBox {
     pub version: u8,
     pub flags: u32,
@@ -65,7 +63,6 @@ impl<W: Write> WriteBox<&mut W> for SmhdBox {
         Ok(size)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

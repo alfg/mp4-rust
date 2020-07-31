@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MvhdBox {
     pub version: u8,
     pub flags: u32,
@@ -55,29 +53,28 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let (creation_time, modification_time, timescale, duration)
-            = if version  == 1 {
-                (
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                )
-            } else {
-                assert_eq!(version, 0);
-                (
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()? as u64,
-                )
-            };
+        let (creation_time, modification_time, timescale, duration) = if version == 1 {
+            (
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+            )
+        } else {
+            assert_eq!(version, 0);
+            (
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()? as u64,
+            )
+        };
         let numer = reader.read_u32::<BigEndian>()?;
         let rate = Ratio::new_raw(numer, 0x10000);
 
         skip_read_to(reader, start + size)?;
 
-        Ok(MvhdBox{
+        Ok(MvhdBox {
             version,
             flags,
             creation_time,

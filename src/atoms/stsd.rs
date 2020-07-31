@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 use crate::atoms::{avc::Avc1Box, mp4a::Mp4aBox};
 
-
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StsdBox {
     pub version: u8,
     pub flags: u32,
@@ -43,7 +41,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
-        let BoxHeader{ name, size: s } = header;
+        let BoxHeader { name, size: s } = header;
 
         match name {
             BoxType::Avc1Box => {

@@ -1,18 +1,16 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SttsBox {
     pub version: u8,
     pub flags: u32,
     pub entries: Vec<SttsEntry>,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SttsEntry {
     pub sample_count: u32,
     pub sample_delta: u32,
@@ -83,8 +81,14 @@ mod tests {
             version: 0,
             flags: 0,
             entries: vec![
-                SttsEntry {sample_count: 29726, sample_delta: 1024},
-                SttsEntry {sample_count: 1, sample_delta: 512},
+                SttsEntry {
+                    sample_count: 29726,
+                    sample_delta: 1024,
+                },
+                SttsEntry {
+                    sample_count: 1,
+                    sample_delta: 512,
+                },
             ],
         };
         let mut buf = Vec::new();

@@ -1,5 +1,5 @@
-use std::fmt;
 use std::convert::TryInto;
+use std::fmt;
 
 pub use bytes::Bytes;
 
@@ -42,9 +42,14 @@ impl PartialEq for Mp4Sample {
 
 impl fmt::Display for Mp4Sample {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "start_time {}, duration {}, rendering_offset {}, is_sync {}, length {}",
-               self.start_time, self.duration, self.rendering_offset, self.is_sync,
-               self.bytes.len())
+        write!(
+            f,
+            "start_time {}, duration {}, rendering_offset {}, is_sync {}, length {}",
+            self.start_time,
+            self.duration,
+            self.rendering_offset,
+            self.is_sync,
+            self.bytes.len()
+        )
     }
 }

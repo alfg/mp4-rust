@@ -27,7 +27,7 @@ fn copy<P: AsRef<Path>>(src_filename: &P, _dst_filename: &P) -> Result<()> {
     let mut mp4 = mp4::Mp4Reader::new(reader);
     mp4.read(size)?;
 
-    for tix in 0..mp4.track_count()? {
+    for tix in 0..mp4.track_count() {
         let track_id = tix + 1;
         let sample_count = mp4.sample_count(track_id)?;
         for six in 0..sample_count {

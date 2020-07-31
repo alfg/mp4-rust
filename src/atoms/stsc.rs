@@ -1,18 +1,16 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StscBox {
     pub version: u8,
     pub flags: u32,
     pub entries: Vec<StscEntry>,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StscEntry {
     pub first_chunk: u32,
     pub samples_per_chunk: u32,

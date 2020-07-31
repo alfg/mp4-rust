@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TkhdBox {
     pub version: u8,
     pub flags: u32,
@@ -14,7 +12,7 @@ pub struct TkhdBox {
     pub modification_time: u64,
     pub track_id: u32,
     pub duration: u64,
-    pub layer:  u16,
+    pub layer: u16,
     pub alternate_group: u16,
     pub volume: Ratio<u16>,
     pub matrix: Matrix,
@@ -41,7 +39,7 @@ impl Default for TkhdBox {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Matrix {
     pub a: i32,
     pub b: i32,
@@ -78,24 +76,23 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let (creation_time, modification_time, track_id, _, duration)
-            = if version == 1 {
-                (
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                )
+        let (creation_time, modification_time, track_id, _, duration) = if version == 1 {
+            (
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+            )
         } else {
-                assert_eq!(version, 0);
-                (
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()? as u64,
-                )
+            assert_eq!(version, 0);
+            (
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()? as u64,
+            )
         };
         reader.read_u64::<BigEndian>()?; // reserved
         let layer = reader.read_u16::<BigEndian>()?;
@@ -104,7 +101,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
         let volume = Ratio::new_raw(volume_numer, 0x100);
 
         reader.read_u16::<BigEndian>()?; // reserved
-        let matrix = Matrix{
+        let matrix = Matrix {
             a: reader.read_i32::<byteorder::LittleEndian>()?,
             b: reader.read_i32::<BigEndian>()?,
             u: reader.read_i32::<BigEndian>()?,

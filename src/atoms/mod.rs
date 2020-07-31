@@ -1,33 +1,33 @@
-use std::fmt;
-use std::io::{Seek, SeekFrom, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::fmt;
+use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::*;
 
-mod ftyp;
-mod moov;
-mod mvhd;
-mod trak;
-mod tkhd;
-mod edts;
-mod elst;
-mod mdia;
-mod mdhd;
-mod hdlr;
-mod minf;
-mod vmhd;
-mod smhd;
-mod stbl;
-mod stsd;
-mod stts;
-mod ctts;
-mod stss;
-mod stsc;
-mod stsz;
-mod stco;
-mod co64;
-mod avc;
-mod mp4a;
+pub(crate) mod avc;
+pub(crate) mod co64;
+pub(crate) mod ctts;
+pub(crate) mod edts;
+pub(crate) mod elst;
+pub(crate) mod ftyp;
+pub(crate) mod hdlr;
+pub(crate) mod mdhd;
+pub(crate) mod mdia;
+pub(crate) mod minf;
+pub(crate) mod moov;
+pub(crate) mod mp4a;
+pub(crate) mod mvhd;
+pub(crate) mod smhd;
+pub(crate) mod stbl;
+pub(crate) mod stco;
+pub(crate) mod stsc;
+pub(crate) mod stsd;
+pub(crate) mod stss;
+pub(crate) mod stsz;
+pub(crate) mod stts;
+pub(crate) mod tkhd;
+pub(crate) mod trak;
+pub(crate) mod vmhd;
 
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
@@ -64,7 +64,7 @@ macro_rules! boxtype {
     }
 }
 
-boxtype!{
+boxtype! {
     FtypBox => 0x66747970,
     MvhdBox => 0x6d766864,
     FreeBox => 0x66726565,
@@ -114,7 +114,7 @@ impl fmt::Display for BoxType {
 
 #[derive(Default, PartialEq, Clone)]
 pub struct FourCC {
-    pub value: String
+    pub value: String,
 }
 
 impl From<u32> for FourCC {
@@ -131,9 +131,7 @@ impl From<u32> for FourCC {
             _ => String::from("null"), // error to retrieve fourcc
         };
 
-        FourCC {
-            value: box_string
-        }
+        FourCC { value: box_string }
     }
 }
 
@@ -158,7 +156,7 @@ impl From<String> for FourCC {
         } else {
             fourcc
         };
-        FourCC {value}
+        FourCC { value }
     }
 }
 
@@ -169,7 +167,7 @@ impl From<&str> for FourCC {
         } else {
             fourcc.to_string()
         };
-        FourCC {value}
+        FourCC { value }
     }
 }
 
@@ -219,7 +217,7 @@ impl BoxHeader {
     // TODO: if size is 0, then this box is the last one in the file
     pub fn read<R: Read>(reader: &mut R) -> Result<Self> {
         // Create and read to buf.
-        let mut buf = [0u8;8]; // 8 bytes for box header.
+        let mut buf = [0u8; 8]; // 8 bytes for box header.
         reader.read(&mut buf)?;
 
         // Get size.

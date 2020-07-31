@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
-use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MdhdBox {
     pub version: u8,
     pub flags: u32,
@@ -56,23 +54,22 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let (creation_time, modification_time, timescale, duration)
-            = if version  == 1 {
-                (
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                )
-            } else {
-                assert_eq!(version, 0);
-                (
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()? as u64,
-                )
-            };
+        let (creation_time, modification_time, timescale, duration) = if version == 1 {
+            (
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+            )
+        } else {
+            assert_eq!(version, 0);
+            (
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()? as u64,
+            )
+        };
         let language_code = reader.read_u16::<BigEndian>()?;
         let language = get_language_string(language_code);
 

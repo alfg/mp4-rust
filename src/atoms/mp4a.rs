@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Mp4aBox {
     pub data_reference_index: u16,
     pub channel_count: u16,
@@ -51,7 +49,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         let samplerate = reader.read_u32::<BigEndian>()?;
 
         let header = BoxHeader::read(reader)?;
-        let BoxHeader{ name, size: s } = header;
+        let BoxHeader { name, size: s } = header;
         if name == BoxType::EsdsBox {
             let esds = EsdsBox::read_box(reader, s)?;
 
@@ -91,8 +89,7 @@ impl<W: Write> WriteBox<&mut W> for Mp4aBox {
     }
 }
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct EsdsBox {
     pub version: u8,
     pub flags: u32,
@@ -137,7 +134,6 @@ impl<W: Write> WriteBox<&mut W> for EsdsBox {
         Ok(size)
     }
 }
-
 
 trait Descriptor: Sized {
     fn desc_tag() -> u8;
@@ -192,8 +188,7 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
     Ok(1 + nbytes)
 }
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ESDescriptor {
     pub tag: u8,
     pub size: u32,
@@ -211,9 +206,7 @@ impl Descriptor for ESDescriptor {
 
     // XXX size > 0x7F
     fn desc_size() -> u32 {
-        2 + 3
-            + DecoderConfigDescriptor::desc_size()
-            + SLConfigDescriptor::desc_size()
+        2 + 3 + DecoderConfigDescriptor::desc_size() + SLConfigDescriptor::desc_size()
     }
 }
 
@@ -248,7 +241,7 @@ impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct DecoderConfigDescriptor {
     pub tag: u8,
     pub size: u32,
@@ -292,7 +285,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
         let dec_specific = DecoderSpecificDescriptor::read_desc(reader)?;
 
         // XXX skip_read
-        for _ in DecoderConfigDescriptor::desc_size()..size-1 {
+        for _ in DecoderConfigDescriptor::desc_size()..size - 1 {
             reader.read_u8()?;
         }
 
@@ -318,7 +311,7 @@ impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct DecoderSpecificDescriptor {
     pub tag: u8,
     pub size: u32,
@@ -369,7 +362,7 @@ impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SLConfigDescriptor {
     pub tag: u8,
     pub size: u32,
@@ -395,10 +388,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
 
         reader.read_u8()?; // pre-defined
 
-        Ok(SLConfigDescriptor {
-            tag,
-            size,
-        })
+        Ok(SLConfigDescriptor { tag, size })
     }
 }
 

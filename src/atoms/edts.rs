@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
 use crate::atoms::elst::ElstBox;
+use crate::atoms::*;
 
-
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct EdtsBox {
     pub elst: Option<ElstBox>,
 }
@@ -37,7 +35,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
         let mut edts = EdtsBox::new();
 
         let header = BoxHeader::read(reader)?;
-        let BoxHeader{ name, size: s } = header;
+        let BoxHeader { name, size: s } = header;
 
         match name {
             BoxType::ElstBox => {

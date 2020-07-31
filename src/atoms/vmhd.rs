@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct VmhdBox {
     pub version: u8,
     pub flags: u32,
@@ -13,7 +11,7 @@ pub struct VmhdBox {
     pub op_color: RgbColor,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct RgbColor {
     pub red: u16,
     pub green: u16,
@@ -70,7 +68,6 @@ impl<W: Write> WriteBox<&mut W> for VmhdBox {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,7 +80,11 @@ mod tests {
             version: 0,
             flags: 1,
             graphics_mode: 0,
-            op_color: RgbColor { red: 0, green: 0, blue: 0},
+            op_color: RgbColor {
+                red: 0,
+                green: 0,
+                blue: 0,
+            },
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

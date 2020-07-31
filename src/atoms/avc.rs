@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
 use crate::atoms::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Avc1Box {
     pub data_reference_index: u16,
     pub width: u16,
@@ -67,7 +65,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         reader.read_i16::<BigEndian>()?; // pre-defined
 
         let header = BoxHeader::read(reader)?;
-        let BoxHeader{ name, size: s } = header;
+        let BoxHeader { name, size: s } = header;
         if name == BoxType::AvcCBox {
             let avcc = AvcCBox::read_box(reader, s)?;
 
@@ -120,8 +118,7 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
     }
 }
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct AvcCBox {
     pub configuration_version: u8,
     pub avc_profile_indication: u8,
@@ -207,8 +204,7 @@ impl<W: Write> WriteBox<&mut W> for AvcCBox {
     }
 }
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct NalUnit {
     pub bytes: Vec<u8>,
 }
@@ -222,9 +218,7 @@ impl NalUnit {
         let length = reader.read_u16::<BigEndian>()? as usize;
         let mut bytes = vec![0u8; length];
         reader.read(&mut bytes)?;
-        Ok(NalUnit {
-            bytes,
-        })
+        Ok(NalUnit { bytes })
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
