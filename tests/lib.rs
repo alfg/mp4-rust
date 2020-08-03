@@ -1,4 +1,4 @@
-use mp4;
+use mp4::{TrackType, MediaType};
 use std::fs::File;
 use std::io::BufReader;
 
@@ -9,8 +9,7 @@ fn test_read_mp4() {
     let size = f.metadata().unwrap().len();
     let reader = BufReader::new(f);
 
-    let mut mp4 = mp4::Mp4Reader::new(reader);
-    mp4.read(size).unwrap();
+    let mut mp4 = mp4::Mp4Reader::read_header(reader, size).unwrap();
 
     assert_eq!(2591, mp4.size());
 
@@ -30,9 +29,9 @@ fn test_read_mp4() {
         assert_eq!(t, true);
     }
 
-    assert_eq!(mp4.duration().unwrap(), 62);
-    assert_eq!(mp4.timescale().unwrap(), 1000);
-    assert_eq!(mp4.track_count(), 2);
+    assert_eq!(mp4.duration(), 62);
+    assert_eq!(mp4.timescale(), 1000);
+    assert_eq!(mp4.tracks().len(), 2);
 
     let sample_count = mp4.sample_count(1).unwrap();
     assert_eq!(sample_count, 0);
@@ -78,4 +77,21 @@ fn test_read_mp4() {
 
     let eos = mp4.read_sample(2, 4).unwrap();
     assert!(eos.is_none());
+
+    // track #1
+    let track1 = mp4.tracks().get(0).unwrap();
+    assert_eq!(track1.track_id(), 1);
+    assert_eq!(track1.track_type(), TrackType::Video);
+    assert_eq!(track1.media_type(), MediaType::H264);
+    assert_eq!(track1.width(), 320);
+    assert_eq!(track1.height(), 240);
+    assert_eq!(track1.bitrate(), 0); // XXX
+    assert_eq!(track1.frame_rate(), 0.0); // XXX
+
+    // track #2
+    let track2 = mp4.tracks().get(1).unwrap();
+    assert_eq!(track2.track_type(), TrackType::Audio);
+    assert_eq!(track2.media_type(), MediaType::AAC);
+    assert_eq!(track2.sample_rate(), 48000);
+    assert_eq!(track2.bitrate(), 0); // XXX
 }

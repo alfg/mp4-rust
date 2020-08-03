@@ -16,8 +16,8 @@ pub struct TkhdBox {
     pub alternate_group: u16,
     pub volume: Ratio<u16>,
     pub matrix: Matrix,
-    pub width: u32,
-    pub height: u32,
+    pub width: Ratio<u32>,
+    pub height: Ratio<u32>,
 }
 
 impl Default for TkhdBox {
@@ -33,8 +33,8 @@ impl Default for TkhdBox {
             alternate_group: 0,
             volume: Ratio::new_raw(0x0100, 0x100),
             matrix: Matrix::default(),
-            width: 0,
-            height: 0,
+            width: Ratio::new_raw(0, 0x10000),
+            height: Ratio::new_raw(0, 0x10000),
         }
     }
 }
@@ -113,8 +113,10 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
             w: reader.read_i32::<BigEndian>()?,
         };
 
-        let width = reader.read_u32::<BigEndian>()? >> 16;
-        let height = reader.read_u32::<BigEndian>()? >> 16;
+        let width_numer = reader.read_u32::<BigEndian>()?;
+        let width = Ratio::new_raw(width_numer, 0x10000);
+        let height_numer = reader.read_u32::<BigEndian>()?;
+        let height = Ratio::new_raw(height_numer, 0x10000);
 
         skip_read_to(reader, start + size)?;
 
@@ -174,8 +176,8 @@ impl<W: Write> WriteBox<&mut W> for TkhdBox {
         writer.write_i32::<BigEndian>(self.matrix.y)?;
         writer.write_i32::<BigEndian>(self.matrix.w)?;
 
-        writer.write_u32::<BigEndian>(self.width << 16)?;
-        writer.write_u32::<BigEndian>(self.height << 16)?;
+        writer.write_u32::<BigEndian>(*self.width.numer())?;
+        writer.write_u32::<BigEndian>(*self.height.numer())?;
 
         Ok(size)
     }
@@ -210,8 +212,8 @@ mod tests {
                 y: 0,
                 w: 0x40000000,
             },
-            width: 512,
-            height: 288,
+            width: Ratio::new_raw(512 * 0x10000, 0x10000),
+            height: Ratio::new_raw(288 * 0x10000, 0x10000),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -249,8 +251,8 @@ mod tests {
                 y: 0,
                 w: 0x40000000,
             },
-            width: 512,
-            height: 288,
+            width: Ratio::new_raw(512 * 0x10000, 0x10000),
+            height: Ratio::new_raw(288 * 0x10000, 0x10000),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

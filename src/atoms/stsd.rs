@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
 
 use crate::atoms::*;
-use crate::atoms::{avc::Avc1Box, mp4a::Mp4aBox};
+use crate::atoms::{avc1::Avc1Box, mp4a::Mp4aBox};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StsdBox {

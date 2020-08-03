@@ -24,11 +24,10 @@ fn copy<P: AsRef<Path>>(src_filename: &P, _dst_filename: &P) -> Result<()> {
     let size = src_file.metadata()?.len();
     let reader = BufReader::new(src_file);
 
-    let mut mp4 = mp4::Mp4Reader::new(reader);
-    mp4.read(size)?;
+    let mut mp4 = mp4::Mp4Reader::read_header(reader, size)?;
 
-    for tix in 0..mp4.track_count() {
-        let track_id = tix + 1;
+    for tix in 0..mp4.tracks().len() {
+        let track_id = tix as u32 + 1;
         let sample_count = mp4.sample_count(track_id)?;
         for six in 0..sample_count {
             let sample_id = six + 1;

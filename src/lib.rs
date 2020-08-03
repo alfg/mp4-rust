@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::fmt;
 
 pub use bytes::Bytes;
@@ -11,15 +10,10 @@ mod atoms;
 mod reader;
 pub use reader::Mp4Reader;
 
-pub type Result<T> = std::result::Result<T, Error>;
+mod track;
+pub use track::{Mp4Track, TrackType, MediaType};
 
-#[derive(Debug, PartialEq)]
-pub enum TrackType {
-    Audio,
-    Video,
-    Metadata,
-    Unknown,
-}
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Mp4Sample {
@@ -51,5 +45,14 @@ impl fmt::Display for Mp4Sample {
             self.is_sync,
             self.bytes.len()
         )
+    }
+}
+
+pub fn creation_time(creation_time: u64) -> u64 {
+    // convert from MP4 epoch (1904-01-01) to Unix epoch (1970-01-01)
+    if creation_time >= 2082844800 {
+        creation_time - 2082844800
+    } else {
+        creation_time
     }
 }

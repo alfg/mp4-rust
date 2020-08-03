@@ -1,10 +1,11 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::convert::TryInto;
 use std::fmt;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::*;
 
-pub(crate) mod avc;
+pub(crate) mod avc1;
 pub(crate) mod co64;
 pub(crate) mod ctts;
 pub(crate) mod edts;
@@ -180,7 +181,8 @@ impl From<BoxType> for FourCC {
 
 impl fmt::Debug for FourCC {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
+        let code: u32 = self.into();
+        write!(f, "{} / {:#010X}", self.value, code)
     }
 }
 
