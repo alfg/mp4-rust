@@ -180,7 +180,7 @@ pub fn write_box_header_ext<W: Write>(w: &mut W, v: u8, f: u32) -> Result<u64> {
     Ok(4)
 }
 
-pub fn get_box_start<R: Seek>(reader: &mut R) -> Result<u64> {
+pub fn box_start<R: Seek>(reader: &mut R) -> Result<u64> {
     Ok(reader.seek(SeekFrom::Current(0))? - HEADER_SIZE)
 }
 
@@ -196,7 +196,7 @@ pub fn skip_read_to<R: Read + Seek>(reader: &mut R, pos: u64) -> Result<()> {
 }
 
 pub fn skip_box<R: Read + Seek>(reader: &mut R, size: u64) -> Result<()> {
-    let start = get_box_start(reader)?;
+    let start = box_start(reader)?;
     skip_read_to(reader, start + size)?;
     Ok(())
 }

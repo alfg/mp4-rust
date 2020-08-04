@@ -22,7 +22,7 @@ impl Mp4Box for FtypBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let major = reader.read_u32::<BigEndian>()?;
         let minor = reader.read_u32::<BigEndian>()?;

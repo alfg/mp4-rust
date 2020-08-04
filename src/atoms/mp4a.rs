@@ -48,7 +48,7 @@ impl Mp4Box for Mp4aBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
@@ -130,7 +130,7 @@ impl Mp4Box for EsdsBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 

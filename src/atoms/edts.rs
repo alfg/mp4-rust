@@ -30,7 +30,7 @@ impl Mp4Box for EdtsBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let mut edts = EdtsBox::new();
 

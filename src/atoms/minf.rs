@@ -30,7 +30,7 @@ impl Mp4Box for MinfBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let mut vmhd = None;
         let mut smhd = None;

@@ -22,7 +22,7 @@ impl Mp4Box for Co64Box {
 
 impl<R: Read + Seek> ReadBox<&mut R> for Co64Box {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 

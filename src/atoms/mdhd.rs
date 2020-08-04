@@ -50,7 +50,7 @@ impl Mp4Box for MdhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -71,7 +71,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
             )
         };
         let language_code = reader.read_u16::<BigEndian>()?;
-        let language = get_language_string(language_code);
+        let language = language_string(language_code);
 
         skip_read_to(reader, start + size)?;
 
@@ -107,7 +107,7 @@ impl<W: Write> WriteBox<&mut W> for MdhdBox {
             writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
 
-        let language_code = get_language_code(&self.language);
+        let language_code = language_code(&self.language);
         writer.write_u16::<BigEndian>(language_code)?;
         writer.write_u16::<BigEndian>(0)?; // pre-defined
 
@@ -115,7 +115,7 @@ impl<W: Write> WriteBox<&mut W> for MdhdBox {
     }
 }
 
-fn get_language_string(language: u16) -> String {
+fn language_string(language: u16) -> String {
     let mut lang: [u16; 3] = [0; 3];
 
     lang[0] = ((language >> 10) & 0x1F) + 0x60;
@@ -130,7 +130,7 @@ fn get_language_string(language: u16) -> String {
     return lang_str;
 }
 
-fn get_language_code(language: &str) -> u16 {
+fn language_code(language: &str) -> u16 {
     let mut lang = language.encode_utf16();
     let mut code = (lang.next().unwrap_or(0) & 0x1F) << 10;
     code += (lang.next().unwrap_or(0) & 0x1F) << 5;
@@ -145,8 +145,8 @@ mod tests {
     use std::io::Cursor;
 
     fn test_language_code(lang: &str) {
-        let code = get_language_code(lang);
-        let lang2 = get_language_string(code);
+        let code = language_code(lang);
+        let lang2 = language_string(code);
         assert_eq!(lang, lang2);
     }
 

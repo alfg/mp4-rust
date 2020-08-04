@@ -57,7 +57,7 @@ impl Mp4Box for Avc1Box {
 
 impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
@@ -172,7 +172,7 @@ impl Mp4Box for AvcCBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let configuration_version = reader.read_u8()?;
         let avc_profile_indication = reader.read_u8()?;

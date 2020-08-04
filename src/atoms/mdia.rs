@@ -22,7 +22,7 @@ impl Mp4Box for MdiaBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for MdiaBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let mut mdhd = None;
         let mut hdlr = None;
