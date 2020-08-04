@@ -42,7 +42,7 @@ impl Mp4Box for Mp4aBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + 28 + self.esds.box_size()
+        HEADER_SIZE + 8 + 20 + self.esds.box_size()
     }
 }
 
@@ -134,14 +134,31 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let es_desc = ESDescriptor::read_desc(reader)?;
+        let mut es_desc = None;
+
+        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let end = start + size;
+        while current < end {
+            let (desc_tag, desc_size) = read_desc(reader)?;
+            match desc_tag {
+                0x03 => {
+                    es_desc = Some(ESDescriptor::read_desc(reader, desc_size)?);
+                }
+                _ => break,
+            }
+            current = reader.seek(SeekFrom::Current(0))?;
+        }
+
+        if es_desc.is_none() {
+            return Err(Error::InvalidData("ESDescriptor not found"));
+        }
 
         skip_read_to(reader, start + size)?;
 
         Ok(EsdsBox {
             version,
             flags,
-            es_desc,
+            es_desc: es_desc.unwrap(),
         })
     }
 }
@@ -165,11 +182,16 @@ trait Descriptor: Sized {
 }
 
 trait ReadDesc<T>: Sized {
-    fn read_desc(_: T) -> Result<Self>;
+    fn read_desc(_: T, size: u32) -> Result<Self>;
 }
 
 trait WriteDesc<T>: Sized {
     fn write_desc(&self, _: T) -> Result<u32>;
+}
+
+// XXX assert_eq!(size, 1)
+fn desc_start<R: Seek>(reader: &mut R) -> Result<u64> {
+    Ok(reader.seek(SeekFrom::Current(0))? - 2)
 }
 
 fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
@@ -202,7 +224,7 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
     };
 
     for i in 0..nbytes {
-        let mut b = (size >> ((3 - i) * 7)) as u8 & 0x7F;
+        let mut b = (size >> ((nbytes - i - 1) * 7)) as u8 & 0x7F;
         if i < nbytes - 1 {
             b |= 0x80;
         }
@@ -242,22 +264,41 @@ impl Descriptor for ESDescriptor {
 }
 
 impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
-    fn read_desc(reader: &mut R) -> Result<Self> {
-        let (tag, _) = read_desc(reader)?;
-        if tag != Self::desc_tag() {
-            return Err(Error::InvalidData("ESDescriptor not found"));
-        }
+    fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
+        let start = desc_start(reader)?;
 
         let es_id = reader.read_u16::<BigEndian>()?;
         reader.read_u8()?; // XXX flags must be 0
 
-        let dec_config = DecoderConfigDescriptor::read_desc(reader)?;
-        let sl_config = SLConfigDescriptor::read_desc(reader)?;
+        let mut dec_config = None;
+        let mut sl_config = None;
+
+        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let end = start + size as u64 + 1;
+        while current < end {
+            let (desc_tag, desc_size) = read_desc(reader)?;
+            match desc_tag {
+                0x04 => {
+                    dec_config = Some(DecoderConfigDescriptor::read_desc(reader, desc_size)?);
+                }
+                0x06 => {
+                    sl_config = Some(SLConfigDescriptor::read_desc(reader, desc_size)?);
+                }
+                _ => {
+                    skip_read(reader, desc_size as i64 - 1)?;
+                }
+            }
+            current = reader.seek(SeekFrom::Current(0))?;
+        }
+
+        if dec_config.is_none() {
+            return Err(Error::InvalidData("DecoderConfigDescriptor not found"));
+        }
 
         Ok(ESDescriptor {
             es_id,
-            dec_config,
-            sl_config,
+            dec_config: dec_config.unwrap(),
+            sl_config: sl_config.unwrap_or(SLConfigDescriptor::default()),
         })
     }
 }
@@ -292,12 +333,11 @@ pub struct DecoderConfigDescriptor {
 impl DecoderConfigDescriptor {
     pub fn new(config: &AacConfig) -> Self {
         Self {
-            object_type_indication: 0x40, // AAC
-            // 0x05 << 2
-            stream_type: 0,
+            object_type_indication: 0x40, // XXX AAC
+            stream_type: 0x05, // XXX Audio
             up_stream: 0,
             buffer_size_db: 0,
-            max_bitrate: config.bitrate * 2, // XXX
+            max_bitrate: config.bitrate, // XXX
             avg_bitrate: config.bitrate,
             dec_specific: DecoderSpecificDescriptor::new(config),
         }
@@ -316,11 +356,8 @@ impl Descriptor for DecoderConfigDescriptor {
 }
 
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
-    fn read_desc(reader: &mut R) -> Result<Self> {
-        let (tag, size) = read_desc(reader)?;
-        if tag != Self::desc_tag() {
-            return Err(Error::InvalidData("DecoderConfigDescriptor not found"));
-        }
+    fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
+        let start = desc_start(reader)?;
 
         let object_type_indication = reader.read_u8()?;
         let byte_a = reader.read_u8()?;
@@ -330,11 +367,26 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
         let max_bitrate = reader.read_u32::<BigEndian>()?;
         let avg_bitrate = reader.read_u32::<BigEndian>()?;
 
-        let dec_specific = DecoderSpecificDescriptor::read_desc(reader)?;
+        let mut dec_specific = None;
 
-        // XXX skip_size
-        let skip_size = size - 1 - DecoderConfigDescriptor::desc_size();
-        skip_read(reader, skip_size as i64)?;
+        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let end = start + size as u64 + 1;
+        while current < end {
+            let (desc_tag, desc_size) = read_desc(reader)?;
+            match desc_tag {
+                0x05 => {
+                    dec_specific = Some(DecoderSpecificDescriptor::read_desc(reader, desc_size)?);
+                }
+                _ => {
+                    skip_read(reader, desc_size as i64 - 1)?;
+                }
+            }
+            current = reader.seek(SeekFrom::Current(0))?;
+        }
+
+        if dec_specific.is_none() {
+            return Err(Error::InvalidData("DecoderSpecificDescriptor not found"));
+        }
 
         Ok(DecoderConfigDescriptor {
             object_type_indication,
@@ -343,7 +395,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             buffer_size_db,
             max_bitrate,
             avg_bitrate,
-            dec_specific,
+            dec_specific: dec_specific.unwrap(),
         })
     }
 }
@@ -354,7 +406,7 @@ impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
         write_desc(writer, Self::desc_tag(), size-1)?;
 
         writer.write_u8(self.object_type_indication)?;
-        writer.write_u8(self.stream_type << 2 + self.up_stream & 0x02)?;
+        writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02))?;
         writer.write_u24::<BigEndian>(self.buffer_size_db)?;
         writer.write_u32::<BigEndian>(self.max_bitrate)?;
         writer.write_u32::<BigEndian>(self.avg_bitrate)?;
@@ -394,12 +446,7 @@ impl Descriptor for DecoderSpecificDescriptor {
 }
 
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
-    fn read_desc(reader: &mut R) -> Result<Self> {
-        let (tag, _) = read_desc(reader)?;
-        if tag != Self::desc_tag() {
-            return Err(Error::InvalidData("DecoderSpecificDescriptor not found"));
-        }
-
+    fn read_desc(reader: &mut R, _size: u32) -> Result<Self> {
         let byte_a = reader.read_u8()?;
         let byte_b = reader.read_u8()?;
         let profile = byte_a >> 3;
@@ -447,12 +494,7 @@ impl Descriptor for SLConfigDescriptor {
 }
 
 impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
-    fn read_desc(reader: &mut R) -> Result<Self> {
-        let (tag, _) = read_desc(reader)?;
-        if tag != Self::desc_tag() {
-            return Err(Error::InvalidData("SLConfigDescriptor not found"));
-        }
-
+    fn read_desc(reader: &mut R, _size: u32) -> Result<Self> {
         reader.read_u8()?; // pre-defined
 
         Ok(SLConfigDescriptor {})
@@ -463,7 +505,57 @@ impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
         write_desc(writer, Self::desc_tag(), size-1)?;
+
         writer.write_u8(0)?; // pre-defined
         Ok(size)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::atoms::BoxHeader;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_mp4a() {
+        let src_box = Mp4aBox {
+            data_reference_index: 1,
+            channelcount: 2,
+            samplesize: 16,
+            samplerate: FixedPointU16::new(48000),
+            esds: EsdsBox {
+                version: 0,
+                flags: 0,
+                es_desc: ESDescriptor {
+                    es_id: 2,
+                    dec_config: DecoderConfigDescriptor {
+                        object_type_indication: 0x40,
+                        stream_type: 0x05,
+                        up_stream: 0,
+                        buffer_size_db: 0,
+                        max_bitrate: 67695,
+                        avg_bitrate: 67695,
+                        dec_specific: DecoderSpecificDescriptor {
+                            profile: 2,
+                            freq_index: 3,
+                            chan_conf: 1
+                        }
+                    },
+                    sl_config: SLConfigDescriptor::default()
+                }
+            }
+        };
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::Mp4aBox);
+        assert_eq!(src_box.box_size(), header.size);
+
+        let dst_box = Mp4aBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 }
