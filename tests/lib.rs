@@ -1,4 +1,4 @@
-use mp4::{TrackType, MediaType};
+use mp4::{MediaType, TrackType};
 use std::fs::File;
 use std::io::BufReader;
 
@@ -81,8 +81,8 @@ fn test_read_mp4() {
     // track #1
     let track1 = mp4.tracks().get(0).unwrap();
     assert_eq!(track1.track_id(), 1);
-    assert_eq!(track1.track_type(), TrackType::Video);
-    assert_eq!(track1.media_type(), MediaType::H264);
+    assert_eq!(track1.track_type().unwrap(), TrackType::Video);
+    assert_eq!(track1.media_type().unwrap(), MediaType::H264);
     assert_eq!(track1.width(), 320);
     assert_eq!(track1.height(), 240);
     assert_eq!(track1.bitrate(), 0); // XXX
@@ -90,8 +90,8 @@ fn test_read_mp4() {
 
     // track #2
     let track2 = mp4.tracks().get(1).unwrap();
-    assert_eq!(track2.track_type(), TrackType::Audio);
-    assert_eq!(track2.media_type(), MediaType::AAC);
+    assert_eq!(track2.track_type().unwrap(), TrackType::Audio);
+    assert_eq!(track2.media_type().unwrap(), MediaType::AAC);
     assert_eq!(track2.sample_rate(), 48000);
     assert_eq!(track2.bitrate(), 0); // XXX
 }

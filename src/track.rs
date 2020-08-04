@@ -1,110 +1,47 @@
-use std::fmt;
-use std::time::Duration;
+use std::convert::TryFrom;
 use std::io::{Read, Seek, SeekFrom};
+use std::time::Duration;
 
+use crate::atoms::trak::TrakBox;
 use crate::atoms::*;
-use crate::atoms::{trak::TrakBox, stbl::StblBox};
-use crate::{Bytes, Error, Mp4Sample, Result};
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TrackType {
-    Video,
-    Audio,
-    Hint,
-    Text,
-    Unknown,
-}
-
-impl fmt::Display for TrackType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            TrackType::Video => "video",
-            TrackType::Audio => "audio",
-            TrackType::Hint => "hint",
-            TrackType::Text => "text",
-            TrackType::Unknown => "unknown",  // XXX
-        };
-        write!(f, "{}", s)
-    }
-}
-
-impl From<&str> for TrackType {
-    fn from(handler: &str) -> TrackType {
-        match handler {
-            "vide" => TrackType::Video,
-            "soun" => TrackType::Audio,
-            "hint" => TrackType::Hint,
-            "text" => TrackType::Text,
-            _ => TrackType::Unknown,
-        }
-    }
-}
-
-impl From<&FourCC> for TrackType {
-    fn from(fourcc: &FourCC) -> TrackType {
-        TrackType::from(fourcc.value.as_str())
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MediaType {
-    H264,
-    AAC,
-    Unknown,
-}
-
-impl fmt::Display for MediaType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            MediaType::H264 => "h264",
-            MediaType::AAC => "aac",
-            MediaType::Unknown => "unknown",  // XXX
-        };
-        write!(f, "{}", s)
-    }
-}
+use crate::*;
 
 #[derive(Debug)]
 pub struct Mp4Track {
-    track_id: u32,
-    track_type: TrackType,
-    media_type: MediaType,
     trak: TrakBox,
 }
 
 impl Mp4Track {
-    pub(crate) fn new(track_id: u32, trak: &TrakBox) -> Self {
+    pub(crate) fn from(trak: &TrakBox) -> Self {
         let trak = trak.clone();
-        let track_type = (&trak.mdia.hdlr.handler_type).into();
-        let media_type = if trak.mdia.minf.stbl.stsd.avc1.is_some() {
-            MediaType::H264
-        } else if trak.mdia.minf.stbl.stsd.mp4a.is_some() {
-            MediaType::AAC
-        } else {
-            MediaType::Unknown
-        };
-        Self { track_id, track_type, media_type, trak }
+        Self { trak }
     }
 
     pub fn track_id(&self) -> u32 {
-        self.track_id
+        self.trak.tkhd.track_id
     }
 
-    pub fn track_type(&self) -> TrackType {
-        self.track_type
+    pub fn track_type(&self) -> Result<TrackType> {
+        TrackType::try_from(&self.trak.mdia.hdlr.handler_type)
     }
 
-    pub fn media_type(&self) -> MediaType {
-        self.media_type
-    }
-
-    pub fn box_type(&self) -> FourCC {
+    pub fn media_type(&self) -> Result<MediaType> {
         if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
-            FourCC::from(BoxType::Avc1Box)
+            Ok(MediaType::H264)
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
-            FourCC::from(BoxType::Mp4aBox)
+            Ok(MediaType::AAC)
         } else {
-            FourCC::from("null") // XXX
+            Err(Error::InvalidData("unsupported media type"))
+        }
+    }
+
+    pub fn box_type(&self) -> Result<FourCC> {
+        if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
+            Ok(FourCC::from(BoxType::Avc1Box))
+        } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
+            Ok(FourCC::from(BoxType::Mp4aBox))
+        } else {
+            Err(Error::InvalidData("unsupported sample entry box"))
         }
     }
 
@@ -158,8 +95,9 @@ impl Mp4Track {
     }
 
     pub fn duration(&self) -> Duration {
-        Duration::from_micros(self.trak.mdia.mdhd.duration * 1_000_000
-                              / self.trak.mdia.mdhd.timescale as u64)
+        Duration::from_micros(
+            self.trak.mdia.mdhd.duration * 1_000_000 / self.trak.mdia.mdhd.timescale as u64,
+        )
     }
 
     pub fn bitrate(&self) -> u32 {
@@ -173,48 +111,39 @@ impl Mp4Track {
     }
 
     pub fn sample_count(&self) -> u32 {
-        let stsz = &self.stbl().stsz;
-        stsz.sample_sizes.len() as u32
-    }
-
-    fn stbl(&self) -> &StblBox {
-        &self.trak.mdia.minf.stbl
+        self.trak.mdia.minf.stbl.stsz.sample_sizes.len() as u32
     }
 
     fn stsc_index(&self, sample_id: u32) -> usize {
-        let stsc = &self.stbl().stsc;
-
-        for (i, entry) in stsc.entries.iter().enumerate() {
+        for (i, entry) in self.trak.mdia.minf.stbl.stsc.entries.iter().enumerate() {
             if sample_id < entry.first_sample {
                 assert_ne!(i, 0);
                 return i - 1;
             }
         }
 
-        assert_ne!(stsc.entries.len(), 0);
-        stsc.entries.len() - 1
+        assert_ne!(self.trak.mdia.minf.stbl.stsc.entries.len(), 0);
+        self.trak.mdia.minf.stbl.stsc.entries.len() - 1
     }
 
     fn chunk_offset(&self, chunk_id: u32) -> Result<u64> {
-        let stbl = self.stbl();
-
-        if let Some(ref stco) = stbl.stco {
+        if let Some(ref stco) = self.trak.mdia.minf.stbl.stco {
             if let Some(offset) = stco.entries.get(chunk_id as usize - 1) {
                 return Ok(*offset as u64);
             } else {
                 return Err(Error::EntryInStblNotFound(
-                    self.track_id,
+                    self.track_id(),
                     BoxType::StcoBox,
                     chunk_id,
                 ));
             }
         } else {
-            if let Some(ref co64) = stbl.co64 {
+            if let Some(ref co64) = self.trak.mdia.minf.stbl.co64 {
                 if let Some(offset) = co64.entries.get(chunk_id as usize - 1) {
                     return Ok(*offset);
                 } else {
                     return Err(Error::EntryInStblNotFound(
-                        self.track_id,
+                        self.track_id(),
                         BoxType::Co64Box,
                         chunk_id,
                     ));
@@ -222,18 +151,16 @@ impl Mp4Track {
             }
         }
 
-        assert!(stbl.stco.is_some() || stbl.co64.is_some());
+        assert!(self.trak.mdia.minf.stbl.stco.is_some() || self.trak.mdia.minf.stbl.co64.is_some());
         return Err(Error::Box2NotFound(BoxType::StcoBox, BoxType::Co64Box));
     }
 
     fn ctts_index(&self, sample_id: u32) -> Result<(usize, u32)> {
-        let stbl = self.stbl();
-
-        assert!(stbl.ctts.is_some());
-        let ctts = if let Some(ref ctts) = stbl.ctts {
+        assert!(self.trak.mdia.minf.stbl.ctts.is_some());
+        let ctts = if let Some(ref ctts) = self.trak.mdia.minf.stbl.ctts {
             ctts
         } else {
-            return Err(Error::BoxInStblNotFound(self.track_id, BoxType::CttsBox));
+            return Err(Error::BoxInStblNotFound(self.track_id(), BoxType::CttsBox));
         };
 
         let mut sample_count = 1;
@@ -245,14 +172,14 @@ impl Mp4Track {
         }
 
         return Err(Error::EntryInStblNotFound(
-            self.track_id,
+            self.track_id(),
             BoxType::CttsBox,
             sample_id,
         ));
     }
 
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
-        let stsz = &self.stbl().stsz;
+        let stsz = &self.trak.mdia.minf.stbl.stsz;
         if stsz.sample_size > 0 {
             return Ok(stsz.sample_size);
         }
@@ -260,7 +187,7 @@ impl Mp4Track {
             Ok(*size)
         } else {
             return Err(Error::EntryInStblNotFound(
-                self.track_id,
+                self.track_id(),
                 BoxType::StszBox,
                 sample_id,
             ));
@@ -268,7 +195,7 @@ impl Mp4Track {
     }
 
     fn total_sample_size(&self) -> u64 {
-        let stsz = &self.stbl().stsz;
+        let stsz = &self.trak.mdia.minf.stbl.stsz;
         if stsz.sample_size > 0 {
             stsz.sample_size as u64 * self.sample_count() as u64
         } else {
@@ -283,7 +210,7 @@ impl Mp4Track {
     fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         let stsc_index = self.stsc_index(sample_id);
 
-        let stsc = &self.stbl().stsc;
+        let stsc = &self.trak.mdia.minf.stbl.stsc;
         let stsc_entry = stsc.entries.get(stsc_index).unwrap();
 
         let first_chunk = stsc_entry.first_chunk;
@@ -305,7 +232,7 @@ impl Mp4Track {
     }
 
     fn sample_time(&self, sample_id: u32) -> Result<(u64, u32)> {
-        let stts = &self.stbl().stts;
+        let stts = &self.trak.mdia.minf.stbl.stts;
 
         let mut sample_count = 1;
         let mut elapsed = 0;
@@ -322,16 +249,14 @@ impl Mp4Track {
         }
 
         return Err(Error::EntryInStblNotFound(
-            self.track_id,
+            self.track_id(),
             BoxType::SttsBox,
             sample_id,
         ));
     }
 
     fn sample_rendering_offset(&self, sample_id: u32) -> i32 {
-        let stbl = self.stbl();
-
-        if let Some(ref ctts) = stbl.ctts {
+        if let Some(ref ctts) = self.trak.mdia.minf.stbl.ctts {
             if let Ok((ctts_index, _)) = self.ctts_index(sample_id) {
                 let ctts_entry = ctts.entries.get(ctts_index).unwrap();
                 return ctts_entry.sample_offset;
@@ -341,9 +266,7 @@ impl Mp4Track {
     }
 
     fn is_sync_sample(&self, sample_id: u32) -> bool {
-        let stbl = self.stbl();
-
-        if let Some(ref stss) = stbl.stss {
+        if let Some(ref stss) = self.trak.mdia.minf.stbl.stss {
             match stss.entries.binary_search(&sample_id) {
                 Ok(_) => true,
                 Err(_) => false,

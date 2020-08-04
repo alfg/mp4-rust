@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use mp4::{Result, Mp4Track, TrackType};
+use mp4::{Mp4Track, Result, TrackType};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -42,21 +42,32 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     );
 
     for track in mp4.tracks().iter() {
-        let media_info = match track.track_type() {
+        let media_info = match track.track_type()? {
             TrackType::Video => video_info(track),
             TrackType::Audio => audio_info(track),
-            _ => String::from("error")
         };
-        println!("  Track: #{}({}) {}: {} ({:?}), {}", track.track_id(), track.language(),
-                 track.track_type(), track.media_type(), track.box_type(), media_info);
+        println!(
+            "  Track: #{}({}) {}: {} ({:?}), {}",
+            track.track_id(),
+            track.language(),
+            track.track_type()?,
+            track.media_type()?,
+            track.box_type(),
+            media_info
+        );
     }
 
     Ok(())
 }
 
 fn video_info(track: &Mp4Track) -> String {
-    format!("{}x{}, {} kb/s, {:.2} fps", track.width(), track.height(),
-            track.bitrate() / 1000, track.frame_rate())
+    format!(
+        "{}x{}, {} kb/s, {:.2} fps",
+        track.width(),
+        track.height(),
+        track.bitrate() / 1000,
+        track.frame_rate()
+    )
 }
 
 fn audio_info(track: &Mp4Track) -> String {
@@ -65,5 +76,10 @@ fn audio_info(track: &Mp4Track) -> String {
         2 => String::from("stereo"),
         n => format!("{}-ch", n),
     };
-    format!("{} Hz, {}, {} kb/s", track.sample_rate(), ch, track.bitrate() / 1000)
+    format!(
+        "{} Hz, {}, {} kb/s",
+        track.sample_rate(),
+        ch,
+        track.bitrate() / 1000
+    )
 }

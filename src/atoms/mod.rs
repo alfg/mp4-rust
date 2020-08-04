@@ -1,6 +1,5 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::convert::TryInto;
-use std::fmt;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::*;
@@ -97,99 +96,6 @@ boxtype! {
     AvcCBox => 0x61766343,
     Mp4aBox => 0x6d703461,
     EsdsBox => 0x65736473
-}
-
-impl fmt::Debug for BoxType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
-        write!(f, "{}", fourcc)
-    }
-}
-
-impl fmt::Display for BoxType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
-        write!(f, "{}", fourcc)
-    }
-}
-
-#[derive(Default, PartialEq, Clone)]
-pub struct FourCC {
-    pub value: String,
-}
-
-impl From<u32> for FourCC {
-    fn from(number: u32) -> Self {
-        let mut box_chars = Vec::new();
-        for x in 0..4 {
-            let c = (number >> (x * 8) & 0x0000_00FF) as u8;
-            box_chars.push(c);
-        }
-        box_chars.reverse();
-
-        let box_string = match String::from_utf8(box_chars) {
-            Ok(t) => t,
-            _ => String::from("null"), // error to retrieve fourcc
-        };
-
-        FourCC { value: box_string }
-    }
-}
-
-impl From<FourCC> for u32 {
-    fn from(fourcc: FourCC) -> u32 {
-        (&fourcc).into()
-    }
-}
-
-impl From<&FourCC> for u32 {
-    fn from(fourcc: &FourCC) -> u32 {
-        let mut b: [u8; 4] = Default::default();
-        b.copy_from_slice(fourcc.value.as_bytes());
-        u32::from_be_bytes(b)
-    }
-}
-
-impl From<String> for FourCC {
-    fn from(fourcc: String) -> FourCC {
-        let value = if fourcc.len() > 4 {
-            fourcc[0..4].to_string()
-        } else {
-            fourcc
-        };
-        FourCC { value }
-    }
-}
-
-impl From<&str> for FourCC {
-    fn from(fourcc: &str) -> FourCC {
-        let value = if fourcc.len() > 4 {
-            fourcc[0..4].to_string()
-        } else {
-            fourcc.to_string()
-        };
-        FourCC { value }
-    }
-}
-
-impl From<BoxType> for FourCC {
-    fn from(t: BoxType) -> FourCC {
-        let box_num: u32 = Into::into(t);
-        From::from(box_num)
-    }
-}
-
-impl fmt::Debug for FourCC {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let code: u32 = self.into();
-        write!(f, "{} / {:#010X}", self.value, code)
-    }
-}
-
-impl fmt::Display for FourCC {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
 }
 
 pub trait Mp4Box: Sized {

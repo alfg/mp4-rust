@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::atoms::*;
-use crate::{Error, Mp4Sample, Mp4Track, Result};
+use crate::*;
 
 #[derive(Debug)]
 pub struct Mp4Reader<R> {
@@ -62,9 +62,8 @@ impl<R: Read + Seek> Mp4Reader<R> {
         let tracks = if let Some(ref moov) = moov {
             let mut tracks = Vec::with_capacity(moov.traks.len());
             for (i, trak) in moov.traks.iter().enumerate() {
-                let track_id = i as u32 + 1;
-                assert_eq!(track_id, trak.tkhd.track_id);
-                tracks.push(Mp4Track::new(track_id, trak));
+                assert_eq!(trak.tkhd.track_id, i as u32 + 1);
+                tracks.push(Mp4Track::from(trak));
             }
             tracks
         } else {
