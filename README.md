@@ -14,13 +14,14 @@ use mp4;
 
 fn main() {
     let f = File::open("example.mp4").unwrap();
+    let size = f.metadata()?.len();
+    let reader = BufReader::new(f);
 
-    let bmff = mp4::read_mp4(f).unwrap();
+    let mut mp4 = Mp4Reader::new(reader);
+    mp4.read(size)?;
 
-    println!("file size:  {}", bmff.size);
-    println!("brands: {:?} {:?}\n",
-        bmff.ftyp.major_brand, bmff.ftyp.compatible_brands
-    );
+    println!("size: {}", mp4.size());
+    println!("brands: {:?} {:?}\n", mp4.ftyp.major_brand, mp4.ftyp.compatible_brands);
 }
 ```
 
