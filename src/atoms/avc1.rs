@@ -238,7 +238,7 @@ pub struct NalUnit {
 impl From<&[u8]> for NalUnit {
     fn from(bytes: &[u8]) -> Self {
         Self {
-            bytes: bytes.to_vec()
+            bytes: bytes.to_vec(),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::io::{Write, Seek, SeekFrom};
+use std::io::{Seek, SeekFrom, Write};
 
 use crate::atoms::*;
 use crate::*;
@@ -11,7 +11,12 @@ pub struct Mp4Writer<W> {
 }
 
 impl<W: Write + Seek> Mp4Writer<W> {
-    pub fn write_header(mut writer: W, major_brand: &FourCC, minor_version: u32, compatible_brands: &[FourCC]) -> Result<Self> {
+    pub fn write_header(
+        mut writer: W,
+        major_brand: &FourCC,
+        minor_version: u32,
+        compatible_brands: &[FourCC],
+    ) -> Result<Self> {
         let ftyp = FtypBox {
             major_brand: major_brand.to_owned(),
             minor_version,

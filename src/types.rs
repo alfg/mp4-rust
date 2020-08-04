@@ -70,7 +70,6 @@ impl FixedPointU16 {
     }
 }
 
-
 impl fmt::Debug for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let fourcc: FourCC = From::from(self.clone());
@@ -277,11 +276,11 @@ impl Into<&str> for &MediaType {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AvcProfile {
     AvcConstrainedBaseline, // 66 with constraint set 1
-    AvcBaseline, // 66,
-    AvcMain, // 77,
-    AvcExtended, // 88,
-    AvcHigh, // 100
-    // TODO Progressive High Profile, Constrained High Profile, ...
+    AvcBaseline,            // 66,
+    AvcMain,                // 77,
+    AvcExtended,            // 88,
+    AvcHigh,                // 100
+                            // TODO Progressive High Profile, Constrained High Profile, ...
 }
 
 impl TryFrom<(u8, u8)> for AvcProfile {

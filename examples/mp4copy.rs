@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 
-use mp4::{Result, MediaType, AvcConfig, AacConfig, MediaConfig, TrackConfig};
+use mp4::{AacConfig, AvcConfig, MediaConfig, MediaType, Result, TrackConfig};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -28,30 +28,29 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
     let writer = BufWriter::new(dst_file);
 
     let mut mp4_reader = mp4::Mp4Reader::read_header(reader, size)?;
-    let mut mp4_writer = mp4::Mp4Writer::write_header(writer, mp4_reader.major_brand(), mp4_reader.minor_version(), mp4_reader.compatible_brands())?;
+    let mut mp4_writer = mp4::Mp4Writer::write_header(
+        writer,
+        mp4_reader.major_brand(),
+        mp4_reader.minor_version(),
+        mp4_reader.compatible_brands(),
+    )?;
 
     // TODO interleaving
     for track_idx in 0..mp4_reader.tracks().len() {
         if let Some(ref track) = mp4_reader.tracks().get(track_idx) {
             let media_conf = match track.media_type()? {
-                MediaType::H264 => {
-                    MediaConfig::AvcConfig(
-                        AvcConfig {
-                            width: track.width(),
-                            height: track.height(),
-                            seq_param_set: track.sequence_parameter_set()?.to_vec(),
-                            pic_param_set: track.picture_parameter_set()?.to_vec(),
-                        })
-                }
-                MediaType::AAC => {
-                    MediaConfig::AacConfig(
-                        AacConfig {
-                            bitrate: track.bitrate(),
-                            profile: track.audio_profile()?,
-                            freq_index: track.sample_freq_index()?,
-                            chan_conf: track.channel_config()?,
-                        })
-                }
+                MediaType::H264 => MediaConfig::AvcConfig(AvcConfig {
+                    width: track.width(),
+                    height: track.height(),
+                    seq_param_set: track.sequence_parameter_set()?.to_vec(),
+                    pic_param_set: track.picture_parameter_set()?.to_vec(),
+                }),
+                MediaType::AAC => MediaConfig::AacConfig(AacConfig {
+                    bitrate: track.bitrate(),
+                    profile: track.audio_profile()?,
+                    freq_index: track.sample_freq_index()?,
+                    chan_conf: track.channel_config()?,
+                }),
             };
 
             let track_conf = TrackConfig {

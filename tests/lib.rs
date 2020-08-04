@@ -1,4 +1,4 @@
-use mp4::{MediaType, TrackType, AvcProfile, AudioObjectType, SampleFreqIndex, ChannelConfig};
+use mp4::{AudioObjectType, AvcProfile, ChannelConfig, MediaType, SampleFreqIndex, TrackType};
 use std::fs::File;
 use std::io::BufReader;
 
@@ -93,8 +93,14 @@ fn test_read_mp4() {
     let track2 = mp4.tracks().get(1).unwrap();
     assert_eq!(track2.track_type().unwrap(), TrackType::Audio);
     assert_eq!(track2.media_type().unwrap(), MediaType::AAC);
-    assert_eq!(track2.audio_profile().unwrap(), AudioObjectType::AacLowComplexity);
-    assert_eq!(track2.sample_freq_index().unwrap(), SampleFreqIndex::Freq48000);
+    assert_eq!(
+        track2.audio_profile().unwrap(),
+        AudioObjectType::AacLowComplexity
+    );
+    assert_eq!(
+        track2.sample_freq_index().unwrap(),
+        SampleFreqIndex::Freq48000
+    );
     assert_eq!(track2.channel_config().unwrap(), ChannelConfig::Mono);
     assert_eq!(track2.bitrate(), 67695);
 }
