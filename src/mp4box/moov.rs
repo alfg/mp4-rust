@@ -1,20 +1,12 @@
-use std::io::{Seek, SeekFrom, Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::*;
-use crate::atoms::*;
-use crate::atoms::{mvhd::MvhdBox, trak::TrakBox};
+use crate::mp4box::*;
+use crate::mp4box::{mvhd::MvhdBox, trak::TrakBox};
 
-
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct MoovBox {
     pub mvhd: MvhdBox,
     pub traks: Vec<TrakBox>,
-}
-
-impl MoovBox {
-    pub(crate) fn new() -> MoovBox {
-        Default::default()
-    }
 }
 
 impl Mp4Box for MoovBox {
@@ -33,25 +25,25 @@ impl Mp4Box for MoovBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
-        let mut moov = MoovBox::new();
+        let mut mvhd = None;
+        let mut traks = Vec::new();
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
         let end = start + size;
         while current < end {
             // Get box header.
             let header = BoxHeader::read(reader)?;
-            let BoxHeader{ name, size: s } = header;
+            let BoxHeader { name, size: s } = header;
 
             match name {
                 BoxType::MvhdBox => {
-                    moov.mvhd = MvhdBox::read_box(reader, s)?;
+                    mvhd = Some(MvhdBox::read_box(reader, s)?);
                 }
                 BoxType::TrakBox => {
-                    let mut trak = TrakBox::read_box(reader, s)?;
-                    trak.id = moov.traks.len() as u32 + 1;
-                    moov.traks.push(trak);
+                    let trak = TrakBox::read_box(reader, s)?;
+                    traks.push(trak);
                 }
                 BoxType::UdtaBox => {
                     // XXX warn!()
@@ -66,9 +58,16 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
             current = reader.seek(SeekFrom::Current(0))?;
         }
 
+        if mvhd.is_none() {
+            return Err(Error::BoxNotFound(BoxType::MvhdBox));
+        }
+
         skip_read_to(reader, start + size)?;
 
-        Ok(moov)
+        Ok(MoovBox {
+            mvhd: mvhd.unwrap(),
+            traks,
+        })
     }
 }
 

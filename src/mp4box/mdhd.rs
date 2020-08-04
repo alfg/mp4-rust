@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
-use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MdhdBox {
     pub version: u8,
     pub flags: u32,
@@ -52,29 +50,28 @@ impl Mp4Box for MdhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let (creation_time, modification_time, timescale, duration)
-            = if version  == 1 {
-                (
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                )
-            } else {
-                assert_eq!(version, 0);
-                (
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()? as u64,
-                )
-            };
+        let (creation_time, modification_time, timescale, duration) = if version == 1 {
+            (
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+            )
+        } else {
+            assert_eq!(version, 0);
+            (
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()? as u64,
+            )
+        };
         let language_code = reader.read_u16::<BigEndian>()?;
-        let language = get_language_string(language_code);
+        let language = language_string(language_code);
 
         skip_read_to(reader, start + size)?;
 
@@ -110,7 +107,7 @@ impl<W: Write> WriteBox<&mut W> for MdhdBox {
             writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
 
-        let language_code = get_language_code(&self.language);
+        let language_code = language_code(&self.language);
         writer.write_u16::<BigEndian>(language_code)?;
         writer.write_u16::<BigEndian>(0)?; // pre-defined
 
@@ -118,7 +115,7 @@ impl<W: Write> WriteBox<&mut W> for MdhdBox {
     }
 }
 
-fn get_language_string(language: u16) -> String {
+fn language_string(language: u16) -> String {
     let mut lang: [u16; 3] = [0; 3];
 
     lang[0] = ((language >> 10) & 0x1F) + 0x60;
@@ -133,7 +130,7 @@ fn get_language_string(language: u16) -> String {
     return lang_str;
 }
 
-fn get_language_code(language: &str) -> u16 {
+fn language_code(language: &str) -> u16 {
     let mut lang = language.encode_utf16();
     let mut code = (lang.next().unwrap_or(0) & 0x1F) << 10;
     code += (lang.next().unwrap_or(0) & 0x1F) << 5;
@@ -144,12 +141,12 @@ fn get_language_code(language: &str) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     fn test_language_code(lang: &str) {
-        let code = get_language_code(lang);
-        let lang2 = get_language_string(code);
+        let code = language_code(lang);
+        let lang2 = language_string(code);
         assert_eq!(lang, lang2);
     }
 

@@ -1,16 +1,13 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SmhdBox {
     pub version: u8,
     pub flags: u32,
-    pub balance: Ratio<i16>,
+    pub balance: FixedPointI8,
 }
 
 impl Default for SmhdBox {
@@ -18,7 +15,7 @@ impl Default for SmhdBox {
         SmhdBox {
             version: 0,
             flags: 0,
-            balance: Ratio::new_raw(0, 0x100),
+            balance: FixedPointI8::new_raw(0),
         }
     }
 }
@@ -35,12 +32,11 @@ impl Mp4Box for SmhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for SmhdBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let balance_numer = reader.read_i16::<BigEndian>()?;
-        let balance = Ratio::new_raw(balance_numer, 0x100);
+        let balance = FixedPointI8::new_raw(reader.read_i16::<BigEndian>()?);
 
         skip_read_to(reader, start + size)?;
 
@@ -59,18 +55,17 @@ impl<W: Write> WriteBox<&mut W> for SmhdBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        writer.write_i16::<BigEndian>(*self.balance.numer())?;
+        writer.write_i16::<BigEndian>(self.balance.raw_value())?;
         writer.write_u16::<BigEndian>(0)?; // reserved
 
         Ok(size)
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -78,7 +73,7 @@ mod tests {
         let src_box = SmhdBox {
             version: 0,
             flags: 0,
-            balance: Ratio::new_raw(-0x100, 0x100),
+            balance: FixedPointI8::new_raw(-1),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

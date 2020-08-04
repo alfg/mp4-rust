@@ -1,18 +1,16 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StscBox {
     pub version: u8,
     pub flags: u32,
     pub entries: Vec<StscEntry>,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StscEntry {
     pub first_chunk: u32,
     pub samples_per_chunk: u32,
@@ -32,7 +30,7 @@ impl Mp4Box for StscBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for StscBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -92,7 +90,7 @@ impl<W: Write> WriteBox<&mut W> for StscBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]

@@ -1,18 +1,15 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Avc1Box {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
-    pub horizresolution: Ratio<u32>,
-    pub vertresolution: Ratio<u32>,
+    pub horizresolution: FixedPointU16,
+    pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
     pub avcc: AvcCBox,
@@ -24,11 +21,26 @@ impl Default for Avc1Box {
             data_reference_index: 0,
             width: 0,
             height: 0,
-            horizresolution: Ratio::new_raw(0x00480000, 0x10000),
-            vertresolution: Ratio::new_raw(0x00480000, 0x10000),
+            horizresolution: FixedPointU16::new(0x48),
+            vertresolution: FixedPointU16::new(0x48),
             frame_count: 1,
             depth: 0x0018,
             avcc: AvcCBox::default(),
+        }
+    }
+}
+
+impl Avc1Box {
+    pub fn new(config: &AvcConfig) -> Self {
+        Avc1Box {
+            data_reference_index: 1,
+            width: config.width,
+            height: config.height,
+            horizresolution: FixedPointU16::new(0x48),
+            vertresolution: FixedPointU16::new(0x48),
+            frame_count: 1,
+            depth: 0x0018,
+            avcc: AvcCBox::new(&config.seq_param_set, &config.pic_param_set),
         }
     }
 }
@@ -39,13 +51,13 @@ impl Mp4Box for Avc1Box {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + 8 + 74 + self.avcc.box_size()
+        HEADER_SIZE + 8 + 70 + self.avcc.box_size()
     }
 }
 
 impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
@@ -56,10 +68,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         reader.read_u32::<BigEndian>()?; // pre-defined
         let width = reader.read_u16::<BigEndian>()?;
         let height = reader.read_u16::<BigEndian>()?;
-        let horiznumer = reader.read_u32::<BigEndian>()?;
-        let horizresolution = Ratio::new_raw(horiznumer, 0x10000);
-        let vertnumer = reader.read_u32::<BigEndian>()?;
-        let vertresolution = Ratio::new_raw(vertnumer, 0x10000);
+        let horizresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let vertresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
         reader.read_u32::<BigEndian>()?; // reserved
         let frame_count = reader.read_u16::<BigEndian>()?;
         skip_read(reader, 32)?; // compressorname
@@ -67,7 +77,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         reader.read_i16::<BigEndian>()?; // pre-defined
 
         let header = BoxHeader::read(reader)?;
-        let BoxHeader{ name, size: s } = header;
+        let BoxHeader { name, size: s } = header;
         if name == BoxType::AvcCBox {
             let avcc = AvcCBox::read_box(reader, s)?;
 
@@ -103,14 +113,12 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
         writer.write_u32::<BigEndian>(0)?; // pre-defined
         writer.write_u16::<BigEndian>(self.width)?;
         writer.write_u16::<BigEndian>(self.height)?;
-        writer.write_u32::<BigEndian>(*self.horizresolution.numer())?;
-        writer.write_u32::<BigEndian>(*self.vertresolution.numer())?;
+        writer.write_u32::<BigEndian>(self.horizresolution.raw_value())?;
+        writer.write_u32::<BigEndian>(self.vertresolution.raw_value())?;
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(self.frame_count)?;
         // skip compressorname
-        for _ in 0..4 {
-            writer.write_u64::<BigEndian>(0)?;
-        }
+        skip_write(writer, 32)?;
         writer.write_u16::<BigEndian>(self.depth)?;
         writer.write_i16::<BigEndian>(-1)?; // pre-defined
 
@@ -120,8 +128,7 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
     }
 }
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct AvcCBox {
     pub configuration_version: u8,
     pub avc_profile_indication: u8,
@@ -130,6 +137,20 @@ pub struct AvcCBox {
     pub length_size_minus_one: u8,
     pub sequence_parameter_sets: Vec<NalUnit>,
     pub picture_parameter_sets: Vec<NalUnit>,
+}
+
+impl AvcCBox {
+    pub fn new(sps: &[u8], pps: &[u8]) -> Self {
+        Self {
+            configuration_version: 1,
+            avc_profile_indication: sps[1],
+            profile_compatibility: sps[2],
+            avc_level_indication: sps[3],
+            length_size_minus_one: 0xff, // length_size = 4
+            sequence_parameter_sets: vec![NalUnit::from(sps)],
+            picture_parameter_sets: vec![NalUnit::from(pps)],
+        }
+    }
 }
 
 impl Mp4Box for AvcCBox {
@@ -151,7 +172,7 @@ impl Mp4Box for AvcCBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let configuration_version = reader.read_u8()?;
         let avc_profile_indication = reader.read_u8()?;
@@ -207,29 +228,81 @@ impl<W: Write> WriteBox<&mut W> for AvcCBox {
     }
 }
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct NalUnit {
     pub bytes: Vec<u8>,
 }
 
+impl From<&[u8]> for NalUnit {
+    fn from(bytes: &[u8]) -> Self {
+        Self {
+            bytes: bytes.to_vec(),
+        }
+    }
+}
+
 impl NalUnit {
-    pub fn size(&self) -> usize {
+    fn size(&self) -> usize {
         2 + self.bytes.len()
     }
 
-    pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self> {
+    fn read<R: Read + Seek>(reader: &mut R) -> Result<Self> {
         let length = reader.read_u16::<BigEndian>()? as usize;
         let mut bytes = vec![0u8; length];
         reader.read(&mut bytes)?;
-        Ok(NalUnit {
-            bytes,
-        })
+        Ok(NalUnit { bytes })
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
+    fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         writer.write_u16::<BigEndian>(self.bytes.len() as u16)?;
         writer.write(&self.bytes)?;
         Ok(self.size() as u64)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mp4box::BoxHeader;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_avc1() {
+        let src_box = Avc1Box {
+            data_reference_index: 1,
+            width: 320,
+            height: 240,
+            horizresolution: FixedPointU16::new(0x48),
+            vertresolution: FixedPointU16::new(0x48),
+            frame_count: 1,
+            depth: 24,
+            avcc: AvcCBox {
+                configuration_version: 1,
+                avc_profile_indication: 100,
+                profile_compatibility: 0,
+                avc_level_indication: 13,
+                length_size_minus_one: 3,
+                sequence_parameter_sets: vec![NalUnit {
+                    bytes: vec![
+                        0x67, 0x64, 0x00, 0x0D, 0xAC, 0xD9, 0x41, 0x41, 0xFA, 0x10, 0x00, 0x00,
+                        0x03, 0x00, 0x10, 0x00, 0x00, 0x03, 0x03, 0x20, 0xF1, 0x42, 0x99, 0x60,
+                    ],
+                }],
+                picture_parameter_sets: vec![NalUnit {
+                    bytes: vec![0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0],
+                }],
+            },
+        };
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::Avc1Box);
+        assert_eq!(src_box.box_size(), header.size);
+
+        let dst_box = Avc1Box::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 }

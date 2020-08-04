@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
-use crate::atoms::elst::ElstBox;
+use crate::mp4box::elst::ElstBox;
+use crate::mp4box::*;
 
-
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct EdtsBox {
     pub elst: Option<ElstBox>,
 }
@@ -32,12 +30,12 @@ impl Mp4Box for EdtsBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let mut edts = EdtsBox::new();
 
         let header = BoxHeader::read(reader)?;
-        let BoxHeader{ name, size: s } = header;
+        let BoxHeader { name, size: s } = header;
 
         match name {
             BoxType::ElstBox => {

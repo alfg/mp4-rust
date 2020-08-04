@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct FtypBox {
     pub major_brand: FourCC,
     pub minor_version: u32,
@@ -24,7 +22,7 @@ impl Mp4Box for FtypBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let major = reader.read_u32::<BigEndian>()?;
         let minor = reader.read_u32::<BigEndian>()?;
@@ -66,20 +64,30 @@ impl<W: Write> WriteBox<&mut W> for FtypBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
     fn test_ftyp() {
         let src_box = FtypBox {
-            major_brand: FourCC { value: String::from("isom") },
+            major_brand: FourCC {
+                value: String::from("isom"),
+            },
             minor_version: 0,
             compatible_brands: vec![
-                FourCC { value: String::from("isom") },
-                FourCC { value: String::from("iso2") },
-                FourCC { value: String::from("avc1") },
-                FourCC { value: String::from("mp41") },
-            ]
+                FourCC {
+                    value: String::from("isom"),
+                },
+                FourCC {
+                    value: String::from("iso2"),
+                },
+                FourCC {
+                    value: String::from("avc1"),
+                },
+                FourCC {
+                    value: String::from("mp41"),
+                },
+            ],
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

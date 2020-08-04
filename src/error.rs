@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::atoms::BoxType;
+use crate::mp4box::BoxType;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -10,6 +10,8 @@ pub enum Error {
     InvalidData(&'static str),
     #[error("{0} not found")]
     BoxNotFound(BoxType),
+    #[error("{0} and {1} not found")]
+    Box2NotFound(BoxType, BoxType),
     #[error("trak[{0}] not found")]
     TrakNotFound(u32),
     #[error("trak[{0}].{1} not found")]

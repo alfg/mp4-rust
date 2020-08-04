@@ -1,21 +1,13 @@
-use std::io::{Seek, SeekFrom, Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::*;
-use crate::atoms::*;
-use crate::atoms::{vmhd::VmhdBox, smhd::SmhdBox, stbl::StblBox};
+use crate::mp4box::*;
+use crate::mp4box::{smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
 
-
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct MinfBox {
     pub vmhd: Option<VmhdBox>,
     pub smhd: Option<SmhdBox>,
-    pub stbl: Option<StblBox>,
-}
-
-impl MinfBox {
-    pub(crate) fn new() -> MinfBox {
-        Default::default()
-    }
+    pub stbl: StblBox,
 }
 
 impl Mp4Box for MinfBox {
@@ -31,41 +23,39 @@ impl Mp4Box for MinfBox {
         if let Some(ref smhd) = self.smhd {
             size += smhd.box_size();
         }
-        if let Some(ref stbl) = self.stbl {
-            size += stbl.box_size();
-        }
+        size += self.stbl.box_size();
         size
     }
 }
 
 impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
-        let mut minf = MinfBox::new();
+        let mut vmhd = None;
+        let mut smhd = None;
+        let mut stbl = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
         let end = start + size;
         while current < end {
             // Get box header.
             let header = BoxHeader::read(reader)?;
-            let BoxHeader{ name, size: s } = header;
+            let BoxHeader { name, size: s } = header;
 
             match name {
                 BoxType::VmhdBox => {
-                    let vmhd = VmhdBox::read_box(reader, s)?;
-                    minf.vmhd = Some(vmhd);
+                    vmhd = Some(VmhdBox::read_box(reader, s)?);
                 }
                 BoxType::SmhdBox => {
-                    let smhd = SmhdBox::read_box(reader, s)?;
-                    minf.smhd = Some(smhd);
+                    smhd = Some(SmhdBox::read_box(reader, s)?);
                 }
-                BoxType::DinfBox => {// XXX warn!()
+                BoxType::DinfBox => {
+                    // XXX warn!()
                     skip_box(reader, s)?;
                 }
                 BoxType::StblBox => {
-                    let stbl = StblBox::read_box(reader, s)?;
-                    minf.stbl = Some(stbl);
+                    stbl = Some(StblBox::read_box(reader, s)?);
                 }
                 _ => {
                     // XXX warn!()
@@ -76,9 +66,17 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
             current = reader.seek(SeekFrom::Current(0))?;
         }
 
+        if stbl.is_none() {
+            return Err(Error::BoxNotFound(BoxType::StblBox));
+        }
+
         skip_read_to(reader, start + size)?;
 
-        Ok(minf)
+        Ok(MinfBox {
+            vmhd,
+            smhd,
+            stbl: stbl.unwrap(),
+        })
     }
 }
 
@@ -93,9 +91,7 @@ impl<W: Write> WriteBox<&mut W> for MinfBox {
         if let Some(ref smhd) = self.smhd {
             smhd.write_box(writer)?;
         }
-        if let Some(ref stbl) = self.stbl {
-            stbl.write_box(writer)?;
-        }
+        self.stbl.write_box(writer)?;
 
         Ok(size)
     }

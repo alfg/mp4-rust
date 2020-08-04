@@ -1,38 +1,38 @@
-use std::fmt;
-use std::io::{Seek, SeekFrom, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::convert::TryInto;
+use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::*;
 
-mod ftyp;
-mod moov;
-mod mvhd;
-mod trak;
-mod tkhd;
-mod edts;
-mod elst;
-mod mdia;
-mod mdhd;
-mod hdlr;
-mod minf;
-mod vmhd;
-mod smhd;
-mod stbl;
-mod stsd;
-mod stts;
-mod ctts;
-mod stss;
-mod stsc;
-mod stsz;
-mod stco;
-mod co64;
-mod avc;
-mod mp4a;
+pub(crate) mod avc1;
+pub(crate) mod co64;
+pub(crate) mod ctts;
+pub(crate) mod edts;
+pub(crate) mod elst;
+pub(crate) mod ftyp;
+pub(crate) mod hdlr;
+pub(crate) mod mdhd;
+pub(crate) mod mdia;
+pub(crate) mod minf;
+pub(crate) mod moov;
+pub(crate) mod mp4a;
+pub(crate) mod mvhd;
+pub(crate) mod smhd;
+pub(crate) mod stbl;
+pub(crate) mod stco;
+pub(crate) mod stsc;
+pub(crate) mod stsd;
+pub(crate) mod stss;
+pub(crate) mod stsz;
+pub(crate) mod stts;
+pub(crate) mod tkhd;
+pub(crate) mod trak;
+pub(crate) mod vmhd;
 
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
 
-const HEADER_SIZE: u64 = 8;
+pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;
 pub const HEADER_EXT_SIZE: u64 = 4;
 
@@ -64,7 +64,7 @@ macro_rules! boxtype {
     }
 }
 
-boxtype!{
+boxtype! {
     FtypBox => 0x66747970,
     MvhdBox => 0x6d766864,
     FreeBox => 0x66726565,
@@ -98,100 +98,6 @@ boxtype!{
     EsdsBox => 0x65736473
 }
 
-impl fmt::Debug for BoxType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
-        write!(f, "{}", fourcc)
-    }
-}
-
-impl fmt::Display for BoxType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
-        write!(f, "{}", fourcc)
-    }
-}
-
-#[derive(Default, PartialEq, Clone)]
-pub struct FourCC {
-    pub value: String
-}
-
-impl From<u32> for FourCC {
-    fn from(number: u32) -> Self {
-        let mut box_chars = Vec::new();
-        for x in 0..4 {
-            let c = (number >> (x * 8) & 0x0000_00FF) as u8;
-            box_chars.push(c);
-        }
-        box_chars.reverse();
-
-        let box_string = match String::from_utf8(box_chars) {
-            Ok(t) => t,
-            _ => String::from("null"), // error to retrieve fourcc
-        };
-
-        FourCC {
-            value: box_string
-        }
-    }
-}
-
-impl From<FourCC> for u32 {
-    fn from(fourcc: FourCC) -> u32 {
-        (&fourcc).into()
-    }
-}
-
-impl From<&FourCC> for u32 {
-    fn from(fourcc: &FourCC) -> u32 {
-        let mut b: [u8; 4] = Default::default();
-        b.copy_from_slice(fourcc.value.as_bytes());
-        u32::from_be_bytes(b)
-    }
-}
-
-impl From<String> for FourCC {
-    fn from(fourcc: String) -> FourCC {
-        let value = if fourcc.len() > 4 {
-            fourcc[0..4].to_string()
-        } else {
-            fourcc
-        };
-        FourCC {value}
-    }
-}
-
-impl From<&str> for FourCC {
-    fn from(fourcc: &str) -> FourCC {
-        let value = if fourcc.len() > 4 {
-            fourcc[0..4].to_string()
-        } else {
-            fourcc.to_string()
-        };
-        FourCC {value}
-    }
-}
-
-impl From<BoxType> for FourCC {
-    fn from(t: BoxType) -> FourCC {
-        let box_num: u32 = Into::into(t);
-        From::from(box_num)
-    }
-}
-
-impl fmt::Debug for FourCC {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
-impl fmt::Display for FourCC {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
 pub trait Mp4Box: Sized {
     fn box_type() -> BoxType;
     fn box_size(&self) -> u64;
@@ -212,14 +118,14 @@ pub struct BoxHeader {
 }
 
 impl BoxHeader {
-    fn new(name: BoxType, size: u64) -> Self {
+    pub fn new(name: BoxType, size: u64) -> Self {
         Self { name, size }
     }
 
     // TODO: if size is 0, then this box is the last one in the file
     pub fn read<R: Read>(reader: &mut R) -> Result<Self> {
         // Create and read to buf.
-        let mut buf = [0u8;8]; // 8 bytes for box header.
+        let mut buf = [0u8; 8]; // 8 bytes for box header.
         reader.read(&mut buf)?;
 
         // Get size.
@@ -248,7 +154,7 @@ impl BoxHeader {
         }
     }
 
-    fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         if self.size > u32::MAX as u64 {
             writer.write_u32::<BigEndian>(1)?;
             writer.write_u32::<BigEndian>(self.name.into())?;
@@ -274,7 +180,7 @@ pub fn write_box_header_ext<W: Write>(w: &mut W, v: u8, f: u32) -> Result<u64> {
     Ok(4)
 }
 
-pub fn get_box_start<R: Seek>(reader: &mut R) -> Result<u64> {
+pub fn box_start<R: Seek>(reader: &mut R) -> Result<u64> {
     Ok(reader.seek(SeekFrom::Current(0))? - HEADER_SIZE)
 }
 
@@ -290,7 +196,7 @@ pub fn skip_read_to<R: Read + Seek>(reader: &mut R, pos: u64) -> Result<()> {
 }
 
 pub fn skip_box<R: Read + Seek>(reader: &mut R, size: u64) -> Result<()> {
-    let start = get_box_start(reader)?;
+    let start = box_start(reader)?;
     skip_read_to(reader, start + size)?;
     Ok(())
 }

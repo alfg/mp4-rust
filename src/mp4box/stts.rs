@@ -1,20 +1,24 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, Default, PartialEq)]
-pub struct Co64Box {
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SttsBox {
     pub version: u8,
     pub flags: u32,
-    pub entries: Vec<u64>,
+    pub entries: Vec<SttsEntry>,
 }
 
-impl Mp4Box for Co64Box {
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SttsEntry {
+    pub sample_count: u32,
+    pub sample_delta: u32,
+}
+
+impl Mp4Box for SttsBox {
     fn box_type() -> BoxType {
-        BoxType::Co64Box
+        BoxType::SttsBox
     }
 
     fn box_size(&self) -> u64 {
@@ -22,22 +26,25 @@ impl Mp4Box for Co64Box {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for Co64Box {
+impl<R: Read + Seek> ReadBox<&mut R> for SttsBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
         let entry_count = reader.read_u32::<BigEndian>()?;
         let mut entries = Vec::with_capacity(entry_count as usize);
         for _i in 0..entry_count {
-            let chunk_offset = reader.read_u64::<BigEndian>()?;
-            entries.push(chunk_offset);
+            let entry = SttsEntry {
+                sample_count: reader.read_u32::<BigEndian>()?,
+                sample_delta: reader.read_u32::<BigEndian>()?,
+            };
+            entries.push(entry);
         }
 
         skip_read_to(reader, start + size)?;
 
-        Ok(Co64Box {
+        Ok(SttsBox {
             version,
             flags,
             entries,
@@ -45,7 +52,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Co64Box {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for Co64Box {
+impl<W: Write> WriteBox<&mut W> for SttsBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
@@ -53,8 +60,9 @@ impl<W: Write> WriteBox<&mut W> for Co64Box {
         write_box_header_ext(writer, self.version, self.flags)?;
 
         writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
-        for chunk_offset in self.entries.iter() {
-            writer.write_u64::<BigEndian>(*chunk_offset)?;
+        for entry in self.entries.iter() {
+            writer.write_u32::<BigEndian>(entry.sample_count)?;
+            writer.write_u32::<BigEndian>(entry.sample_delta)?;
         }
 
         Ok(size)
@@ -64,15 +72,24 @@ impl<W: Write> WriteBox<&mut W> for Co64Box {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
-    fn test_co64() {
-        let src_box = Co64Box {
+    fn test_stts() {
+        let src_box = SttsBox {
             version: 0,
             flags: 0,
-            entries: vec![267, 1970, 2535, 2803, 11843, 22223, 33584],
+            entries: vec![
+                SttsEntry {
+                    sample_count: 29726,
+                    sample_delta: 1024,
+                },
+                SttsEntry {
+                    sample_count: 1,
+                    sample_delta: 512,
+                },
+            ],
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -80,10 +97,10 @@ mod tests {
 
         let mut reader = Cursor::new(&buf);
         let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::Co64Box);
+        assert_eq!(header.name, BoxType::SttsBox);
         assert_eq!(src_box.box_size(), header.size);
 
-        let dst_box = Co64Box::read_box(&mut reader, header.size).unwrap();
+        let dst_box = SttsBox::read_box(&mut reader, header.size).unwrap();
         assert_eq!(src_box, dst_box);
     }
 }

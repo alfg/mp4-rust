@@ -1,12 +1,9 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MvhdBox {
     pub version: u8,
     pub flags: u32,
@@ -14,7 +11,7 @@ pub struct MvhdBox {
     pub modification_time: u64,
     pub timescale: u32,
     pub duration: u64,
-    pub rate: Ratio<u32>,
+    pub rate: FixedPointU16,
 }
 
 impl Default for MvhdBox {
@@ -26,7 +23,7 @@ impl Default for MvhdBox {
             modification_time: 0,
             timescale: 1000,
             duration: 0,
-            rate: Ratio::new_raw(0x00010000, 0x10000),
+            rate: FixedPointU16::new(1),
         }
     }
 }
@@ -51,33 +48,31 @@ impl Mp4Box for MvhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let (creation_time, modification_time, timescale, duration)
-            = if version  == 1 {
-                (
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                )
-            } else {
-                assert_eq!(version, 0);
-                (
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()? as u64,
-                )
-            };
-        let numer = reader.read_u32::<BigEndian>()?;
-        let rate = Ratio::new_raw(numer, 0x10000);
+        let (creation_time, modification_time, timescale, duration) = if version == 1 {
+            (
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+            )
+        } else {
+            assert_eq!(version, 0);
+            (
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()? as u64,
+            )
+        };
+        let rate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
         skip_read_to(reader, start + size)?;
 
-        Ok(MvhdBox{
+        Ok(MvhdBox {
             version,
             flags,
             creation_time,
@@ -108,7 +103,7 @@ impl<W: Write> WriteBox<&mut W> for MvhdBox {
             writer.write_u32::<BigEndian>(self.timescale)?;
             writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
-        writer.write_u32::<BigEndian>(*self.rate.numer())?;
+        writer.write_u32::<BigEndian>(self.rate.raw_value())?;
 
         // XXX volume, ...
         skip_write(writer, 76)?;
@@ -120,7 +115,7 @@ impl<W: Write> WriteBox<&mut W> for MvhdBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -132,7 +127,7 @@ mod tests {
             modification_time: 200,
             timescale: 1000,
             duration: 634634,
-            rate: Ratio::new_raw(0x00010000, 0x10000),
+            rate: FixedPointU16::new(1),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -156,7 +151,7 @@ mod tests {
             modification_time: 200,
             timescale: 1000,
             duration: 634634,
-            rate: Ratio::new_raw(0x00010000, 0x10000),
+            rate: FixedPointU16::new(1),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

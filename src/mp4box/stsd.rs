@@ -1,12 +1,10 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
-use crate::atoms::{avc::Avc1Box, mp4a::Mp4aBox};
+use crate::mp4box::*;
+use crate::mp4box::{avc1::Avc1Box, mp4a::Mp4aBox};
 
-
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StsdBox {
     pub version: u8,
     pub flags: u32,
@@ -20,7 +18,7 @@ impl Mp4Box for StsdBox {
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
         } else if let Some(ref mp4a) = self.mp4a {
@@ -32,7 +30,7 @@ impl Mp4Box for StsdBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -43,7 +41,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
-        let BoxHeader{ name, size: s } = header;
+        let BoxHeader { name, size: s } = header;
 
         match name {
             BoxType::Avc1Box => {

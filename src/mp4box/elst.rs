@@ -1,18 +1,16 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ElstBox {
     pub version: u8,
     pub flags: u32,
     pub entries: Vec<ElstEntry>,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ElstEntry {
     pub segment_duration: u64,
     pub media_time: u64,
@@ -39,27 +37,26 @@ impl Mp4Box for ElstBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for ElstBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
         let entry_count = reader.read_u32::<BigEndian>()?;
         let mut entries = Vec::with_capacity(entry_count as usize);
         for _ in 0..entry_count {
-            let (segment_duration, media_time)
-                = if version == 1 {
-                    (
-                        reader.read_u64::<BigEndian>()?,
-                        reader.read_u64::<BigEndian>()?,
-                    )
-                } else {
-                    (
-                        reader.read_u32::<BigEndian>()? as u64,
-                        reader.read_u32::<BigEndian>()? as u64,
-                    )
-                };
+            let (segment_duration, media_time) = if version == 1 {
+                (
+                    reader.read_u64::<BigEndian>()?,
+                    reader.read_u64::<BigEndian>()?,
+                )
+            } else {
+                (
+                    reader.read_u32::<BigEndian>()? as u64,
+                    reader.read_u32::<BigEndian>()? as u64,
+                )
+            };
 
-            let entry = ElstEntry{
+            let entry = ElstEntry {
                 segment_duration,
                 media_time,
                 media_rate: reader.read_u16::<BigEndian>()?,
@@ -105,7 +102,7 @@ impl<W: Write> WriteBox<&mut W> for ElstBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]

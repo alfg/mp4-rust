@@ -1,11 +1,9 @@
-use std::io::{Seek, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Seek, Write};
 
-use crate::*;
-use crate::atoms::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct VmhdBox {
     pub version: u8,
     pub flags: u32,
@@ -13,7 +11,7 @@ pub struct VmhdBox {
     pub op_color: RgbColor,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct RgbColor {
     pub red: u16,
     pub green: u16,
@@ -32,7 +30,7 @@ impl Mp4Box for VmhdBox {
 
 impl<R: Read + Seek> ReadBox<&mut R> for VmhdBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = get_box_start(reader)?;
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
@@ -70,11 +68,10 @@ impl<W: Write> WriteBox<&mut W> for VmhdBox {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -83,7 +80,11 @@ mod tests {
             version: 0,
             flags: 1,
             graphics_mode: 0,
-            op_color: RgbColor { red: 0, green: 0, blue: 0},
+            op_color: RgbColor {
+                red: 0,
+                green: 0,
+                blue: 0,
+            },
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
