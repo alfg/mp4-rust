@@ -15,4 +15,4 @@ mod reader;
 pub use reader::Mp4Reader;
 
 mod writer;
-pub use writer::Mp4Writer;
+pub use writer::{Mp4Config, Mp4Writer};

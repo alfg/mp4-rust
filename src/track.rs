@@ -1,10 +1,12 @@
+use bytes::BytesMut;
 use std::convert::TryFrom;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::time::Duration;
+use std::cmp;
 
 use crate::atoms::trak::TrakBox;
 use crate::atoms::*;
-use crate::atoms::{avc1::Avc1Box, mp4a::Mp4aBox, smhd::SmhdBox, vmhd::VmhdBox};
+use crate::atoms::{avc1::Avc1Box, mp4a::Mp4aBox, smhd::SmhdBox, vmhd::VmhdBox, ctts::CttsBox, stts::SttsEntry, ctts::CttsEntry, stss::StssBox, stco::StcoBox, stsc::StscEntry};
 use crate::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,7 +14,6 @@ pub struct TrackConfig {
     pub track_type: TrackType,
     pub timescale: u32,
     pub language: String,
-
     pub media_conf: MediaConfig,
 }
 
@@ -53,34 +54,6 @@ pub struct Mp4Track {
 }
 
 impl Mp4Track {
-    pub fn new(track_id: u32, config: &TrackConfig) -> Result<Self> {
-        let mut trak = TrakBox::default();
-        trak.tkhd.track_id = track_id;
-        trak.mdia.mdhd.timescale = config.timescale;
-        trak.mdia.mdhd.language = config.language.to_owned();
-        trak.mdia.hdlr.handler_type = config.track_type.into();
-        match config.media_conf {
-            MediaConfig::AvcConfig(ref avc_config) => {
-                trak.tkhd.set_width(avc_config.width);
-                trak.tkhd.set_height(avc_config.height);
-
-                let vmhd = VmhdBox::default();
-                trak.mdia.minf.vmhd = Some(vmhd);
-
-                let avc1 = Avc1Box::new(avc_config);
-                trak.mdia.minf.stbl.stsd.avc1 = Some(avc1);
-            }
-            MediaConfig::AacConfig(ref aac_config) => {
-                let smhd = SmhdBox::default();
-                trak.mdia.minf.smhd = Some(smhd);
-
-                let mp4a = Mp4aBox::new(aac_config);
-                trak.mdia.minf.stbl.stsd.mp4a = Some(mp4a);
-            }
-        }
-        Ok(Mp4Track { trak })
-    }
-
     pub(crate) fn from(trak: &TrakBox) -> Self {
         let trak = trak.clone();
         Self { trak }
@@ -193,7 +166,7 @@ impl Mp4Track {
     }
 
     pub fn sample_count(&self) -> u32 {
-        self.trak.mdia.minf.stbl.stsz.sample_sizes.len() as u32
+        self.trak.mdia.minf.stbl.stsz.sample_count
     }
 
     pub fn video_profile(&self) -> Result<AvcProfile> {
@@ -287,13 +260,7 @@ impl Mp4Track {
     }
 
     fn ctts_index(&self, sample_id: u32) -> Result<(usize, u32)> {
-        assert!(self.trak.mdia.minf.stbl.ctts.is_some());
-        let ctts = if let Some(ref ctts) = self.trak.mdia.minf.stbl.ctts {
-            ctts
-        } else {
-            return Err(Error::BoxInStblNotFound(self.track_id(), BoxType::CttsBox));
-        };
-
+        let ctts = self.trak.mdia.minf.stbl.ctts.as_ref().unwrap();
         let mut sample_count = 1;
         for (i, entry) in ctts.entries.iter().enumerate() {
             if sample_id <= sample_count + entry.sample_count - 1 {
@@ -412,12 +379,12 @@ impl Mp4Track {
         reader: &mut R,
         sample_id: u32,
     ) -> Result<Option<Mp4Sample>> {
-        let sample_size = match self.sample_size(sample_id) {
-            Ok(size) => size,
+        let sample_offset = match self.sample_offset(sample_id) {
+            Ok(offset) => offset,
             Err(Error::EntryInStblNotFound(_, _, _)) => return Ok(None),
             Err(err) => return Err(err),
         };
-        let sample_offset = self.sample_offset(sample_id).unwrap(); // XXX
+        let sample_size = self.sample_size(sample_id).unwrap();
 
         let mut buffer = vec![0x0u8; sample_size as usize];
         reader.seek(SeekFrom::Start(sample_offset))?;
@@ -434,5 +401,254 @@ impl Mp4Track {
             is_sync,
             bytes: Bytes::from(buffer),
         }))
+    }
+}
+
+// TODO creation_time, modification_time
+#[derive(Debug, Default)]
+pub(crate) struct Mp4TrackWriter {
+    trak: TrakBox,
+
+    sample_id: u32,
+    fixed_sample_size: u32,
+    is_fixed_sample_size: bool,
+    chunk_samples: u32,
+    chunk_duration: u32,
+    chunk_buffer: BytesMut,
+
+    samples_per_chunk: u32,
+    duration_per_chunk: u32,
+}
+
+impl Mp4TrackWriter {
+    pub(crate) fn new(track_id: u32, config: &TrackConfig) -> Result<Self> {
+        let mut trak = TrakBox::default();
+        trak.tkhd.track_id = track_id;
+        trak.mdia.mdhd.timescale = config.timescale;
+        trak.mdia.mdhd.language = config.language.to_owned();
+        trak.mdia.hdlr.handler_type = config.track_type.into();
+        // XXX largesize
+        trak.mdia.minf.stbl.stco = Some(StcoBox::default());
+        match config.media_conf {
+            MediaConfig::AvcConfig(ref avc_config) => {
+                trak.tkhd.set_width(avc_config.width);
+                trak.tkhd.set_height(avc_config.height);
+
+                let vmhd = VmhdBox::default();
+                trak.mdia.minf.vmhd = Some(vmhd);
+
+                let avc1 = Avc1Box::new(avc_config);
+                trak.mdia.minf.stbl.stsd.avc1 = Some(avc1);
+            }
+            MediaConfig::AacConfig(ref aac_config) => {
+                let smhd = SmhdBox::default();
+                trak.mdia.minf.smhd = Some(smhd);
+
+                let mp4a = Mp4aBox::new(aac_config);
+                trak.mdia.minf.stbl.stsd.mp4a = Some(mp4a);
+            }
+        }
+        Ok(Mp4TrackWriter {
+            trak,
+            chunk_buffer: BytesMut::new(),
+            sample_id: 1,
+            duration_per_chunk: config.timescale, // 1 second
+            ..Self::default()
+        })
+    }
+
+    fn update_sample_sizes(&mut self, size: u32) {
+        if self.trak.mdia.minf.stbl.stsz.sample_count == 0 {
+            if size == 0 {
+                self.trak.mdia.minf.stbl.stsz.sample_size = 0;
+                self.is_fixed_sample_size = false;
+            } else {
+                self.fixed_sample_size = size;
+                self.is_fixed_sample_size = true;
+            }
+        } else {
+            assert!(self.trak.mdia.minf.stbl.stsz.sample_count > 0);
+            if !self.is_fixed_sample_size || self.fixed_sample_size != size {
+                if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
+                    self.trak.mdia.minf.stbl.stsz.sample_size = 0;
+                    for _ in 0..self.trak.mdia.minf.stbl.stsz.sample_count {
+                        self.trak.mdia.minf.stbl.stsz.sample_sizes.push(self.fixed_sample_size);
+                    }
+                }
+                self.trak.mdia.minf.stbl.stsz.sample_sizes.push(size);
+            }
+        }
+        self.trak.mdia.minf.stbl.stsz.sample_count += 1;
+    }
+
+    fn update_sample_times(&mut self, dur: u32) {
+        if let Some(ref mut entry) = self.trak.mdia.minf.stbl.stts.entries.last_mut() {
+            if entry.sample_delta == dur {
+                entry.sample_count += 1;
+                return;
+            }
+        }
+
+        let entry = SttsEntry {
+            sample_count: 1,
+            sample_delta: dur,
+        };
+        self.trak.mdia.minf.stbl.stts.entries.push(entry);
+    }
+
+    fn update_rendering_offsets(&mut self, offset: i32) {
+        let ctts = if let Some(ref mut ctts) = self.trak.mdia.minf.stbl.ctts {
+            ctts
+        } else {
+            if offset == 0 {
+                return;
+            }
+            let mut ctts = CttsBox::default();
+            if self.sample_id > 1 {
+                let entry = CttsEntry {
+                    sample_count: self.sample_id - 1,
+                    sample_offset: 0,
+                };
+                ctts.entries.push(entry);
+            }
+            self.trak.mdia.minf.stbl.ctts = Some(ctts);
+            self.trak.mdia.minf.stbl.ctts.as_mut().unwrap()
+        };
+
+        if let Some(ref mut entry) = ctts.entries.last_mut() {
+            if entry.sample_offset == offset {
+                entry.sample_count += 1;
+                return;
+            }
+        }
+
+        let entry = CttsEntry {
+            sample_count: 1,
+            sample_offset: offset,
+        };
+        ctts.entries.push(entry);
+    }
+
+    fn update_sync_samples(&mut self, is_sync: bool) {
+        if let Some(ref mut stss) = self.trak.mdia.minf.stbl.stss {
+            stss.entries.push(self.sample_id);
+        } else {
+            if is_sync {
+                return;
+            }
+
+            let mut stss = StssBox::default();
+            for i in 1..=self.trak.mdia.minf.stbl.stsz.sample_count {
+                stss.entries.push(i);
+            }
+            self.trak.mdia.minf.stbl.stss = Some(stss);
+        };
+    }
+
+    fn is_chunk_full(&self) -> bool {
+        if self.samples_per_chunk > 0 {
+            self.chunk_samples >= self.samples_per_chunk
+        } else {
+            self.chunk_duration >= self.duration_per_chunk
+        }
+    }
+
+    fn update_durations(&mut self, dur: u32, movie_timescale: u32) {
+        self.trak.mdia.mdhd.duration += dur as u64;
+        self.trak.tkhd.duration += dur as u64 * movie_timescale as u64 / self.trak.mdia.mdhd.timescale as u64;
+    }
+
+    pub(crate) fn write_sample<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        sample: &Mp4Sample,
+        movie_timescale: u32,
+    ) -> Result<u64> {
+        self.chunk_buffer.extend_from_slice(&sample.bytes);
+        self.chunk_samples += 1;
+        self.chunk_duration += sample.duration;
+        self.update_sample_sizes(sample.bytes.len() as u32);
+        self.update_sample_times(sample.duration);
+        self.update_rendering_offsets(sample.rendering_offset);
+        self.update_sync_samples(sample.is_sync);
+        if self.is_chunk_full() {
+            self.write_chunk(writer)?;
+        }
+        self.update_durations(sample.duration, movie_timescale);
+
+        self.sample_id += 1;
+
+        Ok(self.trak.tkhd.duration)
+    }
+
+    // XXX largesize
+    fn chunk_count(&self) -> u32 {
+        let stco = self.trak.mdia.minf.stbl.stco.as_ref().unwrap();
+        stco.entries.len() as u32
+    }
+
+    fn update_sample_to_chunk(&mut self, chunk_id: u32) {
+        if let Some(ref entry) = self.trak.mdia.minf.stbl.stsc.entries.last() {
+            if entry.samples_per_chunk == self.chunk_samples {
+                return;
+            }
+        }
+
+        let entry = StscEntry {
+            first_chunk: chunk_id,
+            samples_per_chunk: self.chunk_samples,
+            sample_description_index: 1,
+            first_sample: self.sample_id - self.chunk_samples + 1,
+        };
+        self.trak.mdia.minf.stbl.stsc.entries.push(entry);
+    }
+
+    fn update_chunk_offsets(&mut self, offset: u64) {
+        let stco = self.trak.mdia.minf.stbl.stco.as_mut().unwrap();
+        stco.entries.push(offset as u32);
+    }
+
+    fn write_chunk<W: Write + Seek>(&mut self, writer: &mut W) -> Result<()> {
+        if self.chunk_buffer.is_empty() {
+            return Ok(());
+        }
+        let chunk_offset = writer.seek(SeekFrom::Current(0))?;
+
+        writer.write_all(&self.chunk_buffer)?;
+
+        self.update_sample_to_chunk(self.chunk_count() + 1);
+        self.update_chunk_offsets(chunk_offset);
+
+        self.chunk_buffer.clear();
+        self.chunk_samples = 0;
+        self.chunk_duration = 0;
+
+        Ok(())
+    }
+
+    fn max_sample_size(&self) -> u32 {
+        if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
+            self.trak.mdia.minf.stbl.stsz.sample_size
+        } else {
+            let mut max_size = 0;
+            for sample_size in self.trak.mdia.minf.stbl.stsz.sample_sizes.iter() {
+                max_size = cmp::max(max_size, *sample_size);
+            }
+            max_size
+        }
+    }
+
+    pub(crate) fn write_end<W: Write + Seek>(&mut self, writer: &mut W) -> Result<TrakBox> {
+        self.write_chunk(writer)?;
+
+        let max_sample_size = self.max_sample_size();
+        if let Some(ref mut mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            mp4a.esds.es_desc.dec_config.buffer_size_db = max_sample_size;
+            // TODO
+            // mp4a.esds.es_desc.dec_config.max_bitrate
+            // mp4a.esds.es_desc.dec_config.avg_bitrate
+        }
+
+        Ok(self.trak.clone())
     }
 }

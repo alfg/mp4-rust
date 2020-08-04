@@ -8,6 +8,7 @@ pub struct StszBox {
     pub version: u8,
     pub flags: u32,
     pub sample_size: u32,
+    pub sample_count: u32,
     pub sample_sizes: Vec<u32>,
 }
 
@@ -43,6 +44,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StszBox {
             version,
             flags,
             sample_size,
+            sample_count,
             sample_sizes,
         })
     }
@@ -56,7 +58,7 @@ impl<W: Write> WriteBox<&mut W> for StszBox {
         write_box_header_ext(writer, self.version, self.flags)?;
 
         writer.write_u32::<BigEndian>(self.sample_size)?;
-        writer.write_u32::<BigEndian>(self.sample_sizes.len() as u32)?;
+        writer.write_u32::<BigEndian>(self.sample_count)?;
         if self.sample_size == 0 {
             for sample_number in self.sample_sizes.iter() {
                 writer.write_u32::<BigEndian>(*sample_number)?;
@@ -79,6 +81,7 @@ mod tests {
             version: 0,
             flags: 0,
             sample_size: 1165,
+            sample_count: 12,
             sample_sizes: vec![],
         };
         let mut buf = Vec::new();
@@ -100,6 +103,7 @@ mod tests {
             version: 0,
             flags: 0,
             sample_size: 0,
+            sample_count: 9,
             sample_sizes: vec![1165, 11, 11, 8545, 10126, 10866, 9643, 9351, 7730],
         };
         let mut buf = Vec::new();

@@ -124,7 +124,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
             return Err(Error::TrakNotFound(track_id));
         }
 
-        if let Some(track) = self.tracks.get(track_id as usize - 1) {
+        if let Some(ref track) = self.tracks.get(track_id as usize - 1) {
             track.read_sample(&mut self.reader, sample_id)
         } else {
             Err(Error::TrakNotFound(track_id))

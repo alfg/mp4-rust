@@ -42,7 +42,7 @@ impl Mp4Box for Mp4aBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + 8 + 74 + self.esds.box_size()
+        HEADER_SIZE + 28 + self.esds.box_size()
     }
 }
 
@@ -124,7 +124,7 @@ impl Mp4Box for EsdsBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE
+        HEADER_SIZE + HEADER_EXT_SIZE + ESDescriptor::desc_size() as u64
     }
 }
 
@@ -152,6 +152,8 @@ impl<W: Write> WriteBox<&mut W> for EsdsBox {
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
+
+        self.es_desc.write_desc(writer)?;
 
         Ok(size)
     }
@@ -188,7 +190,7 @@ fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
 fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
     writer.write_u8(tag)?;
 
-    if size > 0x0FFFFFFF {
+    if size as u64 > std::u32::MAX as u64 {
         return Err(Error::InvalidData("invalid descriptor length range"));
     }
 
@@ -263,7 +265,14 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
+        write_desc(writer, Self::desc_tag(), size-1)?;
+
+        writer.write_u16::<BigEndian>(self.es_id)?;
+        writer.write_u8(0)?;
+
+        self.dec_config.write_desc(writer)?;
+        self.sl_config.write_desc(writer)?;
+
         Ok(size)
     }
 }
@@ -315,7 +324,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 
         let object_type_indication = reader.read_u8()?;
         let byte_a = reader.read_u8()?;
-        let stream_type = byte_a & 0xFC;
+        let stream_type = (byte_a & 0xFC) >> 2;
         let up_stream = byte_a & 0x02;
         let buffer_size_db = reader.read_u24::<BigEndian>()?;
         let max_bitrate = reader.read_u32::<BigEndian>()?;
@@ -323,10 +332,9 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 
         let dec_specific = DecoderSpecificDescriptor::read_desc(reader)?;
 
-        // XXX skip_read
-        for _ in DecoderConfigDescriptor::desc_size()..size - 1 {
-            reader.read_u8()?;
-        }
+        // XXX skip_size
+        let skip_size = size - 1 - DecoderConfigDescriptor::desc_size();
+        skip_read(reader, skip_size as i64)?;
 
         Ok(DecoderConfigDescriptor {
             object_type_indication,
@@ -343,7 +351,16 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
+        write_desc(writer, Self::desc_tag(), size-1)?;
+
+        writer.write_u8(self.object_type_indication)?;
+        writer.write_u8(self.stream_type << 2 + self.up_stream & 0x02)?;
+        writer.write_u24::<BigEndian>(self.buffer_size_db)?;
+        writer.write_u32::<BigEndian>(self.max_bitrate)?;
+        writer.write_u32::<BigEndian>(self.avg_bitrate)?;
+
+        self.dec_specific.write_desc(writer)?;
+
         Ok(size)
     }
 }
@@ -400,7 +417,11 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
+        write_desc(writer, Self::desc_tag(), size-1)?;
+
+        writer.write_u8((self.profile << 3) + (self.freq_index >> 1))?;
+        writer.write_u8((self.freq_index << 7) + (self.chan_conf << 3))?;
+
         Ok(size)
     }
 }
@@ -441,7 +462,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
+        write_desc(writer, Self::desc_tag(), size-1)?;
         writer.write_u8(0)?; // pre-defined
         Ok(size)
     }

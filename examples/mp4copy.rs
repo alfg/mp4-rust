@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 
-use mp4::{AacConfig, AvcConfig, MediaConfig, MediaType, Result, TrackConfig};
+use mp4::{AacConfig, AvcConfig, MediaConfig, MediaType, Result, TrackConfig, Mp4Config};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -28,11 +28,14 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
     let writer = BufWriter::new(dst_file);
 
     let mut mp4_reader = mp4::Mp4Reader::read_header(reader, size)?;
-    let mut mp4_writer = mp4::Mp4Writer::write_header(
+    let mut mp4_writer = mp4::Mp4Writer::write_start(
         writer,
-        mp4_reader.major_brand(),
-        mp4_reader.minor_version(),
-        mp4_reader.compatible_brands(),
+        &Mp4Config {
+            major_brand: mp4_reader.major_brand().clone(),
+            minor_version: mp4_reader.minor_version(),
+            compatible_brands: mp4_reader.compatible_brands().to_vec(),
+            timescale: mp4_reader.timescale(),
+        },
     )?;
 
     // TODO interleaving
@@ -71,11 +74,11 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
             let sample_id = six + 1;
             let sample = mp4_reader.read_sample(track_id, sample_id)?.unwrap();
             mp4_writer.write_sample(track_id, &sample)?;
-            println!("copy {}:({})", sample_id, sample);
+            // println!("copy {}:({})", sample_id, sample);
         }
     }
 
-    mp4_writer.write_tail()?;
+    mp4_writer.write_end()?;
 
     Ok(())
 }
