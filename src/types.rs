@@ -429,7 +429,22 @@ impl TryFrom<u8> for ChannelConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+impl fmt::Display for ChannelConfig {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            ChannelConfig::Mono => "mono",
+            ChannelConfig::Stereo => "stereo",
+            ChannelConfig::Three => "three",
+            ChannelConfig::Four => "four",
+            ChannelConfig::Five => "five",
+            ChannelConfig::FiveOne => "five.one",
+            ChannelConfig::SevenOne => "seven.one",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct AvcConfig {
     pub width: u16,
     pub height: u16,
@@ -445,10 +460,21 @@ pub struct AacConfig {
     pub chan_conf: ChannelConfig,
 }
 
+impl Default for AacConfig {
+    fn default() -> Self {
+        Self {
+            bitrate: 0,
+            profile: AudioObjectType::AacLowComplexity,
+            freq_index: SampleFreqIndex::Freq48000,
+            chan_conf: ChannelConfig::Stereo,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum MediaConfig {
     AvcConfig(AvcConfig),
-    AaaConfig(AacConfig),
+    AacConfig(AacConfig),
 }
 
 #[derive(Debug)]

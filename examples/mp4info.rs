@@ -72,18 +72,13 @@ fn video_info(track: &Mp4Track) -> Result<String> {
 }
 
 fn audio_info(track: &Mp4Track) -> Result<String> {
-    let ch = match track.channel_count() {
-        1 => String::from("mono"),
-        2 => String::from("stereo"),
-        n => format!("{}-ch", n),
-    };
     Ok(format!(
         "{} ({}) ({:?}), {} Hz, {}, {} kb/s",
         track.media_type()?,
         track.audio_profile()?,
         track.box_type()?,
-        track.sample_rate(),
-        ch,
+        track.sample_freq_index()?.freq(),
+        track.channel_config()?,
         track.bitrate() / 1000
     ))
 }

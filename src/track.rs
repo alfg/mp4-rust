@@ -9,12 +9,46 @@ use crate::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrackConfig {
-    pub track_id: u32,
     pub track_type: TrackType,
     pub timescale: u32,
     pub language: String,
 
     pub media_conf: MediaConfig,
+}
+
+impl From<MediaConfig> for TrackConfig {
+    fn from(media_conf: MediaConfig) -> Self {
+        match media_conf {
+            MediaConfig::AvcConfig(avc_conf) => {
+                Self::from(avc_conf)
+            }
+            MediaConfig::AacConfig(aac_conf) => {
+                Self::from(aac_conf)
+            }
+        }
+    }
+}
+
+impl From<AvcConfig> for TrackConfig {
+    fn from(avc_conf: AvcConfig) -> Self {
+        Self {
+            track_type: TrackType::Video,
+            timescale: 1000, // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::AvcConfig(avc_conf),
+        }
+    }
+}
+
+impl From<AacConfig> for TrackConfig {
+    fn from(aac_conf: AacConfig) -> Self {
+        Self {
+            track_type: TrackType::Audio,
+            timescale: 1000, // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::AacConfig(aac_conf),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -23,11 +57,11 @@ pub struct Mp4Track {
 }
 
 impl Mp4Track {
-    pub fn new(config: TrackConfig) -> Result<Self> {
+    pub fn new(track_id: u32, config: &TrackConfig) -> Result<Self> {
         let mut trak = TrakBox::default();
-        trak.tkhd.track_id = config.track_id;
+        trak.tkhd.track_id = track_id;
         trak.mdia.mdhd.timescale = config.timescale;
-        trak.mdia.mdhd.language = config.language;
+        trak.mdia.mdhd.language = config.language.to_owned();
         trak.mdia.hdlr.handler_type = config.track_type.into();
         match config.media_conf {
             MediaConfig::AvcConfig(ref avc_config) => {
@@ -40,7 +74,7 @@ impl Mp4Track {
                 let avc1 = Avc1Box::new(avc_config);
                 trak.mdia.minf.stbl.stsd.avc1 = Some(avc1);
             }
-            MediaConfig::AaaConfig(ref aac_config ) => {
+            MediaConfig::AacConfig(ref aac_config ) => {
                 let smhd = SmhdBox::default();
                 trak.mdia.minf.smhd = Some(smhd);
 
@@ -118,19 +152,19 @@ impl Mp4Track {
         }
     }
 
-    pub fn sample_rate(&self) -> u32 {
+    pub fn sample_freq_index(&self) -> Result<SampleFreqIndex> {
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            mp4a.samplerate.value() as u32
+            SampleFreqIndex::try_from(mp4a.esds.es_desc.dec_config.dec_specific.freq_index)
         } else {
-            0 // XXX
+            Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
         }
     }
 
-    pub fn channel_count(&self) -> u16 {
+    pub fn channel_config(&self) -> Result<ChannelConfig> {
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            mp4a.channelcount
+            ChannelConfig::try_from(mp4a.esds.es_desc.dec_config.dec_specific.chan_conf)
         } else {
-            0 // XXX
+            Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
         }
     }
 
@@ -169,6 +203,28 @@ impl Mp4Track {
     pub fn video_profile(&self) -> Result<AvcProfile> {
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
             AvcProfile::try_from((avc1.avcc.avc_profile_indication, avc1.avcc.profile_compatibility))
+        } else {
+            Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Avc1Box))
+        }
+    }
+
+    pub fn sequence_parameter_set(&self) -> Result<&[u8]> {
+        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
+            match avc1.avcc.sequence_parameter_sets.get(0) {
+                Some(ref nal) => Ok(nal.bytes.as_ref()),
+                None => Err(Error::EntryInStblNotFound(self.track_id(), BoxType::AvcCBox, 0)),
+            }
+        } else {
+            Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Avc1Box))
+        }
+    }
+
+    pub fn picture_parameter_set(&self) -> Result<&[u8]> {
+        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
+            match avc1.avcc.picture_parameter_sets.get(0) {
+                Some(ref nal) => Ok(nal.bytes.as_ref()),
+                None => Err(Error::EntryInStblNotFound(self.track_id(), BoxType::AvcCBox, 0)),
+            }
         } else {
             Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Avc1Box))
         }

@@ -32,7 +32,7 @@ pub(crate) mod vmhd;
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
 
-const HEADER_SIZE: u64 = 8;
+pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;
 pub const HEADER_EXT_SIZE: u64 = 4;
 
@@ -118,7 +118,7 @@ pub struct BoxHeader {
 }
 
 impl BoxHeader {
-    fn new(name: BoxType, size: u64) -> Self {
+    pub fn new(name: BoxType, size: u64) -> Self {
         Self { name, size }
     }
 
@@ -154,7 +154,7 @@ impl BoxHeader {
         }
     }
 
-    fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         if self.size > u32::MAX as u64 {
             writer.write_u32::<BigEndian>(1)?;
             writer.write_u32::<BigEndian>(self.name.into())?;
