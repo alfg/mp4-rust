@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
 
-use crate::atoms::*;
+use crate::mp4box::*;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct FtypBox {
@@ -64,7 +64,7 @@ impl<W: Write> WriteBox<&mut W> for FtypBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]

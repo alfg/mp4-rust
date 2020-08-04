@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
 
-use crate::atoms::*;
+use crate::mp4box::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mp4aBox {
@@ -306,7 +306,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size-1)?;
+        write_desc(writer, Self::desc_tag(), size - 1)?;
 
         writer.write_u16::<BigEndian>(self.es_id)?;
         writer.write_u8(0)?;
@@ -334,7 +334,7 @@ impl DecoderConfigDescriptor {
     pub fn new(config: &AacConfig) -> Self {
         Self {
             object_type_indication: 0x40, // XXX AAC
-            stream_type: 0x05, // XXX Audio
+            stream_type: 0x05,            // XXX Audio
             up_stream: 0,
             buffer_size_db: 0,
             max_bitrate: config.bitrate, // XXX
@@ -403,7 +403,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size-1)?;
+        write_desc(writer, Self::desc_tag(), size - 1)?;
 
         writer.write_u8(self.object_type_indication)?;
         writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02))?;
@@ -464,7 +464,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size-1)?;
+        write_desc(writer, Self::desc_tag(), size - 1)?;
 
         writer.write_u8((self.profile << 3) + (self.freq_index >> 1))?;
         writer.write_u8((self.freq_index << 7) + (self.chan_conf << 3))?;
@@ -504,7 +504,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size-1)?;
+        write_desc(writer, Self::desc_tag(), size - 1)?;
 
         writer.write_u8(0)?; // pre-defined
         Ok(size)
@@ -514,7 +514,7 @@ impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -539,12 +539,12 @@ mod tests {
                         dec_specific: DecoderSpecificDescriptor {
                             profile: 2,
                             freq_index: 3,
-                            chan_conf: 1
-                        }
+                            chan_conf: 1,
+                        },
                     },
-                    sl_config: SLConfigDescriptor::default()
-                }
-            }
+                    sl_config: SLConfigDescriptor::default(),
+                },
+            },
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

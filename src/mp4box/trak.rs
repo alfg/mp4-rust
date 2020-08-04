@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::atoms::*;
-use crate::atoms::{edts::EdtsBox, mdia::MdiaBox, tkhd::TkhdBox};
+use crate::mp4box::*;
+use crate::mp4box::{edts::EdtsBox, mdia::MdiaBox, tkhd::TkhdBox};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TrakBox {

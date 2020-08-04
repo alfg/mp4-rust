@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
 
-use crate::atoms::*;
+use crate::mp4box::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Avc1Box {
@@ -263,7 +263,7 @@ impl NalUnit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -282,21 +282,16 @@ mod tests {
                 profile_compatibility: 0,
                 avc_level_indication: 13,
                 length_size_minus_one: 3,
-                sequence_parameter_sets: vec![
-                    NalUnit {
-                        bytes: vec![
-                            0x67, 0x64, 0x00, 0x0D, 0xAC, 0xD9, 0x41, 0x41,
-                            0xFA, 0x10, 0x00, 0x00, 0x03, 0x00, 0x10, 0x00,
-                            0x00, 0x03, 0x03, 0x20, 0xF1, 0x42, 0x99, 0x60
-                        ]
-                    }
-                ],
-                picture_parameter_sets: vec![
-                    NalUnit {
-                        bytes: vec![0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0]
-                    }
-                ]
-            }
+                sequence_parameter_sets: vec![NalUnit {
+                    bytes: vec![
+                        0x67, 0x64, 0x00, 0x0D, 0xAC, 0xD9, 0x41, 0x41, 0xFA, 0x10, 0x00, 0x00,
+                        0x03, 0x00, 0x10, 0x00, 0x00, 0x03, 0x03, 0x20, 0xF1, 0x42, 0x99, 0x60,
+                    ],
+                }],
+                picture_parameter_sets: vec![NalUnit {
+                    bytes: vec![0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0],
+                }],
+            },
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

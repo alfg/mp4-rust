@@ -1,59 +1,62 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
 
-use crate::atoms::*;
+use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct StssBox {
+#[derive(Debug, Clone, PartialEq)]
+pub struct SmhdBox {
     pub version: u8,
     pub flags: u32,
-    pub entries: Vec<u32>,
+    pub balance: FixedPointI8,
 }
 
-impl Mp4Box for StssBox {
+impl Default for SmhdBox {
+    fn default() -> Self {
+        SmhdBox {
+            version: 0,
+            flags: 0,
+            balance: FixedPointI8::new_raw(0),
+        }
+    }
+}
+
+impl Mp4Box for SmhdBox {
     fn box_type() -> BoxType {
-        BoxType::StssBox
+        BoxType::SmhdBox
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (4 * self.entries.len() as u64)
+        HEADER_SIZE + HEADER_EXT_SIZE + 4
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for StssBox {
+impl<R: Read + Seek> ReadBox<&mut R> for SmhdBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let entry_count = reader.read_u32::<BigEndian>()?;
-        let mut entries = Vec::with_capacity(entry_count as usize);
-        for _i in 0..entry_count {
-            let sample_number = reader.read_u32::<BigEndian>()?;
-            entries.push(sample_number);
-        }
+        let balance = FixedPointI8::new_raw(reader.read_i16::<BigEndian>()?);
 
         skip_read_to(reader, start + size)?;
 
-        Ok(StssBox {
+        Ok(SmhdBox {
             version,
             flags,
-            entries,
+            balance,
         })
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for StssBox {
+impl<W: Write> WriteBox<&mut W> for SmhdBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
-        for sample_number in self.entries.iter() {
-            writer.write_u32::<BigEndian>(*sample_number)?;
-        }
+        writer.write_i16::<BigEndian>(self.balance.raw_value())?;
+        writer.write_u16::<BigEndian>(0)?; // reserved
 
         Ok(size)
     }
@@ -62,15 +65,15 @@ impl<W: Write> WriteBox<&mut W> for StssBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atoms::BoxHeader;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
-    fn test_stss() {
-        let src_box = StssBox {
+    fn test_smhd() {
+        let src_box = SmhdBox {
             version: 0,
             flags: 0,
-            entries: vec![1, 61, 121, 181, 241, 301, 361, 421, 481],
+            balance: FixedPointI8::new_raw(-1),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -78,10 +81,10 @@ mod tests {
 
         let mut reader = Cursor::new(&buf);
         let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::StssBox);
+        assert_eq!(header.name, BoxType::SmhdBox);
         assert_eq!(src_box.box_size(), header.size);
 
-        let dst_box = StssBox::read_box(&mut reader, header.size).unwrap();
+        let dst_box = SmhdBox::read_box(&mut reader, header.size).unwrap();
         assert_eq!(src_box, dst_box);
     }
 }

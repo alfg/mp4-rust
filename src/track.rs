@@ -1,12 +1,15 @@
 use bytes::BytesMut;
+use std::cmp;
 use std::convert::TryFrom;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::time::Duration;
-use std::cmp;
 
-use crate::atoms::trak::TrakBox;
-use crate::atoms::*;
-use crate::atoms::{avc1::Avc1Box, mp4a::Mp4aBox, smhd::SmhdBox, vmhd::VmhdBox, ctts::CttsBox, stts::SttsEntry, ctts::CttsEntry, stss::StssBox, stco::StcoBox, stsc::StscEntry};
+use crate::mp4box::trak::TrakBox;
+use crate::mp4box::*;
+use crate::mp4box::{
+    avc1::Avc1Box, ctts::CttsBox, ctts::CttsEntry, mp4a::Mp4aBox, smhd::SmhdBox, stco::StcoBox,
+    stsc::StscEntry, stss::StssBox, stts::SttsEntry, vmhd::VmhdBox,
+};
 use crate::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -472,7 +475,13 @@ impl Mp4TrackWriter {
                 if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
                     self.trak.mdia.minf.stbl.stsz.sample_size = 0;
                     for _ in 0..self.trak.mdia.minf.stbl.stsz.sample_count {
-                        self.trak.mdia.minf.stbl.stsz.sample_sizes.push(self.fixed_sample_size);
+                        self.trak
+                            .mdia
+                            .minf
+                            .stbl
+                            .stsz
+                            .sample_sizes
+                            .push(self.fixed_sample_size);
                     }
                 }
                 self.trak.mdia.minf.stbl.stsz.sample_sizes.push(size);
@@ -555,7 +564,8 @@ impl Mp4TrackWriter {
 
     fn update_durations(&mut self, dur: u32, movie_timescale: u32) {
         self.trak.mdia.mdhd.duration += dur as u64;
-        self.trak.tkhd.duration += dur as u64 * movie_timescale as u64 / self.trak.mdia.mdhd.timescale as u64;
+        self.trak.tkhd.duration +=
+            dur as u64 * movie_timescale as u64 / self.trak.mdia.mdhd.timescale as u64;
     }
 
     pub(crate) fn write_sample<W: Write + Seek>(

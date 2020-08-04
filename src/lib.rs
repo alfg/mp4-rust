@@ -6,7 +6,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 mod types;
 pub use types::*;
 
-mod atoms;
+mod mp4box;
 
 mod track;
 pub use track::{Mp4Track, TrackConfig};

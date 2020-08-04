@@ -1,6 +1,6 @@
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::atoms::*;
+use crate::mp4box::*;
 use crate::*;
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use std::io::{Seek, SeekFrom, Write};
 
-use crate::atoms::*;
+use crate::mp4box::*;
 use crate::track::Mp4TrackWriter;
 use crate::*;
 
@@ -38,7 +38,13 @@ impl<W: Write + Seek> Mp4Writer<W> {
         let tracks = Vec::new();
         let timescale = config.timescale;
         let duration = 0;
-        Ok(Self {writer, tracks, mdat_pos, timescale, duration})
+        Ok(Self {
+            writer,
+            tracks,
+            mdat_pos,
+            timescale,
+            duration,
+        })
     }
 
     pub fn add_track(&mut self, config: &TrackConfig) -> Result<()> {

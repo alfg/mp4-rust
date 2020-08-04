@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::atoms::*;
+use crate::mp4box::*;
 use crate::*;
 
 pub use bytes::Bytes;

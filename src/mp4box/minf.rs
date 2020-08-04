@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::atoms::*;
-use crate::atoms::{smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
+use crate::mp4box::*;
+use crate::mp4box::{smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MinfBox {

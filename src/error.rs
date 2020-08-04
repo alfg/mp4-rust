@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::atoms::BoxType;
+use crate::mp4box::BoxType;
 
 #[derive(Error, Debug)]
 pub enum Error {

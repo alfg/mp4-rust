@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::atoms::*;
-use crate::atoms::{mvhd::MvhdBox, trak::TrakBox};
+use crate::mp4box::*;
+use crate::mp4box::{mvhd::MvhdBox, trak::TrakBox};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MoovBox {

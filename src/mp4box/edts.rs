@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, Write};
 
-use crate::atoms::elst::ElstBox;
-use crate::atoms::*;
+use crate::mp4box::elst::ElstBox;
+use crate::mp4box::*;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EdtsBox {

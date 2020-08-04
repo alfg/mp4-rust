@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::atoms::*;
-use crate::atoms::{hdlr::HdlrBox, mdhd::MdhdBox, minf::MinfBox};
+use crate::mp4box::*;
+use crate::mp4box::{hdlr::HdlrBox, mdhd::MdhdBox, minf::MinfBox};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MdiaBox {
