@@ -30,6 +30,21 @@ impl Default for Avc1Box {
     }
 }
 
+impl Avc1Box {
+    pub fn new(config: &AvcConfig) -> Self {
+        Avc1Box {
+            data_reference_index: 1,
+            width: config.width,
+            height: config.height,
+            horizresolution: FixedPointU16::new(0x48),
+            vertresolution: FixedPointU16::new(0x48),
+            frame_count: 1,
+            depth: 0x0018,
+            avcc: AvcCBox::new(&config.seq_param_set, &config.pic_param_set),
+        }
+    }
+}
+
 impl Mp4Box for Avc1Box {
     fn box_type() -> BoxType {
         BoxType::Avc1Box
@@ -126,6 +141,20 @@ pub struct AvcCBox {
     pub picture_parameter_sets: Vec<NalUnit>,
 }
 
+impl AvcCBox {
+    pub fn new(sps: &[u8], pps: &[u8]) -> Self {
+        Self {
+            configuration_version: 1,
+            avc_profile_indication: sps[1],
+            profile_compatibility: sps[2],
+            avc_level_indication: sps[3],
+            length_size_minus_one: 0xff, // length_size = 4
+            sequence_parameter_sets: vec![NalUnit::from(sps)],
+            picture_parameter_sets: vec![NalUnit::from(pps)],
+        }
+    }
+}
+
 impl Mp4Box for AvcCBox {
     fn box_type() -> BoxType {
         BoxType::AvcCBox
@@ -206,19 +235,27 @@ pub struct NalUnit {
     pub bytes: Vec<u8>,
 }
 
+impl From<&[u8]> for NalUnit {
+    fn from(bytes: &[u8]) -> Self {
+        Self {
+            bytes: bytes.to_vec()
+        }
+    }
+}
+
 impl NalUnit {
-    pub fn size(&self) -> usize {
+    fn size(&self) -> usize {
         2 + self.bytes.len()
     }
 
-    pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self> {
+    fn read<R: Read + Seek>(reader: &mut R) -> Result<Self> {
         let length = reader.read_u16::<BigEndian>()? as usize;
         let mut bytes = vec![0u8; length];
         reader.read(&mut bytes)?;
         Ok(NalUnit { bytes })
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
+    fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         writer.write_u16::<BigEndian>(self.bytes.len() as u16)?;
         writer.write(&self.bytes)?;
         Ok(self.size() as u64)

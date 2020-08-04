@@ -164,6 +164,9 @@ impl fmt::Display for FourCC {
     }
 }
 
+const DISPLAY_TYPE_VIDEO: &str = "Video";
+const DISPLAY_TYPE_AUDIO: &str = "Audio";
+
 const HANDLER_TYPE_VIDEO: &str = "vide";
 const HANDLER_TYPE_AUDIO: &str = "soun";
 
@@ -175,7 +178,10 @@ pub enum TrackType {
 
 impl fmt::Display for TrackType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: &str = self.into();
+        let s = match self {
+            TrackType::Video => DISPLAY_TYPE_VIDEO,
+            TrackType::Audio => DISPLAY_TYPE_AUDIO,
+        };
         write!(f, "{}", s)
     }
 }
@@ -269,6 +275,78 @@ impl Into<&str> for &MediaType {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub enum AvcProfile {
+    AvcConstrainedBaseline, // 66 with constraint set 1
+    AvcBaseline, // 66,
+    AvcMain, // 77,
+    AvcExtended, // 88,
+    AvcHigh, // 100
+    // TODO Progressive High Profile, Constrained High Profile, ...
+}
+
+impl TryFrom<(u8, u8)> for AvcProfile {
+    type Error = Error;
+    fn try_from(value: (u8, u8)) -> Result<AvcProfile> {
+        let profile = value.0;
+        let constraint_set1_flag = value.1 & 0x40 >> 7;
+        match (profile, constraint_set1_flag) {
+            (66, 1) => Ok(AvcProfile::AvcConstrainedBaseline),
+            (66, 0) => Ok(AvcProfile::AvcBaseline),
+            (77, _) => Ok(AvcProfile::AvcMain),
+            (88, _) => Ok(AvcProfile::AvcExtended),
+            (100, _) => Ok(AvcProfile::AvcHigh),
+            _ => Err(Error::InvalidData("unsupported avc profile")),
+        }
+    }
+}
+
+impl fmt::Display for AvcProfile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let profile = match self {
+            AvcProfile::AvcConstrainedBaseline => "Constrained Baseline",
+            AvcProfile::AvcBaseline => "Baseline",
+            AvcProfile::AvcMain => "Main",
+            AvcProfile::AvcExtended => "Extended",
+            AvcProfile::AvcHigh => "High",
+        };
+        write!(f, "{}", profile)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum AudioObjectType {
+    AacMain = 1,
+    AacLowComplexity = 2,
+    AacScalableSampleRate = 3,
+    AacLongTermPrediction = 4,
+}
+
+impl TryFrom<u8> for AudioObjectType {
+    type Error = Error;
+    fn try_from(value: u8) -> Result<AudioObjectType> {
+        match value {
+            1 => Ok(AudioObjectType::AacMain),
+            2 => Ok(AudioObjectType::AacLowComplexity),
+            3 => Ok(AudioObjectType::AacScalableSampleRate),
+            4 => Ok(AudioObjectType::AacLongTermPrediction),
+            _ => Err(Error::InvalidData("invalid audio object type")),
+        }
+    }
+}
+
+impl fmt::Display for AudioObjectType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let type_str = match self {
+            AudioObjectType::AacMain => "main",
+            AudioObjectType::AacLowComplexity => "LC",
+            AudioObjectType::AacScalableSampleRate => "SSR",
+            AudioObjectType::AacLongTermPrediction => "LTP",
+        };
+        write!(f, "{}", type_str)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SampleFreqIndex {
     Freq96000 = 0x0,
     Freq88200 = 0x1,
@@ -351,18 +429,26 @@ impl TryFrom<u8> for ChannelConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
+pub struct AvcConfig {
+    pub width: u16,
+    pub height: u16,
+    pub seq_param_set: Vec<u8>,
+    pub pic_param_set: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct AacConfig {
+    pub bitrate: u32,
+    pub profile: AudioObjectType,
+    pub freq_index: SampleFreqIndex,
+    pub chan_conf: ChannelConfig,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum MediaConfig {
-    AVC {
-        width: u16,
-        height: u16,
-        // sps: Vec<u8>,
-        // pps: Vec<u8>,
-    },
-    AAC {
-        freq_index: SampleFreqIndex,
-        chan_conf: ChannelConfig,
-    },
+    AvcConfig(AvcConfig),
+    AaaConfig(AacConfig),
 }
 
 #[derive(Debug)]

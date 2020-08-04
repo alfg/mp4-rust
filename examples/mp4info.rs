@@ -43,16 +43,14 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
 
     for track in mp4.tracks().iter() {
         let media_info = match track.track_type()? {
-            TrackType::Video => video_info(track),
-            TrackType::Audio => audio_info(track),
+            TrackType::Video => video_info(track)?,
+            TrackType::Audio => audio_info(track)?,
         };
         println!(
-            "  Track: #{}({}) {}: {} ({:?}), {}",
+            "  Track: #{}({}) {}: {}",
             track.track_id(),
             track.language(),
             track.track_type()?,
-            track.media_type()?,
-            track.box_type(),
             media_info
         );
     }
@@ -60,26 +58,32 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     Ok(())
 }
 
-fn video_info(track: &Mp4Track) -> String {
-    format!(
-        "{}x{}, {} kb/s, {:.2} fps",
+fn video_info(track: &Mp4Track) -> Result<String> {
+    Ok(format!(
+        "{} ({}) ({:?}), {}x{}, {} kb/s, {:.2} fps",
+        track.media_type()?,
+        track.video_profile()?,
+        track.box_type()?,
         track.width(),
         track.height(),
         track.bitrate() / 1000,
         track.frame_rate_f64()
-    )
+    ))
 }
 
-fn audio_info(track: &Mp4Track) -> String {
+fn audio_info(track: &Mp4Track) -> Result<String> {
     let ch = match track.channel_count() {
         1 => String::from("mono"),
         2 => String::from("stereo"),
         n => format!("{}-ch", n),
     };
-    format!(
-        "{} Hz, {}, {} kb/s",
+    Ok(format!(
+        "{} ({}) ({:?}), {} Hz, {}, {} kb/s",
+        track.media_type()?,
+        track.audio_profile()?,
+        track.box_type()?,
         track.sample_rate(),
         ch,
         track.bitrate() / 1000
-    )
+    ))
 }

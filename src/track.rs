@@ -4,7 +4,18 @@ use std::time::Duration;
 
 use crate::atoms::trak::TrakBox;
 use crate::atoms::*;
+use crate::atoms::{vmhd::VmhdBox, smhd::SmhdBox, avc1::Avc1Box, mp4a::Mp4aBox};
 use crate::*;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrackConfig {
+    pub track_id: u32,
+    pub track_type: TrackType,
+    pub timescale: u32,
+    pub language: String,
+
+    pub media_conf: MediaConfig,
+}
 
 #[derive(Debug)]
 pub struct Mp4Track {
@@ -12,6 +23,34 @@ pub struct Mp4Track {
 }
 
 impl Mp4Track {
+    pub fn new(config: TrackConfig) -> Result<Self> {
+        let mut trak = TrakBox::default();
+        trak.tkhd.track_id = config.track_id;
+        trak.mdia.mdhd.timescale = config.timescale;
+        trak.mdia.mdhd.language = config.language;
+        trak.mdia.hdlr.handler_type = config.track_type.into();
+        match config.media_conf {
+            MediaConfig::AvcConfig(ref avc_config) => {
+                trak.tkhd.set_width(avc_config.width);
+                trak.tkhd.set_height(avc_config.height);
+
+                let vmhd = VmhdBox::default();
+                trak.mdia.minf.vmhd = Some(vmhd);
+
+                let avc1 = Avc1Box::new(avc_config);
+                trak.mdia.minf.stbl.stsd.avc1 = Some(avc1);
+            }
+            MediaConfig::AaaConfig(ref aac_config ) => {
+                let smhd = SmhdBox::default();
+                trak.mdia.minf.smhd = Some(smhd);
+
+                let mp4a = Mp4aBox::new(aac_config);
+                trak.mdia.minf.stbl.stsd.mp4a = Some(mp4a);
+            }
+        }
+        Ok(Mp4Track { trak })
+    }
+
     pub(crate) fn from(trak: &TrakBox) -> Self {
         let trak = trak.clone();
         Self { trak }
@@ -110,17 +149,37 @@ impl Mp4Track {
     }
 
     pub fn bitrate(&self) -> u32 {
-        let dur_sec = self.duration().as_secs();
-        if dur_sec > 0 {
-            let bitrate = self.total_sample_size() * 8 / dur_sec;
-            bitrate as u32
+        if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            mp4a.esds.es_desc.dec_config.avg_bitrate
         } else {
-            0
+            let dur_sec = self.duration().as_secs();
+            if dur_sec > 0 {
+                let bitrate = self.total_sample_size() * 8 / dur_sec;
+                bitrate as u32
+            } else {
+                0
+            }
         }
     }
 
     pub fn sample_count(&self) -> u32 {
         self.trak.mdia.minf.stbl.stsz.sample_sizes.len() as u32
+    }
+
+    pub fn video_profile(&self) -> Result<AvcProfile> {
+        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
+            AvcProfile::try_from((avc1.avcc.avc_profile_indication, avc1.avcc.profile_compatibility))
+        } else {
+            Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Avc1Box))
+        }
+    }
+
+    pub fn audio_profile(&self) -> Result<AudioObjectType> {
+        if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            AudioObjectType::try_from(mp4a.esds.es_desc.dec_config.dec_specific.profile)
+        } else {
+            Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
+        }
     }
 
     fn stsc_index(&self, sample_id: u32) -> usize {

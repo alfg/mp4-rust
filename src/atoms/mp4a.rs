@@ -14,7 +14,7 @@ pub struct Mp4aBox {
 
 impl Default for Mp4aBox {
     fn default() -> Self {
-        Mp4aBox {
+        Self {
             data_reference_index: 0,
             channelcount: 2,
             samplesize: 16,
@@ -25,8 +25,14 @@ impl Default for Mp4aBox {
 }
 
 impl Mp4aBox {
-    pub fn set_samplerate(&mut self, samplerate: u32) {
-        self.samplerate = FixedPointU16::new_raw(samplerate);
+    pub fn new(config: &AacConfig) -> Self {
+        Self {
+            data_reference_index: 1,
+            channelcount: config.chan_conf as u16,
+            samplesize: 16,
+            samplerate: FixedPointU16::new(config.freq_index.freq() as u16),
+            esds: EsdsBox::new(config),
+        }
     }
 }
 
@@ -100,6 +106,16 @@ pub struct EsdsBox {
     pub version: u8,
     pub flags: u32,
     pub es_desc: ESDescriptor,
+}
+
+impl EsdsBox {
+    pub fn new(config: &AacConfig) -> Self {
+        Self {
+            version: 0,
+            flags: 0,
+            es_desc: ESDescriptor::new(config),
+        }
+    }
 }
 
 impl Mp4Box for EsdsBox {
@@ -196,13 +212,20 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ESDescriptor {
-    pub tag: u8,
-    pub size: u32,
-
     pub es_id: u16,
 
     pub dec_config: DecoderConfigDescriptor,
     pub sl_config: SLConfigDescriptor,
+}
+
+impl ESDescriptor {
+    pub fn new(config: &AacConfig) -> Self {
+        Self {
+            es_id: 1,
+            dec_config: DecoderConfigDescriptor::new(config),
+            sl_config: SLConfigDescriptor::new(),
+        }
+    }
 }
 
 impl Descriptor for ESDescriptor {
@@ -218,7 +241,7 @@ impl Descriptor for ESDescriptor {
 
 impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
     fn read_desc(reader: &mut R) -> Result<Self> {
-        let (tag, size) = read_desc(reader)?;
+        let (tag, _) = read_desc(reader)?;
         if tag != Self::desc_tag() {
             return Err(Error::InvalidData("ESDescriptor not found"));
         }
@@ -230,8 +253,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
         let sl_config = SLConfigDescriptor::read_desc(reader)?;
 
         Ok(ESDescriptor {
-            tag,
-            size,
             es_id,
             dec_config,
             sl_config,
@@ -241,17 +262,14 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 
 impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        write_desc(writer, self.tag, self.size)?;
-
-        Ok(self.size)
+        let size = Self::desc_size();
+        write_desc(writer, Self::desc_tag(), size)?;
+        Ok(size)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DecoderConfigDescriptor {
-    pub tag: u8,
-    pub size: u32,
-
     pub object_type_indication: u8,
     pub stream_type: u8,
     pub up_stream: u8,
@@ -260,6 +278,21 @@ pub struct DecoderConfigDescriptor {
     pub avg_bitrate: u32,
 
     pub dec_specific: DecoderSpecificDescriptor,
+}
+
+impl DecoderConfigDescriptor {
+    pub fn new(config: &AacConfig) -> Self {
+        Self {
+            object_type_indication: 0x40, // AAC
+            // 0x05 << 2
+            stream_type: 0,
+            up_stream: 0,
+            buffer_size_db: 0,
+            max_bitrate: config.bitrate * 2, // XXX
+            avg_bitrate: config.bitrate,
+            dec_specific: DecoderSpecificDescriptor::new(config),
+        }
+    }
 }
 
 impl Descriptor for DecoderConfigDescriptor {
@@ -296,8 +329,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
         }
 
         Ok(DecoderConfigDescriptor {
-            tag,
-            size,
             object_type_indication,
             stream_type,
             up_stream,
@@ -311,19 +342,27 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 
 impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        write_desc(writer, self.tag, self.size)?;
-
-        Ok(self.size)
+        let size = Self::desc_size();
+        write_desc(writer, Self::desc_tag(), size)?;
+        Ok(size)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DecoderSpecificDescriptor {
-    pub tag: u8,
-    pub size: u32,
     pub profile: u8,
     pub freq_index: u8,
     pub chan_conf: u8,
+}
+
+impl DecoderSpecificDescriptor {
+    pub fn new(config: &AacConfig) -> Self {
+        Self {
+            profile: config.profile as u8,
+            freq_index: config.freq_index as u8,
+            chan_conf: config.chan_conf as u8,
+        }
+    }
 }
 
 impl Descriptor for DecoderSpecificDescriptor {
@@ -339,7 +378,7 @@ impl Descriptor for DecoderSpecificDescriptor {
 
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
     fn read_desc(reader: &mut R) -> Result<Self> {
-        let (tag, size) = read_desc(reader)?;
+        let (tag, _) = read_desc(reader)?;
         if tag != Self::desc_tag() {
             return Err(Error::InvalidData("DecoderSpecificDescriptor not found"));
         }
@@ -351,8 +390,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
         let chan_conf = (byte_b >> 3) & 0x0F;
 
         Ok(DecoderSpecificDescriptor {
-            tag,
-            size,
             profile,
             freq_index,
             chan_conf,
@@ -362,16 +399,19 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
 
 impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        write_desc(writer, self.tag, self.size)?;
-
-        Ok(self.size)
+        let size = Self::desc_size();
+        write_desc(writer, Self::desc_tag(), size)?;
+        Ok(size)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct SLConfigDescriptor {
-    pub tag: u8,
-    pub size: u32,
+pub struct SLConfigDescriptor {}
+
+impl SLConfigDescriptor {
+    pub fn new() -> Self {
+        SLConfigDescriptor {}
+    }
 }
 
 impl Descriptor for SLConfigDescriptor {
@@ -387,21 +427,22 @@ impl Descriptor for SLConfigDescriptor {
 
 impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
     fn read_desc(reader: &mut R) -> Result<Self> {
-        let (tag, size) = read_desc(reader)?;
+        let (tag, _) = read_desc(reader)?;
         if tag != Self::desc_tag() {
             return Err(Error::InvalidData("SLConfigDescriptor not found"));
         }
 
         reader.read_u8()?; // pre-defined
 
-        Ok(SLConfigDescriptor { tag, size })
+        Ok(SLConfigDescriptor {})
     }
 }
 
 impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        write_desc(writer, self.tag, self.size)?;
-
-        Ok(self.size)
+        let size = Self::desc_size();
+        write_desc(writer, Self::desc_tag(), size)?;
+        writer.write_u8(0)?; // pre-defined
+        Ok(size)
     }
 }
