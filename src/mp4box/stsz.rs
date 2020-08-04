@@ -32,7 +32,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StszBox {
         let sample_count = reader.read_u32::<BigEndian>()?;
         let mut sample_sizes = Vec::with_capacity(sample_count as usize);
         if sample_size == 0 {
-            for _i in 0..sample_count {
+            for _ in 0..sample_count {
                 let sample_number = reader.read_u32::<BigEndian>()?;
                 sample_sizes.push(sample_number);
             }
@@ -60,6 +60,7 @@ impl<W: Write> WriteBox<&mut W> for StszBox {
         writer.write_u32::<BigEndian>(self.sample_size)?;
         writer.write_u32::<BigEndian>(self.sample_count)?;
         if self.sample_size == 0 {
+            assert_eq!(self.sample_count, self.sample_sizes.len() as u32);
             for sample_number in self.sample_sizes.iter() {
                 writer.write_u32::<BigEndian>(*sample_number)?;
             }

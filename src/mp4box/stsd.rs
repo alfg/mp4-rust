@@ -18,7 +18,7 @@ impl Mp4Box for StsdBox {
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
         } else if let Some(ref mp4a) = self.mp4a {

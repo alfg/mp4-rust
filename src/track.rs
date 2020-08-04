@@ -465,25 +465,32 @@ impl Mp4TrackWriter {
             if size == 0 {
                 self.trak.mdia.minf.stbl.stsz.sample_size = 0;
                 self.is_fixed_sample_size = false;
+                self.trak.mdia.minf.stbl.stsz.sample_sizes.push(0);
             } else {
+                self.trak.mdia.minf.stbl.stsz.sample_size = size;
                 self.fixed_sample_size = size;
                 self.is_fixed_sample_size = true;
             }
         } else {
             assert!(self.trak.mdia.minf.stbl.stsz.sample_count > 0);
-            if !self.is_fixed_sample_size || self.fixed_sample_size != size {
-                if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
-                    self.trak.mdia.minf.stbl.stsz.sample_size = 0;
-                    for _ in 0..self.trak.mdia.minf.stbl.stsz.sample_count {
-                        self.trak
-                            .mdia
-                            .minf
-                            .stbl
-                            .stsz
-                            .sample_sizes
-                            .push(self.fixed_sample_size);
+            if self.is_fixed_sample_size {
+                if self.fixed_sample_size != size {
+                    self.is_fixed_sample_size = false;
+                    if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
+                        self.trak.mdia.minf.stbl.stsz.sample_size = 0;
+                        for _ in 0..self.trak.mdia.minf.stbl.stsz.sample_count {
+                            self.trak
+                                .mdia
+                                .minf
+                                .stbl
+                                .stsz
+                                .sample_sizes
+                                .push(self.fixed_sample_size);
+                        }
                     }
+                    self.trak.mdia.minf.stbl.stsz.sample_sizes.push(size);
                 }
+            } else {
                 self.trak.mdia.minf.stbl.stsz.sample_sizes.push(size);
             }
         }
