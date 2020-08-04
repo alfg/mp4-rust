@@ -1,5 +1,4 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
 use std::io::{Read, Seek, Write};
 
 use crate::atoms::*;
@@ -14,10 +13,10 @@ pub struct TkhdBox {
     pub duration: u64,
     pub layer: u16,
     pub alternate_group: u16,
-    pub volume: Ratio<u16>,
+    pub volume: FixedPointU8,
     pub matrix: Matrix,
-    pub width: Ratio<u32>,
-    pub height: Ratio<u32>,
+    pub width: FixedPointU16,
+    pub height: FixedPointU16,
 }
 
 impl Default for TkhdBox {
@@ -31,10 +30,10 @@ impl Default for TkhdBox {
             duration: 0,
             layer: 0,
             alternate_group: 0,
-            volume: Ratio::new_raw(0x0100, 0x100),
+            volume: FixedPointU8::new(1),
             matrix: Matrix::default(),
-            width: Ratio::new_raw(0, 0x10000),
-            height: Ratio::new_raw(0, 0x10000),
+            width: FixedPointU16::new(0),
+            height: FixedPointU16::new(0),
         }
     }
 }
@@ -50,6 +49,16 @@ pub struct Matrix {
     pub x: i32,
     pub y: i32,
     pub w: i32,
+}
+
+impl TkhdBox {
+    pub fn set_width(&mut self, width: u16) {
+        self.width = FixedPointU16::new(width);
+    }
+
+    pub fn set_height(&mut self, height: u16) {
+        self.height = FixedPointU16::new(height);
+    }
 }
 
 impl Mp4Box for TkhdBox {
@@ -97,8 +106,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
         reader.read_u64::<BigEndian>()?; // reserved
         let layer = reader.read_u16::<BigEndian>()?;
         let alternate_group = reader.read_u16::<BigEndian>()?;
-        let volume_numer = reader.read_u16::<BigEndian>()?;
-        let volume = Ratio::new_raw(volume_numer, 0x100);
+        let volume = FixedPointU8::new_raw(reader.read_u16::<BigEndian>()?);
 
         reader.read_u16::<BigEndian>()?; // reserved
         let matrix = Matrix {
@@ -113,10 +121,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
             w: reader.read_i32::<BigEndian>()?,
         };
 
-        let width_numer = reader.read_u32::<BigEndian>()?;
-        let width = Ratio::new_raw(width_numer, 0x10000);
-        let height_numer = reader.read_u32::<BigEndian>()?;
-        let height = Ratio::new_raw(height_numer, 0x10000);
+        let width = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let height = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
         skip_read_to(reader, start + size)?;
 
@@ -162,7 +168,7 @@ impl<W: Write> WriteBox<&mut W> for TkhdBox {
         writer.write_u64::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(self.layer)?;
         writer.write_u16::<BigEndian>(self.alternate_group)?;
-        writer.write_u16::<BigEndian>(*self.volume.numer())?;
+        writer.write_u16::<BigEndian>(self.volume.raw_value())?;
 
         writer.write_u16::<BigEndian>(0)?; // reserved
 
@@ -176,8 +182,8 @@ impl<W: Write> WriteBox<&mut W> for TkhdBox {
         writer.write_i32::<BigEndian>(self.matrix.y)?;
         writer.write_i32::<BigEndian>(self.matrix.w)?;
 
-        writer.write_u32::<BigEndian>(*self.width.numer())?;
-        writer.write_u32::<BigEndian>(*self.height.numer())?;
+        writer.write_u32::<BigEndian>(self.width.raw_value())?;
+        writer.write_u32::<BigEndian>(self.height.raw_value())?;
 
         Ok(size)
     }
@@ -200,7 +206,7 @@ mod tests {
             duration: 634634,
             layer: 0,
             alternate_group: 0,
-            volume: Ratio::new_raw(0x0100, 0x100),
+            volume: FixedPointU8::new(1),
             matrix: Matrix {
                 a: 0x00010000,
                 b: 0,
@@ -212,8 +218,8 @@ mod tests {
                 y: 0,
                 w: 0x40000000,
             },
-            width: Ratio::new_raw(512 * 0x10000, 0x10000),
-            height: Ratio::new_raw(288 * 0x10000, 0x10000),
+            width: FixedPointU16::new(512),
+            height: FixedPointU16::new(288),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -239,7 +245,7 @@ mod tests {
             duration: 634634,
             layer: 0,
             alternate_group: 0,
-            volume: Ratio::new_raw(0x0100, 0x100),
+            volume: FixedPointU8::new(1),
             matrix: Matrix {
                 a: 0x00010000,
                 b: 0,
@@ -251,8 +257,8 @@ mod tests {
                 y: 0,
                 w: 0x40000000,
             },
-            width: Ratio::new_raw(512 * 0x10000, 0x10000),
-            height: Ratio::new_raw(288 * 0x10000, 0x10000),
+            width: FixedPointU16::new(512),
+            height: FixedPointU16::new(288),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

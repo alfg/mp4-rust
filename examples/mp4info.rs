@@ -66,7 +66,7 @@ fn video_info(track: &Mp4Track) -> String {
         track.width(),
         track.height(),
         track.bitrate() / 1000,
-        track.frame_rate()
+        track.frame_rate_f64()
     )
 }
 

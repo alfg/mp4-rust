@@ -1,5 +1,4 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
 use std::io::{Read, Seek, Write};
 
 use crate::atoms::*;
@@ -12,7 +11,7 @@ pub struct MvhdBox {
     pub modification_time: u64,
     pub timescale: u32,
     pub duration: u64,
-    pub rate: Ratio<u32>,
+    pub rate: FixedPointU16,
 }
 
 impl Default for MvhdBox {
@@ -24,7 +23,7 @@ impl Default for MvhdBox {
             modification_time: 0,
             timescale: 1000,
             duration: 0,
-            rate: Ratio::new_raw(0x00010000, 0x10000),
+            rate: FixedPointU16::new(1),
         }
     }
 }
@@ -69,8 +68,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
                 reader.read_u32::<BigEndian>()? as u64,
             )
         };
-        let numer = reader.read_u32::<BigEndian>()?;
-        let rate = Ratio::new_raw(numer, 0x10000);
+        let rate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
         skip_read_to(reader, start + size)?;
 
@@ -105,7 +103,7 @@ impl<W: Write> WriteBox<&mut W> for MvhdBox {
             writer.write_u32::<BigEndian>(self.timescale)?;
             writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
-        writer.write_u32::<BigEndian>(*self.rate.numer())?;
+        writer.write_u32::<BigEndian>(self.rate.raw_value())?;
 
         // XXX volume, ...
         skip_write(writer, 76)?;
@@ -129,7 +127,7 @@ mod tests {
             modification_time: 200,
             timescale: 1000,
             duration: 634634,
-            rate: Ratio::new_raw(0x00010000, 0x10000),
+            rate: FixedPointU16::new(1),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -153,7 +151,7 @@ mod tests {
             modification_time: 200,
             timescale: 1000,
             duration: 634634,
-            rate: Ratio::new_raw(0x00010000, 0x10000),
+            rate: FixedPointU16::new(1),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

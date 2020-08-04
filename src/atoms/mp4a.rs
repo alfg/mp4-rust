@@ -1,5 +1,4 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
 use std::io::{Read, Seek, Write};
 
 use crate::atoms::*;
@@ -9,7 +8,7 @@ pub struct Mp4aBox {
     pub data_reference_index: u16,
     pub channelcount: u16,
     pub samplesize: u16,
-    pub samplerate: Ratio<u32>,
+    pub samplerate: FixedPointU16,
     pub esds: EsdsBox,
 }
 
@@ -19,9 +18,15 @@ impl Default for Mp4aBox {
             data_reference_index: 0,
             channelcount: 2,
             samplesize: 16,
-            samplerate: Ratio::new_raw(48000 * 0x10000, 0x10000),
+            samplerate: FixedPointU16::new(48000),
             esds: EsdsBox::default(),
         }
+    }
+}
+
+impl Mp4aBox {
+    pub fn set_samplerate(&mut self, samplerate: u32) {
+        self.samplerate = FixedPointU16::new_raw(samplerate);
     }
 }
 
@@ -47,8 +52,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         let channelcount = reader.read_u16::<BigEndian>()?;
         let samplesize = reader.read_u16::<BigEndian>()?;
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
-        let samplerate_numer = reader.read_u32::<BigEndian>()?;
-        let samplerate = Ratio::new_raw(samplerate_numer, 0x10000);
+        let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
         let header = BoxHeader::read(reader)?;
         let BoxHeader { name, size: s } = header;
@@ -83,7 +87,7 @@ impl<W: Write> WriteBox<&mut W> for Mp4aBox {
         writer.write_u16::<BigEndian>(self.channelcount)?;
         writer.write_u16::<BigEndian>(self.samplesize)?;
         writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u32::<BigEndian>(*self.samplerate.numer())?;
+        writer.write_u32::<BigEndian>(self.samplerate.raw_value())?;
 
         self.esds.write_box(writer)?;
 

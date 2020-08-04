@@ -1,5 +1,4 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
 use std::io::{Read, Seek, Write};
 
 use crate::atoms::*;
@@ -9,8 +8,8 @@ pub struct Avc1Box {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
-    pub horizresolution: Ratio<u32>,
-    pub vertresolution: Ratio<u32>,
+    pub horizresolution: FixedPointU16,
+    pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
     pub avcc: AvcCBox,
@@ -22,8 +21,8 @@ impl Default for Avc1Box {
             data_reference_index: 0,
             width: 0,
             height: 0,
-            horizresolution: Ratio::new_raw(0x00480000, 0x10000),
-            vertresolution: Ratio::new_raw(0x00480000, 0x10000),
+            horizresolution: FixedPointU16::new(0x48),
+            vertresolution: FixedPointU16::new(0x48),
             frame_count: 1,
             depth: 0x0018,
             avcc: AvcCBox::default(),
@@ -54,10 +53,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         reader.read_u32::<BigEndian>()?; // pre-defined
         let width = reader.read_u16::<BigEndian>()?;
         let height = reader.read_u16::<BigEndian>()?;
-        let horiznumer = reader.read_u32::<BigEndian>()?;
-        let horizresolution = Ratio::new_raw(horiznumer, 0x10000);
-        let vertnumer = reader.read_u32::<BigEndian>()?;
-        let vertresolution = Ratio::new_raw(vertnumer, 0x10000);
+        let horizresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let vertresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
         reader.read_u32::<BigEndian>()?; // reserved
         let frame_count = reader.read_u16::<BigEndian>()?;
         skip_read(reader, 32)?; // compressorname
@@ -101,8 +98,8 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
         writer.write_u32::<BigEndian>(0)?; // pre-defined
         writer.write_u16::<BigEndian>(self.width)?;
         writer.write_u16::<BigEndian>(self.height)?;
-        writer.write_u32::<BigEndian>(*self.horizresolution.numer())?;
-        writer.write_u32::<BigEndian>(*self.vertresolution.numer())?;
+        writer.write_u32::<BigEndian>(self.horizresolution.raw_value())?;
+        writer.write_u32::<BigEndian>(self.vertresolution.raw_value())?;
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(self.frame_count)?;
         // skip compressorname

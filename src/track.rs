@@ -49,7 +49,7 @@ impl Mp4Track {
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
             avc1.width
         } else {
-            self.trak.tkhd.width.to_integer() as u16
+            self.trak.tkhd.width.value()
         }
     }
 
@@ -57,14 +57,23 @@ impl Mp4Track {
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
             avc1.height
         } else {
-            self.trak.tkhd.height.to_integer() as u16
+            self.trak.tkhd.height.value()
         }
     }
 
-    pub fn frame_rate(&self) -> f64 {
-        let dur_sec_f64 = self.duration().as_secs_f64();
-        if dur_sec_f64 > 0.0 {
-            self.sample_count() as f64 / dur_sec_f64
+    pub fn frame_rate(&self) -> Ratio<u64> {
+        let dur_msec = self.duration().as_millis() as u64;
+        if dur_msec > 0 {
+            Ratio::new(self.sample_count() as u64 * 1_000, dur_msec)
+        } else {
+            Ratio::new(0, 0)
+        }
+    }
+
+    pub fn frame_rate_f64(&self) -> f64 {
+        let fr = self.frame_rate();
+        if fr.to_integer() > 0 {
+            *fr.numer() as f64 / *fr.denom() as f64
         } else {
             0.0
         }
@@ -72,7 +81,7 @@ impl Mp4Track {
 
     pub fn sample_rate(&self) -> u32 {
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            mp4a.samplerate.to_integer() as u32
+            mp4a.samplerate.value() as u32
         } else {
             0 // XXX
         }

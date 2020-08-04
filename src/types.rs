@@ -5,6 +5,71 @@ use crate::atoms::*;
 use crate::*;
 
 pub use bytes::Bytes;
+pub use num_rational::Ratio;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FixedPointU8(Ratio<u16>);
+
+impl FixedPointU8 {
+    pub fn new(val: u8) -> Self {
+        Self(Ratio::new_raw(val as u16 * 0x100, 0x100))
+    }
+
+    pub fn new_raw(val: u16) -> Self {
+        Self(Ratio::new_raw(val, 0x100))
+    }
+
+    pub fn value(&self) -> u8 {
+        self.0.to_integer() as u8
+    }
+
+    pub fn raw_value(&self) -> u16 {
+        *self.0.numer()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FixedPointI8(Ratio<i16>);
+
+impl FixedPointI8 {
+    pub fn new(val: i8) -> Self {
+        Self(Ratio::new_raw(val as i16 * 0x100, 0x100))
+    }
+
+    pub fn new_raw(val: i16) -> Self {
+        Self(Ratio::new_raw(val, 0x100))
+    }
+
+    pub fn value(&self) -> i8 {
+        self.0.to_integer() as i8
+    }
+
+    pub fn raw_value(&self) -> i16 {
+        *self.0.numer()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FixedPointU16(Ratio<u32>);
+
+impl FixedPointU16 {
+    pub fn new(val: u16) -> Self {
+        Self(Ratio::new_raw(val as u32 * 0x10000, 0x10000))
+    }
+
+    pub fn new_raw(val: u32) -> Self {
+        Self(Ratio::new_raw(val, 0x10000))
+    }
+
+    pub fn value(&self) -> u16 {
+        self.0.to_integer() as u16
+    }
+
+    pub fn raw_value(&self) -> u32 {
+        *self.0.numer()
+    }
+}
+
 
 impl fmt::Debug for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
