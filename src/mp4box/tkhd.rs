@@ -1,11 +1,9 @@
-use std::io::{BufReader, Seek, SeekFrom, Read, BufWriter, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_rational::Ratio;
+use std::io::{Read, Seek, Write};
 
-use crate::*;
+use crate::mp4box::*;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TkhdBox {
     pub version: u8,
     pub flags: u32,
@@ -13,12 +11,12 @@ pub struct TkhdBox {
     pub modification_time: u64,
     pub track_id: u32,
     pub duration: u64,
-    pub layer:  u16,
+    pub layer: u16,
     pub alternate_group: u16,
-    pub volume: Ratio<u16>,
+    pub volume: FixedPointU8,
     pub matrix: Matrix,
-    pub width: u32,
-    pub height: u32,
+    pub width: FixedPointU16,
+    pub height: FixedPointU16,
 }
 
 impl Default for TkhdBox {
@@ -32,15 +30,15 @@ impl Default for TkhdBox {
             duration: 0,
             layer: 0,
             alternate_group: 0,
-            volume: Ratio::new_raw(0x0100, 0x100),
+            volume: FixedPointU8::new(1),
             matrix: Matrix::default(),
-            width: 0,
-            height: 0,
+            width: FixedPointU16::new(0),
+            height: FixedPointU16::new(0),
         }
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Matrix {
     pub a: i32,
     pub b: i32,
@@ -53,8 +51,18 @@ pub struct Matrix {
     pub w: i32,
 }
 
+impl TkhdBox {
+    pub fn set_width(&mut self, width: u16) {
+        self.width = FixedPointU16::new(width);
+    }
+
+    pub fn set_height(&mut self, height: u16) {
+        self.height = FixedPointU16::new(height);
+    }
+}
+
 impl Mp4Box for TkhdBox {
-    fn box_type(&self) -> BoxType {
+    fn box_type() -> BoxType {
         BoxType::TkhdBox
     }
 
@@ -71,39 +79,37 @@ impl Mp4Box for TkhdBox {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
-    fn read_box(reader: &mut BufReader<R>, size: u64) -> Result<Self> {
-        let current = reader.seek(SeekFrom::Current(0))?; // Current cursor position.
+impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = box_start(reader)?;
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let (creation_time, modification_time, track_id, _, duration)
-            = if version == 1 {
-                (
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u64::<BigEndian>()?,
-                )
+        let (creation_time, modification_time, track_id, _, duration) = if version == 1 {
+            (
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u64::<BigEndian>()?,
+            )
         } else {
-                assert_eq!(version, 0);
-                (
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()? as u64,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()?,
-                    reader.read_u32::<BigEndian>()? as u64,
-                )
+            assert_eq!(version, 0);
+            (
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()? as u64,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()?,
+                reader.read_u32::<BigEndian>()? as u64,
+            )
         };
         reader.read_u64::<BigEndian>()?; // reserved
         let layer = reader.read_u16::<BigEndian>()?;
         let alternate_group = reader.read_u16::<BigEndian>()?;
-        let volume_numer = reader.read_u16::<BigEndian>()?;
-        let volume = Ratio::new_raw(volume_numer, 0x100);
+        let volume = FixedPointU8::new_raw(reader.read_u16::<BigEndian>()?);
 
         reader.read_u16::<BigEndian>()?; // reserved
-        let matrix = Matrix{
+        let matrix = Matrix {
             a: reader.read_i32::<byteorder::LittleEndian>()?,
             b: reader.read_i32::<BigEndian>()?,
             u: reader.read_i32::<BigEndian>()?,
@@ -115,10 +121,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
             w: reader.read_i32::<BigEndian>()?,
         };
 
-        let width = reader.read_u32::<BigEndian>()? >> 16;
-        let height = reader.read_u32::<BigEndian>()? >> 16;
+        let width = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let height = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
-        skip_read(reader, current, size)?;
+        skip_read_to(reader, start + size)?;
 
         Ok(TkhdBox {
             version,
@@ -137,10 +143,10 @@ impl<R: Read + Seek> ReadBox<&mut BufReader<R>> for TkhdBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
-    fn write_box(&self, writer: &mut BufWriter<W>) -> Result<u64> {
+impl<W: Write> WriteBox<&mut W> for TkhdBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write_box(writer)?;
+        BoxHeader::new(Self::box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
@@ -162,7 +168,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
         writer.write_u64::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(self.layer)?;
         writer.write_u16::<BigEndian>(self.alternate_group)?;
-        writer.write_u16::<BigEndian>(*self.volume.numer())?;
+        writer.write_u16::<BigEndian>(self.volume.raw_value())?;
 
         writer.write_u16::<BigEndian>(0)?; // reserved
 
@@ -176,8 +182,8 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
         writer.write_i32::<BigEndian>(self.matrix.y)?;
         writer.write_i32::<BigEndian>(self.matrix.w)?;
 
-        writer.write_u32::<BigEndian>(self.width << 16)?;
-        writer.write_u32::<BigEndian>(self.height << 16)?;
+        writer.write_u32::<BigEndian>(self.width.raw_value())?;
+        writer.write_u32::<BigEndian>(self.height.raw_value())?;
 
         Ok(size)
     }
@@ -186,7 +192,7 @@ impl<W: Write> WriteBox<&mut BufWriter<W>> for TkhdBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_box_header;
+    use crate::mp4box::BoxHeader;
     use std::io::Cursor;
 
     #[test]
@@ -200,7 +206,7 @@ mod tests {
             duration: 634634,
             layer: 0,
             alternate_group: 0,
-            volume: Ratio::new_raw(0x0100, 0x100),
+            volume: FixedPointU8::new(1),
             matrix: Matrix {
                 a: 0x00010000,
                 b: 0,
@@ -212,26 +218,20 @@ mod tests {
                 y: 0,
                 w: 0x40000000,
             },
-            width: 512,
-            height: 288,
+            width: FixedPointU16::new(512),
+            height: FixedPointU16::new(288),
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::TkhdBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::TkhdBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 
     #[test]
@@ -245,7 +245,7 @@ mod tests {
             duration: 634634,
             layer: 0,
             alternate_group: 0,
-            volume: Ratio::new_raw(0x0100, 0x100),
+            volume: FixedPointU8::new(1),
             matrix: Matrix {
                 a: 0x00010000,
                 b: 0,
@@ -257,25 +257,19 @@ mod tests {
                 y: 0,
                 w: 0x40000000,
             },
-            width: 512,
-            height: 288,
+            width: FixedPointU16::new(512),
+            height: FixedPointU16::new(288),
         };
         let mut buf = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buf);
-            src_box.write_box(&mut writer).unwrap();
-        }
+        src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);
 
-        {
-            let mut reader = BufReader::new(Cursor::new(&buf));
-            let header = read_box_header(&mut reader, 0).unwrap();
-            assert_eq!(header.name, BoxType::TkhdBox);
-            assert_eq!(src_box.box_size(), header.size);
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::TkhdBox);
+        assert_eq!(src_box.box_size(), header.size);
 
-            let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
-
-            assert_eq!(src_box, dst_box);
-        }
+        let dst_box = TkhdBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
     }
 }
