@@ -184,9 +184,8 @@ pub fn box_start<R: Seek>(seeker: &mut R) -> Result<u64> {
     Ok(seeker.seek(SeekFrom::Current(0))? - HEADER_SIZE)
 }
 
-pub fn skip_bytes<S: Seek>(seeker: &mut S, size: i64) -> Result<()> {
-    assert!(size >= 0);
-    seeker.seek(SeekFrom::Current(size))?;
+pub fn skip_bytes<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
+    seeker.seek(SeekFrom::Current(size as i64))?;
     Ok(())
 }
 

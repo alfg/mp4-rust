@@ -285,7 +285,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
                     sl_config = Some(SLConfigDescriptor::read_desc(reader, desc_size)?);
                 }
                 _ => {
-                    skip_bytes(reader, desc_size as i64 - 1)?;
+                    skip_bytes(reader, desc_size as u64 - 1)?;
                 }
             }
             current = reader.seek(SeekFrom::Current(0))?;
@@ -378,7 +378,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
                     dec_specific = Some(DecoderSpecificDescriptor::read_desc(reader, desc_size)?);
                 }
                 _ => {
-                    skip_bytes(reader, desc_size as i64 - 1)?;
+                    skip_bytes(reader, desc_size as u64 - 1)?;
                 }
             }
             current = reader.seek(SeekFrom::Current(0))?;
