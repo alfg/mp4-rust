@@ -53,7 +53,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             _ => {}
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_byte_to(reader, start + size)?;
 
         Ok(StsdBox {
             version,
