@@ -70,7 +70,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
         };
         let rate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
-        skip_byte_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(MvhdBox {
             version,

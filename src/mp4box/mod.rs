@@ -184,20 +184,20 @@ pub fn box_start<R: Seek>(seeker: &mut R) -> Result<u64> {
     Ok(seeker.seek(SeekFrom::Current(0))? - HEADER_SIZE)
 }
 
-pub fn skip_byte<S: Seek>(seeker: &mut S, size: i64) -> Result<()> {
+pub fn skip_bytes<S: Seek>(seeker: &mut S, size: i64) -> Result<()> {
     assert!(size >= 0);
     seeker.seek(SeekFrom::Current(size))?;
     Ok(())
 }
 
-pub fn skip_byte_to<S: Seek>(seeker: &mut S, pos: u64) -> Result<()> {
+pub fn skip_bytes_to<S: Seek>(seeker: &mut S, pos: u64) -> Result<()> {
     seeker.seek(SeekFrom::Start(pos))?;
     Ok(())
 }
 
 pub fn skip_box<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
     let start = box_start(seeker)?;
-    skip_byte_to(seeker, start + size)?;
+    skip_bytes_to(seeker, start + size)?;
     Ok(())
 }
 
