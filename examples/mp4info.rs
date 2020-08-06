@@ -35,11 +35,7 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
         compatible_brands.push_str(",");
     }
     println!("  compatible_brands: {}", compatible_brands);
-    println!(
-        "Duration: {}, timescale: {}",
-        mp4.duration(),
-        mp4.timescale()
-    );
+    println!("Duration: {:?}", mp4.duration());
 
     for track in mp4.tracks().iter() {
         let media_info = match track.track_type()? {

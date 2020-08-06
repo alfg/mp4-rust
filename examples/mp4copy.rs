@@ -70,8 +70,8 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
 
         let track_id = track_idx as u32 + 1;
         let sample_count = mp4_reader.sample_count(track_id)?;
-        for six in 0..sample_count {
-            let sample_id = six + 1;
+        for sample_idx in 0..sample_count {
+            let sample_id = sample_idx + 1;
             let sample = mp4_reader.read_sample(track_id, sample_id)?.unwrap();
             mp4_writer.write_sample(track_id, &sample)?;
             // println!("copy {}:({})", sample_id, sample);

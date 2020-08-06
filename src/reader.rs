@@ -1,4 +1,5 @@
 use std::io::{Read, Seek, SeekFrom};
+use std::time::Duration;
 
 use crate::mp4box::*;
 use crate::*;
@@ -95,8 +96,8 @@ impl<R: Read + Seek> Mp4Reader<R> {
         &self.ftyp.compatible_brands
     }
 
-    pub fn duration(&self) -> u64 {
-        self.moov.mvhd.duration
+    pub fn duration(&self) -> Duration {
+        Duration::from_millis(self.moov.mvhd.duration * 1000 / self.moov.mvhd.timescale as u64)
     }
 
     pub fn timescale(&self) -> u32 {
