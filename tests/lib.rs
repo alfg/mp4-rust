@@ -1,6 +1,7 @@
 use mp4::{AudioObjectType, AvcProfile, ChannelConfig, MediaType, SampleFreqIndex, TrackType};
 use std::fs::File;
 use std::io::BufReader;
+use std::time::Duration;
 
 #[test]
 fn test_read_mp4() {
@@ -29,7 +30,7 @@ fn test_read_mp4() {
         assert_eq!(t, true);
     }
 
-    assert_eq!(mp4.duration(), 62);
+    assert_eq!(mp4.duration(), Duration::from_millis(62));
     assert_eq!(mp4.timescale(), 1000);
     assert_eq!(mp4.tracks().len(), 2);
 
