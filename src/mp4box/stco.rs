@@ -33,7 +33,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StcoBox {
             entries.push(chunk_offset);
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(StcoBox {
             version,

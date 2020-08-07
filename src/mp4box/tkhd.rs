@@ -124,7 +124,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
         let width = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
         let height = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(TkhdBox {
             version,

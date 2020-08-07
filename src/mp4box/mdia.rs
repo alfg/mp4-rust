@@ -64,7 +64,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdiaBox {
             return Err(Error::BoxNotFound(BoxType::MinfBox));
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(MdiaBox {
             mdhd: mdhd.unwrap(),

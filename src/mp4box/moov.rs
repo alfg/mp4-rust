@@ -62,7 +62,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
             return Err(Error::BoxNotFound(BoxType::MvhdBox));
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(MoovBox {
             mvhd: mvhd.unwrap(),

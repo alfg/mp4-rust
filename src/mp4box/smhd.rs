@@ -38,7 +38,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for SmhdBox {
 
         let balance = FixedPointI8::new_raw(reader.read_i16::<BigEndian>()?);
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(SmhdBox {
             version,

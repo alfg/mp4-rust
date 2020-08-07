@@ -42,7 +42,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for SttsBox {
             entries.push(entry);
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(SttsBox {
             version,

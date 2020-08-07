@@ -73,7 +73,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
         let language_code = reader.read_u16::<BigEndian>()?;
         let language = language_string(language_code);
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(MdhdBox {
             version,

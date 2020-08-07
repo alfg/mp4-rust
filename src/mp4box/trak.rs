@@ -67,7 +67,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
             return Err(Error::BoxNotFound(BoxType::MdiaBox));
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(TrakBox {
             tkhd: tkhd.unwrap(),

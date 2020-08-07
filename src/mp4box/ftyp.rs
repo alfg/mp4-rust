@@ -37,7 +37,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
             brands.push(From::from(b));
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(FtypBox {
             major_brand: From::from(major),

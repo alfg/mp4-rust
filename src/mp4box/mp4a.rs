@@ -65,7 +65,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         if name == BoxType::EsdsBox {
             let esds = EsdsBox::read_box(reader, s)?;
 
-            skip_read_to(reader, start + size)?;
+            skip_bytes_to(reader, start + size)?;
 
             Ok(Mp4aBox {
                 data_reference_index,
@@ -153,7 +153,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
             return Err(Error::InvalidData("ESDescriptor not found"));
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(EsdsBox {
             version,
@@ -285,7 +285,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
                     sl_config = Some(SLConfigDescriptor::read_desc(reader, desc_size)?);
                 }
                 _ => {
-                    skip_read(reader, desc_size as i64 - 1)?;
+                    skip_bytes(reader, desc_size as u64 - 1)?;
                 }
             }
             current = reader.seek(SeekFrom::Current(0))?;
@@ -378,7 +378,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
                     dec_specific = Some(DecoderSpecificDescriptor::read_desc(reader, desc_size)?);
                 }
                 _ => {
-                    skip_read(reader, desc_size as i64 - 1)?;
+                    skip_bytes(reader, desc_size as u64 - 1)?;
                 }
             }
             current = reader.seek(SeekFrom::Current(0))?;

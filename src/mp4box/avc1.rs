@@ -72,7 +72,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         let vertresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
         reader.read_u32::<BigEndian>()?; // reserved
         let frame_count = reader.read_u16::<BigEndian>()?;
-        skip_read(reader, 32)?; // compressorname
+        skip_bytes(reader, 32)?; // compressorname
         let depth = reader.read_u16::<BigEndian>()?;
         reader.read_i16::<BigEndian>()?; // pre-defined
 
@@ -81,7 +81,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         if name == BoxType::AvcCBox {
             let avcc = AvcCBox::read_box(reader, s)?;
 
-            skip_read_to(reader, start + size)?;
+            skip_bytes_to(reader, start + size)?;
 
             Ok(Avc1Box {
                 data_reference_index,
@@ -118,7 +118,7 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(self.frame_count)?;
         // skip compressorname
-        skip_write(writer, 32)?;
+        write_zeros(writer, 32)?;
         writer.write_u16::<BigEndian>(self.depth)?;
         writer.write_i16::<BigEndian>(-1)?; // pre-defined
 
@@ -192,7 +192,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
             picture_parameter_sets.push(nal_unit);
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(AvcCBox {
             configuration_version,

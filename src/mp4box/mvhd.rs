@@ -70,7 +70,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
         };
         let rate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(MvhdBox {
             version,
@@ -106,7 +106,7 @@ impl<W: Write> WriteBox<&mut W> for MvhdBox {
         writer.write_u32::<BigEndian>(self.rate.raw_value())?;
 
         // XXX volume, ...
-        skip_write(writer, 76)?;
+        write_zeros(writer, 76)?;
 
         Ok(size)
     }

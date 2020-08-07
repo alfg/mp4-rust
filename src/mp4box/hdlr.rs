@@ -30,7 +30,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
         reader.read_u32::<BigEndian>()?; // pre-defined
         let handler = reader.read_u32::<BigEndian>()?;
 
-        skip_read(reader, 12)?; // reserved
+        skip_bytes(reader, 12)?; // reserved
 
         let buf_size = size - HEADER_SIZE - HEADER_EXT_SIZE - 20 - 1;
         let mut buf = vec![0u8; buf_size as usize];
@@ -44,7 +44,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
             _ => String::from("null"),
         };
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(HdlrBox {
             version,

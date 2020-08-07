@@ -180,28 +180,27 @@ pub fn write_box_header_ext<W: Write>(w: &mut W, v: u8, f: u32) -> Result<u64> {
     Ok(4)
 }
 
-pub fn box_start<R: Seek>(reader: &mut R) -> Result<u64> {
-    Ok(reader.seek(SeekFrom::Current(0))? - HEADER_SIZE)
+pub fn box_start<R: Seek>(seeker: &mut R) -> Result<u64> {
+    Ok(seeker.seek(SeekFrom::Current(0))? - HEADER_SIZE)
 }
 
-pub fn skip_read<R: Read + Seek>(reader: &mut R, size: i64) -> Result<()> {
-    assert!(size >= 0);
-    reader.seek(SeekFrom::Current(size))?;
+pub fn skip_bytes<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
+    seeker.seek(SeekFrom::Current(size as i64))?;
     Ok(())
 }
 
-pub fn skip_read_to<R: Read + Seek>(reader: &mut R, pos: u64) -> Result<()> {
-    reader.seek(SeekFrom::Start(pos))?;
+pub fn skip_bytes_to<S: Seek>(seeker: &mut S, pos: u64) -> Result<()> {
+    seeker.seek(SeekFrom::Start(pos))?;
     Ok(())
 }
 
-pub fn skip_box<R: Read + Seek>(reader: &mut R, size: u64) -> Result<()> {
-    let start = box_start(reader)?;
-    skip_read_to(reader, start + size)?;
+pub fn skip_box<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
+    let start = box_start(seeker)?;
+    skip_bytes_to(seeker, start + size)?;
     Ok(())
 }
 
-pub fn skip_write<W: Write>(writer: &mut W, size: u64) -> Result<()> {
+pub fn write_zeros<W: Write>(writer: &mut W, size: u64) -> Result<()> {
     for _ in 0..size {
         writer.write_u8(0)?;
     }

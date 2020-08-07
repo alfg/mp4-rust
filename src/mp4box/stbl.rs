@@ -114,7 +114,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
             return Err(Error::Box2NotFound(BoxType::StcoBox, BoxType::Co64Box));
         }
 
-        skip_read_to(reader, start + size)?;
+        skip_bytes_to(reader, start + size)?;
 
         Ok(StblBox {
             stsd: stsd.unwrap(),
