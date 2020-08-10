@@ -2,6 +2,13 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 
+#[cfg(feature = "async")]
+use {
+    std::marker::Unpin,
+    std::io::Cursor,
+    tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncSeekExt}
+};
+
 use crate::*;
 
 pub(crate) mod avc1;
@@ -154,6 +161,41 @@ impl BoxHeader {
         }
     }
 
+    #[cfg(feature = "async")]
+    pub async fn async_read<R>(reader: &mut R) -> Result<Self>
+    where
+        R: AsyncReadExt + Unpin
+    {
+        // Create and read to buf.
+        let mut buf = [0u8; 8]; // 8 bytes for box header.
+        reader.read(&mut buf).await?;
+
+        // Get size.
+        let s = buf[0..4].try_into().unwrap();
+        let size = u32::from_be_bytes(s);
+
+        // Get box type string.
+        let t = buf[4..8].try_into().unwrap();
+        let typ = u32::from_be_bytes(t);
+
+        // Get largesize if size is 1
+        if size == 1 {
+            reader.read(&mut buf).await?;
+            let s = buf.try_into().unwrap();
+            let largesize = u64::from_be_bytes(s);
+
+            Ok(BoxHeader {
+                name: BoxType::from(typ),
+                size: largesize,
+            })
+        } else {
+            Ok(BoxHeader {
+                name: BoxType::from(typ),
+                size: size as u64,
+            })
+        }
+    }
+
     pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         if self.size > u32::MAX as u64 {
             writer.write_u32::<BigEndian>(1)?;
@@ -165,6 +207,22 @@ impl BoxHeader {
             writer.write_u32::<BigEndian>(self.name.into())?;
             Ok(8)
         }
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_write<W>(&self, writer: &mut W) -> Result<u64>
+    where
+        W: AsyncWriteExt + Unpin
+    {
+        let size = if self.size > u32::MAX as u64 {
+            16
+        } else {
+            8
+        };
+        let mut buffer = vec![0u8; size];
+        let hdr_size = self.write(&mut Cursor::new(&mut buffer))?;
+        writer.write_all(&buffer).await?;
+        Ok(hdr_size)
     }
 }
 
@@ -180,8 +238,13 @@ pub fn write_box_header_ext<W: Write>(w: &mut W, v: u8, f: u32) -> Result<u64> {
     Ok(4)
 }
 
-pub fn box_start<R: Seek>(seeker: &mut R) -> Result<u64> {
+pub fn box_start<S: Seek>(seeker: &mut S) -> Result<u64> {
     Ok(seeker.seek(SeekFrom::Current(0))? - HEADER_SIZE)
+}
+
+#[cfg(feature = "async")]
+pub async fn async_box_start<S: AsyncSeekExt + Unpin>(seeker: &mut S) -> Result<u64> {
+    Ok(seeker.seek(SeekFrom::Current(0)).await? - HEADER_SIZE)
 }
 
 pub fn skip_bytes<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
@@ -194,9 +257,28 @@ pub fn skip_bytes_to<S: Seek>(seeker: &mut S, pos: u64) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "async")]
+pub async fn async_skip_bytes_to<S>(seeker: &mut S, pos: u64) -> Result<()>
+where
+    S: AsyncSeekExt + Unpin
+{
+    seeker.seek(SeekFrom::Start(pos)).await?;
+    Ok(())
+}
+
 pub fn skip_box<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
     let start = box_start(seeker)?;
     skip_bytes_to(seeker, start + size)?;
+    Ok(())
+}
+
+#[cfg(feature = "async")]
+pub async fn async_skip_box<S>(seeker: &mut S, size: u64) -> Result<()>
+where
+    S: AsyncSeekExt + Unpin
+{
+    let start = async_box_start(seeker).await?;
+    async_skip_bytes_to(seeker, start + size).await?;
     Ok(())
 }
 

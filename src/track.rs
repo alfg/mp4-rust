@@ -4,6 +4,12 @@ use std::convert::TryFrom;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::time::Duration;
 
+#[cfg(feature = "async")]
+use {
+    std::marker::Unpin,
+    tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncSeekExt},
+};
+
 use crate::mp4box::trak::TrakBox;
 use crate::mp4box::*;
 use crate::mp4box::{
@@ -405,6 +411,39 @@ impl Mp4Track {
             bytes: Bytes::from(buffer),
         }))
     }
+
+    #[cfg(feature = "async")]
+    pub(crate) async fn async_read_sample<R>(
+        &self,
+        reader: &mut R,
+        sample_id: u32,
+    ) -> Result<Option<Mp4Sample>>
+    where
+        R: AsyncReadExt + AsyncSeekExt + Unpin
+    {
+        let sample_offset = match self.sample_offset(sample_id) {
+            Ok(offset) => offset,
+            Err(Error::EntryInStblNotFound(_, _, _)) => return Ok(None),
+            Err(err) => return Err(err),
+        };
+        let sample_size = self.sample_size(sample_id).unwrap();
+
+        let mut buffer = vec![0x0u8; sample_size as usize];
+        reader.seek(SeekFrom::Start(sample_offset)).await?;
+        reader.read_exact(&mut buffer).await?;
+
+        let (start_time, duration) = self.sample_time(sample_id).unwrap(); // XXX
+        let rendering_offset = self.sample_rendering_offset(sample_id);
+        let is_sync = self.is_sync_sample(sample_id);
+
+        Ok(Some(Mp4Sample {
+            start_time,
+            duration,
+            rendering_offset,
+            is_sync,
+            bytes: Bytes::from(buffer),
+        }))
+    }
 }
 
 // TODO creation_time, modification_time
@@ -598,6 +637,33 @@ impl Mp4TrackWriter {
         Ok(self.trak.tkhd.duration)
     }
 
+    #[cfg(feature = "async")]
+    pub(crate) async fn async_write_sample<W>(
+        &mut self,
+        writer: &mut W,
+        sample: &Mp4Sample,
+        movie_timescale: u32,
+    ) -> Result<u64>
+    where
+        W: AsyncWriteExt + AsyncSeekExt + Unpin
+    {
+        self.chunk_buffer.extend_from_slice(&sample.bytes);
+        self.chunk_samples += 1;
+        self.chunk_duration += sample.duration;
+        self.update_sample_sizes(sample.bytes.len() as u32);
+        self.update_sample_times(sample.duration);
+        self.update_rendering_offsets(sample.rendering_offset);
+        self.update_sync_samples(sample.is_sync);
+        if self.is_chunk_full() {
+            self.async_write_chunk(writer).await?;
+        }
+        self.update_durations(sample.duration, movie_timescale);
+
+        self.sample_id += 1;
+
+        Ok(self.trak.tkhd.duration)
+    }
+
     // XXX largesize
     fn chunk_count(&self) -> u32 {
         let stco = self.trak.mdia.minf.stbl.stco.as_ref().unwrap();
@@ -643,6 +709,28 @@ impl Mp4TrackWriter {
         Ok(())
     }
 
+    #[cfg(feature = "async")]
+    async fn async_write_chunk<W>(&mut self, writer: &mut W) -> Result<()>
+    where
+        W: AsyncWriteExt + AsyncSeekExt + Unpin
+    {
+        if self.chunk_buffer.is_empty() {
+            return Ok(());
+        }
+        let chunk_offset = writer.seek(SeekFrom::Current(0)).await?;
+
+        writer.write_all(&self.chunk_buffer).await?;
+
+        self.update_sample_to_chunk(self.chunk_count() + 1);
+        self.update_chunk_offsets(chunk_offset);
+
+        self.chunk_buffer.clear();
+        self.chunk_samples = 0;
+        self.chunk_duration = 0;
+
+        Ok(())
+    }
+
     fn max_sample_size(&self) -> u32 {
         if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
             self.trak.mdia.minf.stbl.stsz.sample_size
@@ -657,6 +745,24 @@ impl Mp4TrackWriter {
 
     pub(crate) fn write_end<W: Write + Seek>(&mut self, writer: &mut W) -> Result<TrakBox> {
         self.write_chunk(writer)?;
+
+        let max_sample_size = self.max_sample_size();
+        if let Some(ref mut mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            mp4a.esds.es_desc.dec_config.buffer_size_db = max_sample_size;
+            // TODO
+            // mp4a.esds.es_desc.dec_config.max_bitrate
+            // mp4a.esds.es_desc.dec_config.avg_bitrate
+        }
+
+        Ok(self.trak.clone())
+    }
+
+    #[cfg(feature = "async")]
+    pub(crate) async fn async_write_end<W>(&mut self, writer: &mut W) -> Result<TrakBox>
+    where
+        W: AsyncWriteExt + AsyncSeekExt + Unpin
+    {
+        self.async_write_chunk(writer).await?;
 
         let max_sample_size = self.max_sample_size();
         if let Some(ref mut mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {

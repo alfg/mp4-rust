@@ -17,8 +17,18 @@ keywords = ["mp4", "isobmff"]
 
 license = "MIT"
 
+[features]
+default = []
+async = ["tokio"]
+
 [dependencies]
 thiserror = "^1.0"
 byteorder = "1"
 bytes = "0.5"
 num-rational = "0.3"
+
+[dependencies.tokio]
+version = "0.2"
+default-features = false
+optional = true
+features = ["macros", "io-util", "fs"]

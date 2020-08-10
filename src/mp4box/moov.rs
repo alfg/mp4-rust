@@ -80,6 +80,6 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         for trak in self.traks.iter() {
             trak.write_box(writer)?;
         }
-        Ok(0)
+        Ok(size)
     }
 }
