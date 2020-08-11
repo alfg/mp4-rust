@@ -163,7 +163,7 @@ async fn async_copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Resul
         for sample_idx in 0..sample_count {
             let sample_id = sample_idx + 1;
             let sample = mp4_reader.async_read_sample(track_id, sample_id).await?.unwrap();
-            println!("{}:({})", sample_id, sample);
+            // println!("{}:{}:({})", track_id, sample_id, sample);
             mp4_writer.async_write_sample(track_id, &sample).await?;
         }
     }
