@@ -1,6 +1,6 @@
 [package]
 name = "mp4"
-version = "0.4.3"
+version = "0.5.0"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
 
