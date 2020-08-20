@@ -15,7 +15,7 @@ use std::io::{BufReader};
 use mp4::{Result};
 
 fn main() -> Result<()> {
-    let f = File::open("tears-of-steel-2s.mp4").unwrap();
+    let f = File::open("example.mp4").unwrap();
     let size = f.metadata()?.len();
     let reader = BufReader::new(f);
 
