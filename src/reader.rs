@@ -7,8 +7,8 @@ use crate::*;
 #[derive(Debug)]
 pub struct Mp4Reader<R> {
     reader: R,
-    ftyp: FtypBox,
-    moov: MoovBox,
+    pub ftyp: FtypBox,
+    pub moov: MoovBox,
 
     tracks: Vec<Mp4Track>,
     size: u64,
