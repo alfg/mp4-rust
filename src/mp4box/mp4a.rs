@@ -9,7 +9,7 @@ pub struct Mp4aBox {
     pub channelcount: u16,
     pub samplesize: u16,
     pub samplerate: FixedPointU16,
-    pub esds: EsdsBox,
+    pub esds: Option<EsdsBox>,
 }
 
 impl Default for Mp4aBox {
@@ -19,7 +19,7 @@ impl Default for Mp4aBox {
             channelcount: 2,
             samplesize: 16,
             samplerate: FixedPointU16::new(48000),
-            esds: EsdsBox::default(),
+            esds: Some(EsdsBox::default()),
         }
     }
 }
@@ -31,7 +31,7 @@ impl Mp4aBox {
             channelcount: config.chan_conf as u16,
             samplesize: 16,
             samplerate: FixedPointU16::new(config.freq_index.freq() as u16),
-            esds: EsdsBox::new(config),
+            esds: Some(EsdsBox::new(config)),
         }
     }
 }
@@ -42,7 +42,11 @@ impl Mp4Box for Mp4aBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + 8 + 20 + self.esds.box_size()
+        let mut size = HEADER_SIZE + 8 + 20;
+        if let Some(ref esds) = self.esds {
+            size += esds.box_size();
+        }
+        size
     }
 }
 
@@ -62,21 +66,20 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
 
         let header = BoxHeader::read(reader)?;
         let BoxHeader { name, size: s } = header;
+
+        let mut esds = None;
         if name == BoxType::EsdsBox {
-            let esds = EsdsBox::read_box(reader, s)?;
-
-            skip_bytes_to(reader, start + size)?;
-
-            Ok(Mp4aBox {
-                data_reference_index,
-                channelcount,
-                samplesize,
-                samplerate,
-                esds,
-            })
-        } else {
-            Err(Error::InvalidData("esds not found"))
+            esds = Some(EsdsBox::read_box(reader, s)?);
         }
+        skip_bytes_to(reader, start + size)?;
+
+        Ok(Mp4aBox {
+            data_reference_index,
+            channelcount,
+            samplesize,
+            samplerate,
+            esds,
+        })
     }
 }
 
@@ -95,7 +98,9 @@ impl<W: Write> WriteBox<&mut W> for Mp4aBox {
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u32::<BigEndian>(self.samplerate.raw_value())?;
 
-        self.esds.write_box(writer)?;
+        if let Some(ref esds) = self.esds {
+            esds.write_box(writer)?;
+        }
 
         Ok(size)
     }
@@ -524,7 +529,7 @@ mod tests {
             channelcount: 2,
             samplesize: 16,
             samplerate: FixedPointU16::new(48000),
-            esds: EsdsBox {
+            esds: Some(EsdsBox {
                 version: 0,
                 flags: 0,
                 es_desc: ESDescriptor {
@@ -544,7 +549,29 @@ mod tests {
                     },
                     sl_config: SLConfigDescriptor::default(),
                 },
-            },
+            }),
+        };
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::Mp4aBox);
+        assert_eq!(src_box.box_size(), header.size);
+
+        let dst_box = Mp4aBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
+    }
+
+    #[test]
+    fn test_mp4a_no_esds() {
+        let src_box = Mp4aBox {
+            data_reference_index: 1,
+            channelcount: 2,
+            samplesize: 16,
+            samplerate: FixedPointU16::new(48000),
+            esds: None,
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
