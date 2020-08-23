@@ -563,4 +563,26 @@ mod tests {
         let dst_box = Mp4aBox::read_box(&mut reader, header.size).unwrap();
         assert_eq!(src_box, dst_box);
     }
+
+    #[test]
+    fn test_mp4a_no_esds() {
+        let src_box = Mp4aBox {
+            data_reference_index: 1,
+            channelcount: 2,
+            samplesize: 16,
+            samplerate: FixedPointU16::new(48000),
+            esds: None,
+        };
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::Mp4aBox);
+        assert_eq!(src_box.box_size(), header.size);
+
+        let dst_box = Mp4aBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
+    }
 }
