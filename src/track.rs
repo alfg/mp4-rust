@@ -53,7 +53,7 @@ impl From<AacConfig> for TrackConfig {
 
 #[derive(Debug)]
 pub struct Mp4Track {
-    trak: TrakBox,
+    pub trak: TrakBox,
 }
 
 impl Mp4Track {
@@ -126,7 +126,11 @@ impl Mp4Track {
 
     pub fn sample_freq_index(&self) -> Result<SampleFreqIndex> {
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            SampleFreqIndex::try_from(mp4a.esds.es_desc.dec_config.dec_specific.freq_index)
+            if let Some(ref esds) = mp4a.esds {
+                SampleFreqIndex::try_from(esds.es_desc.dec_config.dec_specific.freq_index)
+            } else {
+                Err(Error::BoxInStblNotFound(self.track_id(), BoxType::EsdsBox))
+            }
         } else {
             Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
         }
@@ -134,7 +138,11 @@ impl Mp4Track {
 
     pub fn channel_config(&self) -> Result<ChannelConfig> {
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            ChannelConfig::try_from(mp4a.esds.es_desc.dec_config.dec_specific.chan_conf)
+            if let Some(ref esds) = mp4a.esds {
+                ChannelConfig::try_from(esds.es_desc.dec_config.dec_specific.chan_conf)
+            } else {
+                Err(Error::BoxInStblNotFound(self.track_id(), BoxType::EsdsBox))
+            }
         } else {
             Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
         }
@@ -156,7 +164,12 @@ impl Mp4Track {
 
     pub fn bitrate(&self) -> u32 {
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            mp4a.esds.es_desc.dec_config.avg_bitrate
+            if let Some(ref esds) = mp4a.esds {
+                esds.es_desc.dec_config.avg_bitrate
+            } else {
+                0
+            }
+            // mp4a.esds.es_desc.dec_config.avg_bitrate
         } else {
             let dur_sec = self.duration().as_secs();
             if dur_sec > 0 {
@@ -215,7 +228,11 @@ impl Mp4Track {
 
     pub fn audio_profile(&self) -> Result<AudioObjectType> {
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            AudioObjectType::try_from(mp4a.esds.es_desc.dec_config.dec_specific.profile)
+            if let Some(ref esds) = mp4a.esds {
+                AudioObjectType::try_from(esds.es_desc.dec_config.dec_specific.profile)
+            } else {
+                Err(Error::BoxInStblNotFound(self.track_id(), BoxType::EsdsBox))
+            }
         } else {
             Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
         }
@@ -660,7 +677,9 @@ impl Mp4TrackWriter {
 
         let max_sample_size = self.max_sample_size();
         if let Some(ref mut mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
-            mp4a.esds.es_desc.dec_config.buffer_size_db = max_sample_size;
+            if let Some(ref mut esds) = mp4a.esds {
+                esds.es_desc.dec_config.buffer_size_db = max_sample_size;
+            }
             // TODO
             // mp4a.esds.es_desc.dec_config.max_bitrate
             // mp4a.esds.es_desc.dec_config.avg_bitrate

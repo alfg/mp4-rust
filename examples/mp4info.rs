@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use mp4::{Mp4Track, Result, TrackType};
+use mp4::{Mp4Track, Result, TrackType, Error};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -26,17 +26,23 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
 
     let mp4 = mp4::Mp4Reader::read_header(reader, size)?;
 
-    println!("Metadata:");
-    println!("  size            : {}", mp4.size());
-    println!("  major_brand     : {}", mp4.major_brand());
+    println!("File:");
+    println!("  file size:          {}", mp4.size());
+    println!("  major_brand:        {}", mp4.major_brand());
     let mut compatible_brands = String::new();
     for brand in mp4.compatible_brands().iter() {
         compatible_brands.push_str(&brand.to_string());
-        compatible_brands.push_str(",");
+        compatible_brands.push_str(" ");
     }
-    println!("  compatible_brands: {}", compatible_brands);
-    println!("Duration: {:?}", mp4.duration());
+    println!("  compatible_brands:  {}\n", compatible_brands);
 
+    println!("Movie:");
+    println!("  version:        {}", mp4.moov.mvhd.version);
+    println!("  creation time:  {}", creation_time(mp4.moov.mvhd.creation_time));
+    println!("  duration:       {:?}", mp4.duration());
+    println!("  timescale:      {:?}\n", mp4.timescale());
+
+    println!("Found {} Tracks", mp4.tracks().len());
     for track in mp4.tracks().iter() {
         let media_info = match track.track_type()? {
             TrackType::Video => video_info(track)?,
@@ -68,13 +74,35 @@ fn video_info(track: &Mp4Track) -> Result<String> {
 }
 
 fn audio_info(track: &Mp4Track) -> Result<String> {
-    Ok(format!(
-        "{} ({}) ({:?}), {} Hz, {}, {} kb/s",
-        track.media_type()?,
-        track.audio_profile()?,
-        track.box_type()?,
-        track.sample_freq_index()?.freq(),
-        track.channel_config()?,
-        track.bitrate() / 1000
-    ))
+    if let Some(ref mp4a) = track.trak.mdia.minf.stbl.stsd.mp4a {
+        if mp4a.esds.is_some() {
+            Ok(format!(
+                "{} ({}) ({:?}), {} Hz, {}, {} kb/s",
+                track.media_type()?,
+                track.audio_profile()?,
+                track.box_type()?,
+                track.sample_freq_index()?.freq(),
+                track.channel_config()?,
+                track.bitrate() / 1000
+            ))
+        } else {
+            Ok(format!(
+                "{} ({:?}), {} kb/s",
+                track.media_type()?,
+                track.box_type()?,
+                track.bitrate() / 1000
+            ))
+        }
+    } else {
+        Err(Error::InvalidData("mp4a box not found"))
+    }
+}
+
+fn creation_time(creation_time: u64) -> u64 {
+    // convert from MP4 epoch (1904-01-01) to Unix epoch (1970-01-01)
+    if creation_time >= 2082844800 {
+        creation_time - 2082844800
+    } else {
+        creation_time
+    }
 }
