@@ -10,6 +10,16 @@ pub struct SmhdBox {
     pub balance: FixedPointI8,
 }
 
+impl SmhdBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::SmhdBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4
+    }
+}
+
 impl Default for SmhdBox {
     fn default() -> Self {
         SmhdBox {

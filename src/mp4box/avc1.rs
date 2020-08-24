@@ -43,6 +43,14 @@ impl Avc1Box {
             avcc: AvcCBox::new(&config.seq_param_set, &config.pic_param_set),
         }
     }
+
+    pub fn get_type(&self) -> BoxType {
+        BoxType::Avc1Box
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + 8 + 70 + self.avcc.box_size()
+    }
 }
 
 impl Mp4Box for Avc1Box {

@@ -52,6 +52,22 @@ pub struct Matrix {
 }
 
 impl TkhdBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::TkhdBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        if self.version == 1 {
+            size += 32;
+        } else {
+            assert_eq!(self.version, 0);
+            size += 20;
+        }
+        size += 60;
+        size
+    }
+
     pub fn set_width(&mut self, width: u16) {
         self.width = FixedPointU16::new(width);
     }

@@ -12,6 +12,22 @@ pub struct StsdBox {
     pub mp4a: Option<Mp4aBox>,
 }
 
+impl StsdBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::StsdBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
+        if let Some(ref avc1) = self.avc1 {
+            size += avc1.box_size();
+        } else if let Some(ref mp4a) = self.mp4a {
+            size += mp4a.box_size();
+        }
+        size
+    }
+}
+
 impl Mp4Box for StsdBox {
     fn box_type() -> BoxType {
         BoxType::StsdBox

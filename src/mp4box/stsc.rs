@@ -10,6 +10,16 @@ pub struct StscBox {
     pub entries: Vec<StscEntry>,
 }
 
+impl StscBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::StscBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (12 * self.entries.len() as u64)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StscEntry {
     pub first_chunk: u32,

@@ -9,6 +9,20 @@ pub struct MoovBox {
     pub traks: Vec<TrakBox>,
 }
 
+impl MoovBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::MoovBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + self.mvhd.box_size();
+        for trak in self.traks.iter() {
+            size += trak.box_size();
+        }
+        size
+    }
+}
+
 impl Mp4Box for MoovBox {
     fn box_type() -> BoxType {
         BoxType::MoovBox

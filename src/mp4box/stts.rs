@@ -10,6 +10,16 @@ pub struct SttsBox {
     pub entries: Vec<SttsEntry>,
 }
 
+impl SttsBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::SttsBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entries.len() as u64)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SttsEntry {
     pub sample_count: u32,

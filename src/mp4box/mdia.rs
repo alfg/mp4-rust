@@ -10,6 +10,16 @@ pub struct MdiaBox {
     pub minf: MinfBox,
 }
 
+impl MdiaBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::MdiaBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + self.mdhd.box_size() + self.hdlr.box_size() + self.minf.box_size()
+    }
+}
+
 impl Mp4Box for MdiaBox {
     fn box_type() -> BoxType {
         BoxType::MdiaBox

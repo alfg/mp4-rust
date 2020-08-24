@@ -18,6 +18,23 @@ pub struct ElstEntry {
     pub media_rate_fraction: u16,
 }
 
+impl ElstBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::ElstBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
+        if self.version == 1 {
+            size += self.entries.len() as u64 * 20;
+        } else {
+            assert_eq!(self.version, 0);
+            size += self.entries.len() as u64 * 12;
+        }
+        size
+    }
+}
+
 impl Mp4Box for ElstBox {
     fn box_type() -> BoxType {
         BoxType::ElstBox

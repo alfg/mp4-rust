@@ -10,6 +10,16 @@ pub struct CttsBox {
     pub entries: Vec<CttsEntry>,
 }
 
+impl CttsBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::CttsBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entries.len() as u64)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CttsEntry {
     pub sample_count: u32,

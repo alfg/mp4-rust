@@ -18,6 +18,16 @@ pub struct RgbColor {
     pub blue: u16,
 }
 
+impl VmhdBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::VmhdBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 8
+    }
+}
+
 impl Mp4Box for VmhdBox {
     fn box_type() -> BoxType {
         BoxType::VmhdBox

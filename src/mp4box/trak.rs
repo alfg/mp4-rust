@@ -10,6 +10,22 @@ pub struct TrakBox {
     pub mdia: MdiaBox,
 }
 
+impl TrakBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::TrakBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        size += self.tkhd.box_size();
+        if let Some(ref edts) = self.edts {
+            size += edts.box_size();
+        }
+        size += self.mdia.box_size();
+        size
+    }
+}
+
 impl Mp4Box for TrakBox {
     fn box_type() -> BoxType {
         BoxType::TrakBox

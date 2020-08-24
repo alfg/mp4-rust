@@ -18,6 +18,33 @@ pub struct StblBox {
     pub co64: Option<Co64Box>,
 }
 
+impl StblBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::StblBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        size += self.stsd.box_size();
+        size += self.stts.box_size();
+        if let Some(ref ctts) = self.ctts {
+            size += ctts.box_size();
+        }
+        if let Some(ref stss) = self.stss {
+            size += stss.box_size();
+        }
+        size += self.stsc.box_size();
+        size += self.stsz.box_size();
+        if let Some(ref stco) = self.stco {
+            size += stco.box_size();
+        }
+        if let Some(ref co64) = self.co64 {
+            size += co64.box_size();
+        }
+        size
+    }
+}
+
 impl Mp4Box for StblBox {
     fn box_type() -> BoxType {
         BoxType::StblBox

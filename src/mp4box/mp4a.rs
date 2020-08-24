@@ -34,6 +34,18 @@ impl Mp4aBox {
             esds: Some(EsdsBox::new(config)),
         }
     }
+
+    pub fn get_type(&self) -> BoxType {
+        BoxType::Mp4aBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + 8 + 20;
+        if let Some(ref esds) = self.esds {
+            size += esds.box_size();
+        }
+        size
+    }
 }
 
 impl Mp4Box for Mp4aBox {

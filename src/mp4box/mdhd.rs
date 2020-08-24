@@ -15,6 +15,25 @@ pub struct MdhdBox {
     pub language: String,
 }
 
+impl MdhdBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::MdhdBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+
+        if self.version == 1 {
+            size += 28;
+        } else {
+            assert_eq!(self.version, 0);
+            size += 16;
+        }
+        size += 4;
+        size
+    }
+}
+
 impl Default for MdhdBox {
     fn default() -> Self {
         MdhdBox {

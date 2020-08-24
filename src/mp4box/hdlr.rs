@@ -11,6 +11,16 @@ pub struct HdlrBox {
     pub name: String,
 }
 
+impl HdlrBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::HdlrBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 20 + self.name.len() as u64 + 1
+    }
+}
+
 impl Mp4Box for HdlrBox {
     fn box_type() -> BoxType {
         BoxType::HdlrBox

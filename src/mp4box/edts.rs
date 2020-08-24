@@ -12,6 +12,18 @@ impl EdtsBox {
     pub(crate) fn new() -> EdtsBox {
         Default::default()
     }
+
+    pub fn get_type(&self) -> BoxType {
+        BoxType::EdtsBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        if let Some(ref elst) = self.elst {
+            size += elst.box_size();
+        }
+        size
+    }
 }
 
 impl Mp4Box for EdtsBox {

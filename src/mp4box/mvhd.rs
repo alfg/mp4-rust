@@ -14,6 +14,24 @@ pub struct MvhdBox {
     pub rate: FixedPointU16,
 }
 
+impl MvhdBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::MvhdBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        if self.version == 1 {
+            size += 28;
+        } else {
+            assert_eq!(self.version, 0);
+            size += 16;
+        }
+        size += 80;
+        size
+    }
+}
+
 impl Default for MvhdBox {
     fn default() -> Self {
         MvhdBox {

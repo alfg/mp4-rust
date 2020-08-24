@@ -10,6 +10,24 @@ pub struct MinfBox {
     pub stbl: StblBox,
 }
 
+impl MinfBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::MinfBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE;
+        if let Some(ref vmhd) = self.vmhd {
+            size += vmhd.box_size();
+        }
+        if let Some(ref smhd) = self.smhd {
+            size += smhd.box_size();
+        }
+        size += self.stbl.box_size();
+        size
+    }
+}
+
 impl Mp4Box for MinfBox {
     fn box_type() -> BoxType {
         BoxType::MinfBox

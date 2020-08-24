@@ -10,6 +10,16 @@ pub struct StcoBox {
     pub entries: Vec<u32>,
 }
 
+impl StcoBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::StcoBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (4 * self.entries.len() as u64)
+    }
+}
+
 impl Mp4Box for StcoBox {
     fn box_type() -> BoxType {
         BoxType::StcoBox

@@ -10,6 +10,16 @@ pub struct FtypBox {
     pub compatible_brands: Vec<FourCC>,
 }
 
+impl FtypBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::FtypBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + 8 + (4 * self.compatible_brands.len() as u64)
+    }
+}
+
 impl Mp4Box for FtypBox {
     fn box_type() -> BoxType {
         BoxType::FtypBox

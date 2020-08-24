@@ -10,6 +10,16 @@ pub struct Co64Box {
     pub entries: Vec<u64>,
 }
 
+impl Co64Box {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::Co64Box
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entries.len() as u64)
+    }
+}
+
 impl Mp4Box for Co64Box {
     fn box_type() -> BoxType {
         BoxType::Co64Box
