@@ -21,7 +21,7 @@ impl MdiaBox {
 }
 
 impl Mp4Box for MdiaBox {
-    fn box_type() -> BoxType {
+    fn box_type(&self) -> BoxType {
         BoxType::MdiaBox
     }
 
@@ -87,7 +87,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdiaBox {
 impl<W: Write> WriteBox<&mut W> for MdiaBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.mdhd.write_box(writer)?;
         self.hdlr.write_box(writer)?;

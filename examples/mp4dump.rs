@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use mp4::{Result};
+use mp4::{Result, Mp4Box};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -21,70 +21,96 @@ fn main() {
 
 fn dump<P: AsRef<Path>>(filename: &P) -> Result<()> {
     let f = File::open(filename)?;
-    let size = f.metadata()?.len();
-    let reader = BufReader::new(f);
+    let boxes = get_boxes(f)?;
 
-    let mp4 = mp4::Mp4Reader::read_header(reader, size)?;
-
-    // ftyp
-    println!("[{}] size={} ", mp4.ftyp.get_type(), mp4.ftyp.get_size());
-
-    // moov
-    println!("[{}] size={} ", mp4.moov.get_type(), mp4.moov.get_size());
-    println!("  [{}] size={} ", mp4.moov.mvhd.get_type(), mp4.moov.mvhd.get_size());
-
-    // Tracks.
-    for track in mp4.tracks().iter() {
-
-        // trak
-        println!("  [{}] size={} ", track.trak.get_type(), track.trak.get_size());
-        println!("    [{}] size={} ", track.trak.tkhd.get_type(), track.trak.tkhd.get_size());
-        if let Some(ref edts) = track.trak.edts {
-            println!("    [{}] size={} ", edts.get_type(), edts.get_size());
-            if let Some(ref elst) = edts.elst {
-                println!("      [{}] size={} ", elst.get_type(), elst.get_size());
-            }
-        }
-
-        // trak.mdia.
-        println!("    [{}] size={} ", track.trak.mdia.get_type(), track.trak.mdia.get_size());
-        println!("      [{}] size={} ", track.trak.mdia.mdhd.get_type(), track.trak.mdia.mdhd.get_size());
-        println!("      [{}] size={} ", track.trak.mdia.hdlr.get_type(), track.trak.mdia.hdlr.get_size());
-        println!("      [{}] size={} ", track.trak.mdia.minf.get_type(), track.trak.mdia.minf.get_size());
-
-        // trak.mdia.minf
-        if let Some(ref vmhd) = track.trak.mdia.minf.vmhd {
-            println!("        [{}] size={} ", vmhd.get_type(), vmhd.get_size());
-        }
-        if let Some(ref smhd) = track.trak.mdia.minf.smhd {
-            println!("        [{}] size={} ", smhd.get_type(), smhd.get_size());
-        }
-
-        // trak.mdia.minf.stbl
-        println!("      [{}] size={} ", track.trak.mdia.minf.stbl.get_type(), track.trak.mdia.minf.stbl.get_size());
-        println!("        [{}] size={} ", track.trak.mdia.minf.stbl.stsd.get_type(), track.trak.mdia.minf.stbl.stsd.get_size());
-        if let Some(ref avc1) = track.trak.mdia.minf.stbl.stsd.avc1 {
-            println!("          [{}] size={} ", avc1.get_type(), avc1.get_size());
-        }
-        if let Some(ref mp4a) = track.trak.mdia.minf.stbl.stsd.mp4a {
-            println!("          [{}] size={} ", mp4a.get_type(), mp4a.get_size());
-        }
-        println!("        [{}] size={} ", track.trak.mdia.minf.stbl.stts.get_type(), track.trak.mdia.minf.stbl.stts.get_size());
-        if let Some(ref ctts) = track.trak.mdia.minf.stbl.ctts {
-            println!("        [{}] size={} ", ctts.get_type(), ctts.get_size());
-        }
-        if let Some(ref stss) = track.trak.mdia.minf.stbl.stss {
-            println!("        [{}] size={} ", stss.get_type(), stss.get_size());
-        }
-        println!("        [{}] size={} ", track.trak.mdia.minf.stbl.stsc.get_type(), track.trak.mdia.minf.stbl.stsc.get_size());
-        println!("        [{}] size={} ", track.trak.mdia.minf.stbl.stsz.get_type(), track.trak.mdia.minf.stbl.stsz.get_size());
-        if let Some(ref stco) = track.trak.mdia.minf.stbl.stco {
-            println!("        [{}] size={} ", stco.get_type(), stco.get_size());
-        }
-        if let Some(ref co64) = track.trak.mdia.minf.stbl.co64 {
-            println!("        [{}] size={} ", co64.get_type(), co64.get_size());
-        }
+    // print out boxes
+    for b in boxes.iter() {
+       println!("[{}] size={}", b.name, b.size); 
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Box {
+    name: String,
+    size: u64,
+    indent: u32,
+}
+
+fn get_boxes(file: File) -> Result<Vec<Box>> {
+    let size = file.metadata()?.len();
+    let reader = BufReader::new(file);
+    let mp4 = mp4::Mp4Reader::read_header(reader, size)?;
+
+    // collect known boxes
+    let mut boxes = Vec::new();
+
+    // ftyp, moov, mvhd
+    boxes.push(build_box(&mp4.ftyp));
+    boxes.push(build_box(&mp4.moov));
+    boxes.push(build_box(&mp4.moov.mvhd));
+
+    // trak.
+    for track in mp4.tracks().iter() {
+        boxes.push(build_box(&track.trak));
+        boxes.push(build_box(&track.trak.tkhd));
+        if let Some(ref edts) = track.trak.edts {
+            boxes.push(build_box(edts));
+            if let Some(ref elst) = edts.elst {
+                boxes.push(build_box(elst));
+            }
+        }
+
+        // trak.mdia
+        let mdia = &track.trak.mdia;
+        boxes.push(build_box(mdia));
+        boxes.push(build_box(&mdia.mdhd));
+        boxes.push(build_box(&mdia.hdlr));
+        boxes.push(build_box(&track.trak.mdia.minf));
+
+        // trak.mdia.minf
+        let minf = &track.trak.mdia.minf;
+        if let Some(ref vmhd) = &minf.vmhd {
+            boxes.push(build_box(vmhd));
+        }
+        if let Some(ref smhd) = &minf.smhd {
+            boxes.push(build_box(smhd));
+        }
+
+        // trak.mdia.minf.stbl
+        let stbl = &track.trak.mdia.minf.stbl;
+        boxes.push(build_box(stbl));
+        boxes.push(build_box(&stbl.stsd));
+        if let Some(ref avc1) = &stbl.stsd.avc1 {
+            boxes.push(build_box(avc1));
+        }
+        if let Some(ref mp4a) = &stbl.stsd.mp4a {
+            boxes.push(build_box(mp4a));
+        }
+        boxes.push(build_box(&stbl.stts));
+        if let Some(ref ctts) = &stbl.ctts {
+            boxes.push(build_box(ctts));
+        }
+        if let Some(ref stss) = &stbl.stss {
+            boxes.push(build_box(stss));
+        }
+        boxes.push(build_box(&stbl.stsc));
+        boxes.push(build_box(&stbl.stsz));
+        if let Some(ref stco) = &stbl.stco {
+            boxes.push(build_box(stco));
+        }
+        if let Some(ref co64) = &stbl.co64 {
+            boxes.push(build_box(co64));
+        }
+    }
+    Ok(boxes)
+}
+
+fn build_box<M: Mp4Box + std::fmt::Debug>(ref m: &M) -> Box {
+    return Box{
+        name: m.box_type().to_string(),
+        size: m.box_size(),
+        indent: 0,
+    };
 }

@@ -29,7 +29,7 @@ impl StsdBox {
 }
 
 impl Mp4Box for StsdBox {
-    fn box_type() -> BoxType {
+    fn box_type(&self) -> BoxType {
         BoxType::StsdBox
     }
 
@@ -83,7 +83,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 impl<W: Write> WriteBox<&mut W> for StsdBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

@@ -36,7 +36,7 @@ impl ElstBox {
 }
 
 impl Mp4Box for ElstBox {
-    fn box_type() -> BoxType {
+    fn box_type(&self) -> BoxType {
         BoxType::ElstBox
     }
 
@@ -95,7 +95,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for ElstBox {
 impl<W: Write> WriteBox<&mut W> for ElstBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

@@ -27,7 +27,7 @@ impl TrakBox {
 }
 
 impl Mp4Box for TrakBox {
-    fn box_type() -> BoxType {
+    fn box_type(&self) -> BoxType {
         BoxType::TrakBox
     }
 
@@ -96,7 +96,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
 impl<W: Write> WriteBox<&mut W> for TrakBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.tkhd.write_box(writer)?;
         if let Some(ref edts) = self.edts {

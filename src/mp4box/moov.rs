@@ -24,7 +24,7 @@ impl MoovBox {
 }
 
 impl Mp4Box for MoovBox {
-    fn box_type() -> BoxType {
+    fn box_type(&self) -> BoxType {
         BoxType::MoovBox
     }
 
@@ -88,7 +88,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
 impl<W: Write> WriteBox<&mut W> for MoovBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.mvhd.write_box(writer)?;
         for trak in self.traks.iter() {
