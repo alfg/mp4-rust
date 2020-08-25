@@ -15,6 +15,25 @@ pub struct MdhdBox {
     pub language: String,
 }
 
+impl MdhdBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::MdhdBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+
+        if self.version == 1 {
+            size += 28;
+        } else {
+            assert_eq!(self.version, 0);
+            size += 16;
+        }
+        size += 4;
+        size
+    }
+}
+
 impl Default for MdhdBox {
     fn default() -> Self {
         MdhdBox {
@@ -30,21 +49,12 @@ impl Default for MdhdBox {
 }
 
 impl Mp4Box for MdhdBox {
-    fn box_type() -> BoxType {
-        BoxType::MdhdBox
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-
-        if self.version == 1 {
-            size += 28;
-        } else {
-            assert_eq!(self.version, 0);
-            size += 16;
-        }
-        size += 4;
-        size
+        return self.get_size();
     }
 }
 
@@ -90,7 +100,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
 impl<W: Write> WriteBox<&mut W> for MdhdBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

@@ -12,12 +12,12 @@ pub struct StsdBox {
     pub mp4a: Option<Mp4aBox>,
 }
 
-impl Mp4Box for StsdBox {
-    fn box_type() -> BoxType {
+impl StsdBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::StsdBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
@@ -25,6 +25,16 @@ impl Mp4Box for StsdBox {
             size += mp4a.box_size();
         }
         size
+    }
+}
+
+impl Mp4Box for StsdBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -67,7 +77,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 impl<W: Write> WriteBox<&mut W> for StsdBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

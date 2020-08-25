@@ -99,7 +99,7 @@ boxtype! {
 }
 
 pub trait Mp4Box: Sized {
-    fn box_type() -> BoxType;
+    fn box_type(&self) -> BoxType;
     fn box_size(&self) -> u64;
 }
 

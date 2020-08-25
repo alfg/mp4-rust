@@ -10,13 +10,23 @@ pub struct MdiaBox {
     pub minf: MinfBox,
 }
 
-impl Mp4Box for MdiaBox {
-    fn box_type() -> BoxType {
+impl MdiaBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::MdiaBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         HEADER_SIZE + self.mdhd.box_size() + self.hdlr.box_size() + self.minf.box_size()
+    }
+}
+
+impl Mp4Box for MdiaBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -77,7 +87,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdiaBox {
 impl<W: Write> WriteBox<&mut W> for MdiaBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.mdhd.write_box(writer)?;
         self.hdlr.write_box(writer)?;

@@ -10,6 +10,16 @@ pub struct StscBox {
     pub entries: Vec<StscEntry>,
 }
 
+impl StscBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::StscBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (12 * self.entries.len() as u64)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StscEntry {
     pub first_chunk: u32,
@@ -19,12 +29,12 @@ pub struct StscEntry {
 }
 
 impl Mp4Box for StscBox {
-    fn box_type() -> BoxType {
-        BoxType::StscBox
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (12 * self.entries.len() as u64)
+        return self.get_size();
     }
 }
 
@@ -72,7 +82,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StscBox {
 impl<W: Write> WriteBox<&mut W> for StscBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

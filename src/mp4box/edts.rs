@@ -12,19 +12,27 @@ impl EdtsBox {
     pub(crate) fn new() -> EdtsBox {
         Default::default()
     }
-}
 
-impl Mp4Box for EdtsBox {
-    fn box_type() -> BoxType {
+    pub fn get_type(&self) -> BoxType {
         BoxType::EdtsBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
         if let Some(ref elst) = self.elst {
             size += elst.box_size();
         }
         size
+    }
+}
+
+impl Mp4Box for EdtsBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -54,7 +62,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
 impl<W: Write> WriteBox<&mut W> for EdtsBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         if let Some(ref elst) = self.elst {
             elst.write_box(writer)?;

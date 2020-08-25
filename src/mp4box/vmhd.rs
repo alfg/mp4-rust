@@ -18,13 +18,23 @@ pub struct RgbColor {
     pub blue: u16,
 }
 
-impl Mp4Box for VmhdBox {
-    fn box_type() -> BoxType {
+impl VmhdBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::VmhdBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         HEADER_SIZE + HEADER_EXT_SIZE + 8
+    }
+}
+
+impl Mp4Box for VmhdBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -55,7 +65,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for VmhdBox {
 impl<W: Write> WriteBox<&mut W> for VmhdBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

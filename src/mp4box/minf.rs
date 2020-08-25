@@ -10,12 +10,12 @@ pub struct MinfBox {
     pub stbl: StblBox,
 }
 
-impl Mp4Box for MinfBox {
-    fn box_type() -> BoxType {
+impl MinfBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::MinfBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
         if let Some(ref vmhd) = self.vmhd {
             size += vmhd.box_size();
@@ -25,6 +25,16 @@ impl Mp4Box for MinfBox {
         }
         size += self.stbl.box_size();
         size
+    }
+}
+
+impl Mp4Box for MinfBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -83,7 +93,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
 impl<W: Write> WriteBox<&mut W> for MinfBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         if let Some(ref vmhd) = self.vmhd {
             vmhd.write_box(writer)?;

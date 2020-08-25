@@ -11,13 +11,23 @@ pub struct HdlrBox {
     pub name: String,
 }
 
-impl Mp4Box for HdlrBox {
-    fn box_type() -> BoxType {
+impl HdlrBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::HdlrBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         HEADER_SIZE + HEADER_EXT_SIZE + 20 + self.name.len() as u64 + 1
+    }
+}
+
+impl Mp4Box for HdlrBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -58,7 +68,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
 impl<W: Write> WriteBox<&mut W> for HdlrBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

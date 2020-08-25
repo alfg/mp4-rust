@@ -10,13 +10,23 @@ pub struct StssBox {
     pub entries: Vec<u32>,
 }
 
-impl Mp4Box for StssBox {
-    fn box_type() -> BoxType {
+impl StssBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::StssBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         HEADER_SIZE + HEADER_EXT_SIZE + 4 + (4 * self.entries.len() as u64)
+    }
+}
+
+impl Mp4Box for StssBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -46,7 +56,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StssBox {
 impl<W: Write> WriteBox<&mut W> for StssBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

@@ -18,12 +18,12 @@ pub struct ElstEntry {
     pub media_rate_fraction: u16,
 }
 
-impl Mp4Box for ElstBox {
-    fn box_type() -> BoxType {
+impl ElstBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::ElstBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if self.version == 1 {
             size += self.entries.len() as u64 * 20;
@@ -32,6 +32,16 @@ impl Mp4Box for ElstBox {
             size += self.entries.len() as u64 * 12;
         }
         size
+    }
+}
+
+impl Mp4Box for ElstBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -78,7 +88,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for ElstBox {
 impl<W: Write> WriteBox<&mut W> for ElstBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 

@@ -10,13 +10,23 @@ pub struct FtypBox {
     pub compatible_brands: Vec<FourCC>,
 }
 
-impl Mp4Box for FtypBox {
-    fn box_type() -> BoxType {
+impl FtypBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::FtypBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         HEADER_SIZE + 8 + (4 * self.compatible_brands.len() as u64)
+    }
+}
+
+impl Mp4Box for FtypBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -50,7 +60,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
 impl<W: Write> WriteBox<&mut W> for FtypBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         writer.write_u32::<BigEndian>((&self.major_brand).into())?;
         writer.write_u32::<BigEndian>(self.minor_version)?;

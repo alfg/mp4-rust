@@ -10,12 +10,12 @@ pub struct TrakBox {
     pub mdia: MdiaBox,
 }
 
-impl Mp4Box for TrakBox {
-    fn box_type() -> BoxType {
+impl TrakBox {
+    pub fn get_type(&self) -> BoxType {
         BoxType::TrakBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
         size += self.tkhd.box_size();
         if let Some(ref edts) = self.edts {
@@ -23,6 +23,16 @@ impl Mp4Box for TrakBox {
         }
         size += self.mdia.box_size();
         size
+    }
+}
+
+impl Mp4Box for TrakBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -80,7 +90,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
 impl<W: Write> WriteBox<&mut W> for TrakBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.tkhd.write_box(writer)?;
         if let Some(ref edts) = self.edts {

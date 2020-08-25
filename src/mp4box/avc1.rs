@@ -43,15 +43,23 @@ impl Avc1Box {
             avcc: AvcCBox::new(&config.seq_param_set, &config.pic_param_set),
         }
     }
-}
 
-impl Mp4Box for Avc1Box {
-    fn box_type() -> BoxType {
+    pub fn get_type(&self) -> BoxType {
         BoxType::Avc1Box
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         HEADER_SIZE + 8 + 70 + self.avcc.box_size()
+    }
+}
+
+impl Mp4Box for Avc1Box {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -102,7 +110,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
 impl<W: Write> WriteBox<&mut W> for Avc1Box {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(0)?; // reserved
@@ -154,7 +162,7 @@ impl AvcCBox {
 }
 
 impl Mp4Box for AvcCBox {
-    fn box_type() -> BoxType {
+    fn box_type(&self) -> BoxType {
         BoxType::AvcCBox
     }
 
@@ -209,7 +217,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
 impl<W: Write> WriteBox<&mut W> for AvcCBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         writer.write_u8(self.configuration_version)?;
         writer.write_u8(self.avc_profile_indication)?;

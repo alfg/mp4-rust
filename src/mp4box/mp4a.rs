@@ -34,19 +34,27 @@ impl Mp4aBox {
             esds: Some(EsdsBox::new(config)),
         }
     }
-}
 
-impl Mp4Box for Mp4aBox {
-    fn box_type() -> BoxType {
+    pub fn get_type(&self) -> BoxType {
         BoxType::Mp4aBox
     }
 
-    fn box_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + 8 + 20;
         if let Some(ref esds) = self.esds {
             size += esds.box_size();
         }
         size
+    }
+}
+
+impl Mp4Box for Mp4aBox {
+    fn box_type(&self) -> BoxType {
+        return self.get_type();
+    }
+
+    fn box_size(&self) -> u64 {
+        return self.get_size();
     }
 }
 
@@ -86,7 +94,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
 impl<W: Write> WriteBox<&mut W> for Mp4aBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(0)?; // reserved
@@ -124,7 +132,7 @@ impl EsdsBox {
 }
 
 impl Mp4Box for EsdsBox {
-    fn box_type() -> BoxType {
+    fn box_type(&self) -> BoxType {
         BoxType::EsdsBox
     }
 
@@ -171,7 +179,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
 impl<W: Write> WriteBox<&mut W> for EsdsBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        BoxHeader::new(Self::box_type(), size).write(writer)?;
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
