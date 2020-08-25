@@ -50,15 +50,11 @@ impl Mp4aBox {
 
 impl Mp4Box for Mp4aBox {
     fn box_type(&self) -> BoxType {
-        BoxType::Mp4aBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + 8 + 20;
-        if let Some(ref esds) = self.esds {
-            size += esds.box_size();
-        }
-        size
+        return self.get_size();
     }
 }
 

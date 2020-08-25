@@ -55,11 +55,11 @@ impl Avc1Box {
 
 impl Mp4Box for Avc1Box {
     fn box_type(&self) -> BoxType {
-        BoxType::Avc1Box
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + 8 + 70 + self.avcc.box_size()
+        return self.get_size();
     }
 }
 

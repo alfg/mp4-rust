@@ -32,11 +32,11 @@ impl Default for SmhdBox {
 
 impl Mp4Box for SmhdBox {
     fn box_type(&self) -> BoxType {
-        BoxType::SmhdBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4
+        return self.get_size();
     }
 }
 

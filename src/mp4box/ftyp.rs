@@ -22,11 +22,11 @@ impl FtypBox {
 
 impl Mp4Box for FtypBox {
     fn box_type(&self) -> BoxType {
-        BoxType::FtypBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + 8 + (4 * self.compatible_brands.len() as u64)
+        return self.get_size();
     }
 }
 

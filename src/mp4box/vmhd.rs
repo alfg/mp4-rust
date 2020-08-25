@@ -30,11 +30,11 @@ impl VmhdBox {
 
 impl Mp4Box for VmhdBox {
     fn box_type(&self) -> BoxType {
-        BoxType::VmhdBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 8
+        return self.get_size();
     }
 }
 

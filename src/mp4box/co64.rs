@@ -22,11 +22,11 @@ impl Co64Box {
 
 impl Mp4Box for Co64Box {
     fn box_type(&self) -> BoxType {
-        BoxType::Co64Box
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (8 * self.entries.len() as u64)
+        return self.get_size();
     }
 }
 

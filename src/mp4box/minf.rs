@@ -30,19 +30,11 @@ impl MinfBox {
 
 impl Mp4Box for MinfBox {
     fn box_type(&self) -> BoxType {
-        BoxType::MinfBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE;
-        if let Some(ref vmhd) = self.vmhd {
-            size += vmhd.box_size();
-        }
-        if let Some(ref smhd) = self.smhd {
-            size += smhd.box_size();
-        }
-        size += self.stbl.box_size();
-        size
+        return self.get_size();
     }
 }
 

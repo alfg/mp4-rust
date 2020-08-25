@@ -25,15 +25,11 @@ impl MoovBox {
 
 impl Mp4Box for MoovBox {
     fn box_type(&self) -> BoxType {
-        BoxType::MoovBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + self.mvhd.box_size();
-        for trak in self.traks.iter() {
-            size += trak.box_size();
-        }
-        size
+        return self.get_size();
     }
 }
 

@@ -23,11 +23,11 @@ impl HdlrBox {
 
 impl Mp4Box for HdlrBox {
     fn box_type(&self) -> BoxType {
-        BoxType::HdlrBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 20 + self.name.len() as u64 + 1
+        return self.get_size();
     }
 }
 

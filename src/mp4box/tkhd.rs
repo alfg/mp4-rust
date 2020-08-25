@@ -79,19 +79,11 @@ impl TkhdBox {
 
 impl Mp4Box for TkhdBox {
     fn box_type(&self) -> BoxType {
-        BoxType::TkhdBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-        if self.version == 1 {
-            size += 32;
-        } else {
-            assert_eq!(self.version, 0);
-            size += 20;
-        }
-        size += 60;
-        size
+        return self.get_size();
     }
 }
 

@@ -28,15 +28,11 @@ impl EdtsBox {
 
 impl Mp4Box for EdtsBox {
     fn box_type(&self) -> BoxType {
-        BoxType::EdtsBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE;
-        if let Some(ref elst) = self.elst {
-            size += elst.box_size();
-        }
-        size
+        return self.get_size();
     }
 }
 

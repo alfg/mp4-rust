@@ -22,11 +22,11 @@ impl MdiaBox {
 
 impl Mp4Box for MdiaBox {
     fn box_type(&self) -> BoxType {
-        BoxType::MdiaBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + self.mdhd.box_size() + self.hdlr.box_size() + self.minf.box_size()
+        return self.get_size();
     }
 }
 

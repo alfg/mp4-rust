@@ -50,20 +50,11 @@ impl Default for MdhdBox {
 
 impl Mp4Box for MdhdBox {
     fn box_type(&self) -> BoxType {
-        BoxType::MdhdBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-
-        if self.version == 1 {
-            size += 28;
-        } else {
-            assert_eq!(self.version, 0);
-            size += 16;
-        }
-        size += 4;
-        size
+        return self.get_size();
     }
 }
 

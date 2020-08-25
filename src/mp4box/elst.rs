@@ -37,18 +37,11 @@ impl ElstBox {
 
 impl Mp4Box for ElstBox {
     fn box_type(&self) -> BoxType {
-        BoxType::ElstBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if self.version == 1 {
-            size += self.entries.len() as u64 * 20;
-        } else {
-            assert_eq!(self.version, 0);
-            size += self.entries.len() as u64 * 12;
-        }
-        size
+        return self.get_size();
     }
 }
 

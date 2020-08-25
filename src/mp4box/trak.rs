@@ -28,17 +28,11 @@ impl TrakBox {
 
 impl Mp4Box for TrakBox {
     fn box_type(&self) -> BoxType {
-        BoxType::TrakBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        let mut size = HEADER_SIZE;
-        size += self.tkhd.box_size();
-        if let Some(ref edts) = self.edts {
-            size += edts.box_size();
-        }
-        size += self.mdia.box_size();
-        size
+        return self.get_size();
     }
 }
 

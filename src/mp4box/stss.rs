@@ -22,11 +22,11 @@ impl StssBox {
 
 impl Mp4Box for StssBox {
     fn box_type(&self) -> BoxType {
-        BoxType::StssBox
+        return self.get_type();
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + (4 * self.entries.len() as u64)
+        return self.get_size();
     }
 }
 
