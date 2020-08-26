@@ -1,6 +1,6 @@
 [package]
 name = "mp4"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
 
@@ -13,7 +13,7 @@ documentation = "https://docs.rs/mp4rs"
 homepage = "https://github.com/alfg/mp4rs"
 repository = "https://github.com/alfg/mp4rs"
 
-keywords = ["mp4", "isobmff"]
+keywords = ["mp4", "isobmff", "video", "multimedia"]
 
 license = "MIT"
 
