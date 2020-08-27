@@ -22,3 +22,10 @@ thiserror = "^1.0"
 byteorder = "1"
 bytes = "0.5"
 num-rational = "0.3"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bench_main"
+harness = false

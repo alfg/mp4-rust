@@ -81,6 +81,14 @@ With print statement output.
 cargo test -- --nocapture
 ```
 
+#### Run Benchmark Tests
+```
+cargo bench
+```
+
+View HTML report at `target/criterion/report/index.html`
+
+
 ## Resources
 Thanks to the following resources used when learning Rust:
 * https://github.com/mozilla/mp4parse-rust
