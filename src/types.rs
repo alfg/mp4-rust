@@ -229,11 +229,13 @@ impl Into<FourCC> for TrackType {
 }
 
 const MEDIA_TYPE_H264: &str = "h264";
+const MEDIA_TYPE_H265: &str = "h265";
 const MEDIA_TYPE_AAC: &str = "aac";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MediaType {
     H264,
+    H265,
     AAC,
 }
 
@@ -249,6 +251,7 @@ impl TryFrom<&str> for MediaType {
     fn try_from(media: &str) -> Result<MediaType> {
         match media {
             MEDIA_TYPE_H264 => Ok(MediaType::H264),
+            MEDIA_TYPE_H265 => Ok(MediaType::H265),
             MEDIA_TYPE_AAC => Ok(MediaType::AAC),
             _ => Err(Error::InvalidData("unsupported media type")),
         }
@@ -259,6 +262,7 @@ impl Into<&str> for MediaType {
     fn into(self) -> &'static str {
         match self {
             MediaType::H264 => MEDIA_TYPE_H264,
+            MediaType::H265 => MEDIA_TYPE_H265,
             MediaType::AAC => MEDIA_TYPE_AAC,
         }
     }
@@ -268,6 +272,7 @@ impl Into<&str> for &MediaType {
     fn into(self) -> &'static str {
         match self {
             MediaType::H264 => MEDIA_TYPE_H264,
+            MediaType::H265 => MEDIA_TYPE_H265,
             MediaType::AAC => MEDIA_TYPE_AAC,
         }
     }
@@ -451,6 +456,12 @@ pub struct AvcConfig {
     pub pic_param_set: Vec<u8>,
 }
 
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct HevcConfig {
+    pub width: u16,
+    pub height: u16,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct AacConfig {
     pub bitrate: u32,
@@ -473,6 +484,7 @@ impl Default for AacConfig {
 #[derive(Debug, PartialEq, Clone)]
 pub enum MediaConfig {
     AvcConfig(AvcConfig),
+    HevcConfig(HevcConfig),
     AacConfig(AacConfig),
 }
 

@@ -5,6 +5,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use crate::*;
 
 pub(crate) mod avc1;
+pub(crate) mod hev1;
 pub(crate) mod co64;
 pub(crate) mod ctts;
 pub(crate) mod edts;
@@ -94,6 +95,8 @@ boxtype! {
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
     AvcCBox => 0x61766343,
+    Hev1Box => 0x68657631,
+    HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
     EsdsBox => 0x65736473
 }
