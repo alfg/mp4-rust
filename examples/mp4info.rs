@@ -61,16 +61,28 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
 }
 
 fn video_info(track: &Mp4Track) -> Result<String> {
-    Ok(format!(
-        "{} ({}) ({:?}), {}x{}, {} kb/s, {:.2} fps",
-        track.media_type()?,
-        track.video_profile()?,
-        track.box_type()?,
-        track.width(),
-        track.height(),
-        track.bitrate() / 1000,
-        track.frame_rate_f64()
-    ))
+    if track.trak.mdia.minf.stbl.stsd.avc1.is_some() {
+        Ok(format!(
+            "{} ({}) ({:?}), {}x{}, {} kb/s, {:.2} fps",
+            track.media_type()?,
+            track.video_profile()?,
+            track.box_type()?,
+            track.width(),
+            track.height(),
+            track.bitrate() / 1000,
+            track.frame_rate_f64()
+        ))
+    } else {
+        Ok(format!(
+            "{} ({:?}), {}x{}, {} kb/s, {:.2} fps",
+            track.media_type()?,
+            track.box_type()?,
+            track.width(),
+            track.height(),
+            track.bitrate() / 1000,
+            track.frame_rate_f64()
+        ))
+    }
 }
 
 fn audio_info(track: &Mp4Track) -> Result<String> {
