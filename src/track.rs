@@ -7,8 +7,17 @@ use std::time::Duration;
 use crate::mp4box::trak::TrakBox;
 use crate::mp4box::*;
 use crate::mp4box::{
-    avc1::Avc1Box, ctts::CttsBox, ctts::CttsEntry, mp4a::Mp4aBox, smhd::SmhdBox, stco::StcoBox,
-    stsc::StscEntry, stss::StssBox, stts::SttsEntry, vmhd::VmhdBox,
+    avc1::Avc1Box,
+    hev1::Hev1Box,
+    ctts::CttsBox,
+    ctts::CttsEntry,
+    mp4a::Mp4aBox,
+    smhd::SmhdBox,
+    stco::StcoBox,
+    stsc::StscEntry,
+    stss::StssBox,
+    stts::SttsEntry,
+    vmhd::VmhdBox,
 };
 use crate::*;
 
@@ -24,6 +33,7 @@ impl From<MediaConfig> for TrackConfig {
     fn from(media_conf: MediaConfig) -> Self {
         match media_conf {
             MediaConfig::AvcConfig(avc_conf) => Self::from(avc_conf),
+            MediaConfig::HevcConfig(hevc_conf) => Self::from(hevc_conf),
             MediaConfig::AacConfig(aac_conf) => Self::from(aac_conf),
         }
     }
@@ -36,6 +46,17 @@ impl From<AvcConfig> for TrackConfig {
             timescale: 1000,               // XXX
             language: String::from("und"), // XXX
             media_conf: MediaConfig::AvcConfig(avc_conf),
+        }
+    }
+}
+
+impl From<HevcConfig> for TrackConfig {
+    fn from(hevc_conf: HevcConfig) -> Self {
+        Self {
+            track_type: TrackType::Video,
+            timescale: 1000,               // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::HevcConfig(hevc_conf),
         }
     }
 }
@@ -73,6 +94,8 @@ impl Mp4Track {
     pub fn media_type(&self) -> Result<MediaType> {
         if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
             Ok(MediaType::H264)
+        } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
+            Ok(MediaType::H265)
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(MediaType::AAC)
         } else {
@@ -83,6 +106,8 @@ impl Mp4Track {
     pub fn box_type(&self) -> Result<FourCC> {
         if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
             Ok(FourCC::from(BoxType::Avc1Box))
+        } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
+            Ok(FourCC::from(BoxType::Hev1Box))
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(FourCC::from(BoxType::Mp4aBox))
         } else {
@@ -459,6 +484,16 @@ impl Mp4TrackWriter {
 
                 let avc1 = Avc1Box::new(avc_config);
                 trak.mdia.minf.stbl.stsd.avc1 = Some(avc1);
+            }
+            MediaConfig::HevcConfig(ref hevc_config) => {
+                trak.tkhd.set_width(hevc_config.width);
+                trak.tkhd.set_height(hevc_config.height);
+
+                let vmhd = VmhdBox::default();
+                trak.mdia.minf.vmhd = Some(vmhd);
+
+                let hev1 = Hev1Box::new(hevc_config);
+                trak.mdia.minf.stbl.stsd.hev1 = Some(hev1);
             }
             MediaConfig::AacConfig(ref aac_config) => {
                 let smhd = SmhdBox::default();
