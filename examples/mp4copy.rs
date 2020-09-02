@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 
-use mp4::{AacConfig, AvcConfig, MediaConfig, MediaType, Mp4Config, Result, TrackConfig};
+use mp4::{AacConfig, AvcConfig, HevcConfig, MediaConfig, MediaType, Mp4Config, Result, TrackConfig};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -47,6 +47,10 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
                     height: track.height(),
                     seq_param_set: track.sequence_parameter_set()?.to_vec(),
                     pic_param_set: track.picture_parameter_set()?.to_vec(),
+                }),
+                MediaType::H265 => MediaConfig::HevcConfig(HevcConfig {
+                    width: track.width(),
+                    height: track.height(),
                 }),
                 MediaType::AAC => MediaConfig::AacConfig(AacConfig {
                     bitrate: track.bitrate(),

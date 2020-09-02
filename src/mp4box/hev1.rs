@@ -155,7 +155,7 @@ impl Mp4Box for HvcCBox {
     }
 
     fn box_size(&self) -> u64 {
-        let size = HEADER_SIZE + 7;
+        let size = HEADER_SIZE + 1;
         size
     }
 }
