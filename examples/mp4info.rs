@@ -40,6 +40,7 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     println!("  version:        {}", mp4.moov.mvhd.version);
     println!("  creation time:  {}", creation_time(mp4.moov.mvhd.creation_time));
     println!("  duration:       {:?}", mp4.duration());
+    println!("  fragments:      {:?}", mp4.is_fragmented());
     println!("  timescale:      {:?}\n", mp4.timescale());
 
     println!("Found {} Tracks", mp4.tracks().len());
@@ -56,7 +57,6 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
             media_info
         );
     }
-
     Ok(())
 }
 
@@ -70,7 +70,7 @@ fn video_info(track: &Mp4Track) -> Result<String> {
             track.width(),
             track.height(),
             track.bitrate() / 1000,
-            track.frame_rate_f64()
+            track.frame_rate()
         ))
     } else {
         Ok(format!(
@@ -80,7 +80,7 @@ fn video_info(track: &Mp4Track) -> Result<String> {
             track.width(),
             track.height(),
             track.bitrate() / 1000,
-            track.frame_rate_f64()
+            track.frame_rate()
         ))
     }
 }

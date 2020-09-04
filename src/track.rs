@@ -131,19 +131,10 @@ impl Mp4Track {
         }
     }
 
-    pub fn frame_rate(&self) -> Ratio<u64> {
+    pub fn frame_rate(&self) -> f64 {
         let dur_msec = self.duration().as_millis() as u64;
         if dur_msec > 0 {
-            Ratio::new(self.sample_count() as u64 * 1_000, dur_msec)
-        } else {
-            Ratio::new(0, 0)
-        }
-    }
-
-    pub fn frame_rate_f64(&self) -> f64 {
-        let fr = self.frame_rate();
-        if fr.to_integer() > 0 {
-            *fr.numer() as f64 / *fr.denom() as f64
+            ((self.sample_count() as u64 * 1000) / dur_msec) as f64
         } else {
             0.0
         }
