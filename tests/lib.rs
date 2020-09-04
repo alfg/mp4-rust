@@ -102,7 +102,7 @@ fn test_read_mp4() {
     assert_eq!(track1.width(), 320);
     assert_eq!(track1.height(), 240);
     assert_eq!(track1.bitrate(), 0); // XXX
-    assert_eq!(track1.frame_rate().to_integer(), 25); // XXX
+    assert_eq!(track1.frame_rate(), 25.00); // XXX
 
     // track #2
     let track2 = mp4.tracks().get(1).unwrap();

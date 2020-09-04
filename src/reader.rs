@@ -9,6 +9,7 @@ pub struct Mp4Reader<R> {
     reader: R,
     pub ftyp: FtypBox,
     pub moov: MoovBox,
+    pub moofs: Vec<MoofBox>,
 
     tracks: Vec<Mp4Track>,
     size: u64,
@@ -20,6 +21,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
         let mut ftyp = None;
         let mut moov = None;
+        let mut moofs = Vec::new();
 
         let mut current = start;
         while current < size {
@@ -42,7 +44,8 @@ impl<R: Read + Seek> Mp4Reader<R> {
                     moov = Some(MoovBox::read_box(&mut reader, s)?);
                 }
                 BoxType::MoofBox => {
-                    skip_box(&mut reader, s)?;
+                    let moof = MoofBox::read_box(&mut reader, s)?;
+                    moofs.push(moof);
                 }
                 _ => {
                     // XXX warn!()
@@ -75,6 +78,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
             reader,
             ftyp: ftyp.unwrap(),
             moov: moov.unwrap(),
+            moofs,
             size,
             tracks,
         })
@@ -102,6 +106,14 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
     pub fn timescale(&self) -> u32 {
         self.moov.mvhd.timescale
+    }
+
+    pub fn is_fragmented(&self) -> bool {
+        if self.moofs.len() != 0 {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn tracks(&self) -> &[Mp4Track] {

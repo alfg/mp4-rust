@@ -16,8 +16,10 @@ pub(crate) mod mdhd;
 pub(crate) mod mdia;
 pub(crate) mod minf;
 pub(crate) mod moov;
+pub(crate) mod moof;
 pub(crate) mod mp4a;
 pub(crate) mod mvhd;
+pub(crate) mod mfhd;
 pub(crate) mod smhd;
 pub(crate) mod stbl;
 pub(crate) mod stco;
@@ -27,11 +29,14 @@ pub(crate) mod stss;
 pub(crate) mod stsz;
 pub(crate) mod stts;
 pub(crate) mod tkhd;
+pub(crate) mod tfhd;
 pub(crate) mod trak;
+pub(crate) mod traf;
 pub(crate) mod vmhd;
 
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
+pub use moof::MoofBox;
 
 pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;
@@ -68,11 +73,13 @@ macro_rules! boxtype {
 boxtype! {
     FtypBox => 0x66747970,
     MvhdBox => 0x6d766864,
+    MfhdBox => 0x6d666864,
     FreeBox => 0x66726565,
     MdatBox => 0x6d646174,
     MoovBox => 0x6d6f6f76,
     MoofBox => 0x6d6f6f66,
     TkhdBox => 0x746b6864,
+    TfhdBox => 0x74666864,
     EdtsBox => 0x65647473,
     MdiaBox => 0x6d646961,
     ElstBox => 0x656c7374,
@@ -90,6 +97,7 @@ boxtype! {
     StcoBox => 0x7374636F,
     Co64Box => 0x636F3634,
     TrakBox => 0x7472616b,
+    TrafBox => 0x74726166,
     UdtaBox => 0x75647461,
     DinfBox => 0x64696e66,
     SmhdBox => 0x736d6864,

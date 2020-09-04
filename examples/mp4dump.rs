@@ -107,6 +107,17 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
             boxes.push(build_box(co64));
         }
     }
+
+    // If fragmented, add moof boxes.
+    for moof in mp4.moofs.iter() {
+        boxes.push(build_box(moof));
+        boxes.push(build_box(&moof.mfhd));
+        for traf in moof.trafs.iter() {
+            boxes.push(build_box(traf));
+            boxes.push(build_box(&traf.tfhd));
+        }
+    }
+
     Ok(boxes)
 }
 
