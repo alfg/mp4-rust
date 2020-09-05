@@ -35,6 +35,7 @@ impl From<MediaConfig> for TrackConfig {
             MediaConfig::AvcConfig(avc_conf) => Self::from(avc_conf),
             MediaConfig::HevcConfig(hevc_conf) => Self::from(hevc_conf),
             MediaConfig::AacConfig(aac_conf) => Self::from(aac_conf),
+            MediaConfig::TtxtConfig(ttxt_conf) => Self::from(ttxt_conf),
         }
     }
 }
@@ -68,6 +69,17 @@ impl From<AacConfig> for TrackConfig {
             timescale: 1000,               // XXX
             language: String::from("und"), // XXX
             media_conf: MediaConfig::AacConfig(aac_conf),
+        }
+    }
+}
+
+impl From<TtxtConfig> for TrackConfig {
+    fn from(txtt_conf: TtxtConfig) -> Self {
+        Self {
+            track_type: TrackType::Subtitle,
+            timescale: 1000,               // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::TtxtConfig(txtt_conf),
         }
     }
 }
@@ -497,6 +509,7 @@ impl Mp4TrackWriter {
                 let mp4a = Mp4aBox::new(aac_config);
                 trak.mdia.minf.stbl.stsd.mp4a = Some(mp4a);
             }
+            MediaConfig::TtxtConfig(ref _ttxt_config) => {}
         }
         Ok(Mp4TrackWriter {
             trak,

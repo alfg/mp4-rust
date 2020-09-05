@@ -493,11 +493,15 @@ impl Default for AacConfig {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct TtxtConfig {}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum MediaConfig {
     AvcConfig(AvcConfig),
     HevcConfig(HevcConfig),
     AacConfig(AacConfig),
+    TtxtConfig(TtxtConfig),
 }
 
 #[derive(Debug)]

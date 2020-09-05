@@ -23,8 +23,12 @@ impl StsdBox {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
+        } else if let Some(ref hev1) = self.hev1 {
+            size += hev1.box_size();
         } else if let Some(ref mp4a) = self.mp4a {
             size += mp4a.box_size();
+        } else if let Some(ref tx3g) = self.tx3g {
+            size += tx3g.box_size();
         }
         size
     }
