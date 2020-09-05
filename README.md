@@ -1,12 +1,15 @@
 # mp4rs
-> MP4 Reader in Rust
+> MP4 Reader and Writer in Rust 🦀
 
-ISO/IEC 14496-12 - ISO Base Media File Format (QuickTime, MPEG-4, etc)
+`mp4rs` is a Rust library to read and write ISO-MP4 files. This package contains MPEG-4 specifications defined in parts:
+* [ISO/IEC 14496-12](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - ISO Base Media File Format (QuickTime, MPEG-4, etc)
+* [ISO/IEC 14496-14](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - MP4 file format
+* ISO/IEC 14496-17 - Streaming text format
 
 [![Crates.io](https://img.shields.io/crates/v/mp4)](https://crates.io/crates/mp4)
 [![Crates.io](https://img.shields.io/crates/d/mp4)](https://crates.io/crates/mp4)
 [![Build Status](https://travis-ci.org/alfg/mp4rs.svg?branch=master)](https://travis-ci.org/alfg/mp4rs)
-![Rust](https://github.com/alfg/mp4rs/workflows/Rust/badge.svg)
+[![Rust](https://github.com/alfg/mp4rs/workflows/Rust/badge.svg)](https://github.com/alfg/mp4rs/actions)
 
 #### Example
 ```rust
@@ -71,6 +74,11 @@ cargo build
 cargo run --example mp4info <movie.mp4>
 ```
 
+* `mp4dump`
+```
+cargo run --example mp4dump <movie.mp4>
+```
+
 #### Run Tests
 ```
 cargo test
@@ -89,11 +97,8 @@ cargo bench
 View HTML report at `target/criterion/report/index.html`
 
 
-## Resources
-Thanks to the following resources used when learning Rust:
-* https://github.com/mozilla/mp4parse-rust
-* https://github.com/pcwalton/rust-media
-* https://github.com/alfg/mp4
+## Web Assembly
+See the [mp4-inspector](https://github.com/alfg/mp4-inspector) project as a reference for using this library in Javascript via Web Assembly.
 
 ## License
 MIT
