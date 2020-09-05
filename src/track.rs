@@ -17,6 +17,7 @@ use crate::mp4box::{
     stsc::StscEntry,
     stss::StssBox,
     stts::SttsEntry,
+    tx3g::Tx3gBox,
     vmhd::VmhdBox,
 };
 use crate::*;
@@ -35,6 +36,7 @@ impl From<MediaConfig> for TrackConfig {
             MediaConfig::AvcConfig(avc_conf) => Self::from(avc_conf),
             MediaConfig::HevcConfig(hevc_conf) => Self::from(hevc_conf),
             MediaConfig::AacConfig(aac_conf) => Self::from(aac_conf),
+            MediaConfig::TtxtConfig(ttxt_conf) => Self::from(ttxt_conf),
         }
     }
 }
@@ -72,6 +74,17 @@ impl From<AacConfig> for TrackConfig {
     }
 }
 
+impl From<TtxtConfig> for TrackConfig {
+    fn from(txtt_conf: TtxtConfig) -> Self {
+        Self {
+            track_type: TrackType::Subtitle,
+            timescale: 1000,               // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::TtxtConfig(txtt_conf),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Mp4Track {
     pub trak: TrakBox,
@@ -98,6 +111,8 @@ impl Mp4Track {
             Ok(MediaType::H265)
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(MediaType::AAC)
+        } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
+            Ok(MediaType::TTXT)
         } else {
             Err(Error::InvalidData("unsupported media type"))
         }
@@ -110,6 +125,8 @@ impl Mp4Track {
             Ok(FourCC::from(BoxType::Hev1Box))
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(FourCC::from(BoxType::Mp4aBox))
+        } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
+            Ok(FourCC::from(BoxType::Tx3gBox))
         } else {
             Err(Error::InvalidData("unsupported sample entry box"))
         }
@@ -492,6 +509,10 @@ impl Mp4TrackWriter {
 
                 let mp4a = Mp4aBox::new(aac_config);
                 trak.mdia.minf.stbl.stsd.mp4a = Some(mp4a);
+            }
+            MediaConfig::TtxtConfig(ref _ttxt_config) => {
+                let tx3g = Tx3gBox::default();
+                trak.mdia.minf.stbl.stsd.tx3g = Some(tx3g);
             }
         }
         Ok(Mp4TrackWriter {

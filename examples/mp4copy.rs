@@ -4,7 +4,16 @@ use std::io::prelude::*;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 
-use mp4::{AacConfig, AvcConfig, HevcConfig, MediaConfig, MediaType, Mp4Config, Result, TrackConfig};
+use mp4::{
+    AacConfig,
+    AvcConfig,
+    HevcConfig,
+    TtxtConfig,
+    MediaConfig,
+    MediaType,
+    Mp4Config,
+    Result,
+    TrackConfig};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -58,6 +67,7 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
                     freq_index: track.sample_freq_index()?,
                     chan_conf: track.channel_config()?,
                 }),
+                MediaType::TTXT => MediaConfig::TtxtConfig(TtxtConfig {}),
             };
 
             let track_conf = TrackConfig {
