@@ -130,7 +130,7 @@ fn subtitle_info(track: &Mp4Track) -> Result<String> {
             track.box_type()?,
         ))
     } else {
-        Ok("subtitle test".to_string())
+        Err(Error::InvalidData("tx3g box not found"))
     }
 }
 

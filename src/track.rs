@@ -17,6 +17,7 @@ use crate::mp4box::{
     stsc::StscEntry,
     stss::StssBox,
     stts::SttsEntry,
+    tx3g::Tx3gBox,
     vmhd::VmhdBox,
 };
 use crate::*;
@@ -509,7 +510,10 @@ impl Mp4TrackWriter {
                 let mp4a = Mp4aBox::new(aac_config);
                 trak.mdia.minf.stbl.stsd.mp4a = Some(mp4a);
             }
-            MediaConfig::TtxtConfig(ref _ttxt_config) => {}
+            MediaConfig::TtxtConfig(ref _ttxt_config) => {
+                let tx3g = Tx3gBox::default();
+                trak.mdia.minf.stbl.stsd.tx3g = Some(tx3g);
+            }
         }
         Ok(Mp4TrackWriter {
             trak,
