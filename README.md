@@ -96,9 +96,13 @@ cargo bench
 
 View HTML report at `target/criterion/report/index.html`
 
-
 ## Web Assembly
 See the [mp4-inspector](https://github.com/alfg/mp4-inspector) project as a reference for using this library in Javascript via Web Assembly.
+
+## Resources
+* https://github.com/mozilla/mp4parse-rust
+* https://github.com/pcwalton/rust-media
+* https://github.com/alfg/mp4
 
 ## License
 MIT
