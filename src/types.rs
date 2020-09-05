@@ -165,14 +165,17 @@ impl fmt::Display for FourCC {
 
 const DISPLAY_TYPE_VIDEO: &str = "Video";
 const DISPLAY_TYPE_AUDIO: &str = "Audio";
+const DISPLAY_TYPE_SUBTITLE: &str = "Subtitle";
 
 const HANDLER_TYPE_VIDEO: &str = "vide";
 const HANDLER_TYPE_AUDIO: &str = "soun";
+const HANDLER_TYPE_SUBTITLE: &str = "sbtl";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TrackType {
     Video,
     Audio,
+    Subtitle,
 }
 
 impl fmt::Display for TrackType {
@@ -180,6 +183,7 @@ impl fmt::Display for TrackType {
         let s = match self {
             TrackType::Video => DISPLAY_TYPE_VIDEO,
             TrackType::Audio => DISPLAY_TYPE_AUDIO,
+            TrackType::Subtitle => DISPLAY_TYPE_SUBTITLE,
         };
         write!(f, "{}", s)
     }
@@ -191,6 +195,7 @@ impl TryFrom<&str> for TrackType {
         match handler {
             HANDLER_TYPE_VIDEO => Ok(TrackType::Video),
             HANDLER_TYPE_AUDIO => Ok(TrackType::Audio),
+            HANDLER_TYPE_SUBTITLE => Ok(TrackType::Subtitle),
             _ => Err(Error::InvalidData("unsupported handler type")),
         }
     }
@@ -201,6 +206,7 @@ impl Into<&str> for TrackType {
         match self {
             TrackType::Video => HANDLER_TYPE_VIDEO,
             TrackType::Audio => HANDLER_TYPE_AUDIO,
+            TrackType::Subtitle => HANDLER_TYPE_SUBTITLE,
         }
     }
 }
@@ -210,6 +216,7 @@ impl Into<&str> for &TrackType {
         match self {
             TrackType::Video => HANDLER_TYPE_VIDEO,
             TrackType::Audio => HANDLER_TYPE_AUDIO,
+            TrackType::Subtitle => HANDLER_TYPE_SUBTITLE,
         }
     }
 }
@@ -231,12 +238,14 @@ impl Into<FourCC> for TrackType {
 const MEDIA_TYPE_H264: &str = "h264";
 const MEDIA_TYPE_H265: &str = "h265";
 const MEDIA_TYPE_AAC: &str = "aac";
+const MEDIA_TYPE_TTXT: &str = "ttxt";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MediaType {
     H264,
     H265,
     AAC,
+    TTXT,
 }
 
 impl fmt::Display for MediaType {
@@ -253,6 +262,7 @@ impl TryFrom<&str> for MediaType {
             MEDIA_TYPE_H264 => Ok(MediaType::H264),
             MEDIA_TYPE_H265 => Ok(MediaType::H265),
             MEDIA_TYPE_AAC => Ok(MediaType::AAC),
+            MEDIA_TYPE_TTXT => Ok(MediaType::TTXT),
             _ => Err(Error::InvalidData("unsupported media type")),
         }
     }
@@ -264,6 +274,7 @@ impl Into<&str> for MediaType {
             MediaType::H264 => MEDIA_TYPE_H264,
             MediaType::H265 => MEDIA_TYPE_H265,
             MediaType::AAC => MEDIA_TYPE_AAC,
+            MediaType::TTXT => MEDIA_TYPE_TTXT,
         }
     }
 }
@@ -274,6 +285,7 @@ impl Into<&str> for &MediaType {
             MediaType::H264 => MEDIA_TYPE_H264,
             MediaType::H265 => MEDIA_TYPE_H265,
             MediaType::AAC => MEDIA_TYPE_AAC,
+            MediaType::TTXT => MEDIA_TYPE_TTXT,
         }
     }
 }

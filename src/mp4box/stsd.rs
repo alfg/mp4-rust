@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
-use crate::mp4box::{avc1::Avc1Box, hev1::Hev1Box, mp4a::Mp4aBox};
+use crate::mp4box::{avc1::Avc1Box, hev1::Hev1Box, mp4a::Mp4aBox, tx3g::Tx3gBox};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StsdBox {
@@ -11,6 +11,7 @@ pub struct StsdBox {
     pub avc1: Option<Avc1Box>,
     pub hev1: Option<Hev1Box>,
     pub mp4a: Option<Mp4aBox>,
+    pub tx3g: Option<Tx3gBox>,
 }
 
 impl StsdBox {
@@ -50,6 +51,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         let mut avc1 = None;
         let mut hev1 = None;
         let mut mp4a = None;
+        let mut tx3g = None;
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
@@ -65,6 +67,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Mp4aBox => {
                 mp4a = Some(Mp4aBox::read_box(reader, s)?);
             }
+            BoxType::Tx3gBox => {
+                tx3g = Some(Tx3gBox::read_box(reader, s)?);
+            }
             _ => {}
         }
 
@@ -76,6 +81,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             avc1,
             hev1,
             mp4a,
+            tx3g,
         })
     }
 }
@@ -91,8 +97,12 @@ impl<W: Write> WriteBox<&mut W> for StsdBox {
 
         if let Some(ref avc1) = self.avc1 {
             avc1.write_box(writer)?;
+        } else if let Some(ref hev1) = self.hev1 {
+            hev1.write_box(writer)?;
         } else if let Some(ref mp4a) = self.mp4a {
             mp4a.write_box(writer)?;
+        } else if let Some(ref tx3g) = self.tx3g {
+            tx3g.write_box(writer)?;
         }
 
         Ok(size)

@@ -98,6 +98,8 @@ impl Mp4Track {
             Ok(MediaType::H265)
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(MediaType::AAC)
+        } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
+            Ok(MediaType::TTXT)
         } else {
             Err(Error::InvalidData("unsupported media type"))
         }
@@ -110,6 +112,8 @@ impl Mp4Track {
             Ok(FourCC::from(BoxType::Hev1Box))
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(FourCC::from(BoxType::Mp4aBox))
+        } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
+            Ok(FourCC::from(BoxType::Tx3gBox))
         } else {
             Err(Error::InvalidData("unsupported sample entry box"))
         }

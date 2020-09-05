@@ -5,12 +5,12 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use crate::*;
 
 pub(crate) mod avc1;
-pub(crate) mod hev1;
 pub(crate) mod co64;
 pub(crate) mod ctts;
 pub(crate) mod edts;
 pub(crate) mod elst;
 pub(crate) mod ftyp;
+pub(crate) mod hev1;
 pub(crate) mod hdlr;
 pub(crate) mod mdhd;
 pub(crate) mod mdia;
@@ -32,6 +32,7 @@ pub(crate) mod tkhd;
 pub(crate) mod tfhd;
 pub(crate) mod trak;
 pub(crate) mod traf;
+pub(crate) mod tx3g;
 pub(crate) mod vmhd;
 
 pub use ftyp::FtypBox;
@@ -106,7 +107,8 @@ boxtype! {
     Hev1Box => 0x68657631,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
-    EsdsBox => 0x65736473
+    EsdsBox => 0x65736473,
+    Tx3gBox => 0x74783367
 }
 
 pub trait Mp4Box: Sized {

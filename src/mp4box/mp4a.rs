@@ -304,13 +304,9 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
             current = reader.seek(SeekFrom::Current(0))?;
         }
 
-        if dec_config.is_none() {
-            return Err(Error::InvalidData("DecoderConfigDescriptor not found"));
-        }
-
         Ok(ESDescriptor {
             es_id,
-            dec_config: dec_config.unwrap(),
+            dec_config: dec_config.unwrap_or(DecoderConfigDescriptor::default()),
             sl_config: sl_config.unwrap_or(SLConfigDescriptor::default()),
         })
     }
@@ -397,10 +393,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             current = reader.seek(SeekFrom::Current(0))?;
         }
 
-        if dec_specific.is_none() {
-            return Err(Error::InvalidData("DecoderSpecificDescriptor not found"));
-        }
-
         Ok(DecoderConfigDescriptor {
             object_type_indication,
             stream_type,
@@ -408,7 +400,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             buffer_size_db,
             max_bitrate,
             avg_bitrate,
-            dec_specific: dec_specific.unwrap(),
+            dec_specific: dec_specific.unwrap_or(DecoderSpecificDescriptor::default()),
         })
     }
 }

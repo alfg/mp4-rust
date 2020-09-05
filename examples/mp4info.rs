@@ -48,6 +48,7 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
         let media_info = match track.track_type()? {
             TrackType::Video => video_info(track)?,
             TrackType::Audio => audio_info(track)?,
+            TrackType::Subtitle => subtitle_info(track)?,
         };
         println!(
             "  Track: #{}({}) {}: {}",
@@ -88,13 +89,24 @@ fn video_info(track: &Mp4Track) -> Result<String> {
 fn audio_info(track: &Mp4Track) -> Result<String> {
     if let Some(ref mp4a) = track.trak.mdia.minf.stbl.stsd.mp4a {
         if mp4a.esds.is_some() {
+
+            let profile = match track.audio_profile() {
+                Ok(val) => val.to_string(),
+                _ => "-".to_string(),
+            };
+
+            let channel_config = match track.channel_config() {
+                Ok(val) => val.to_string(),
+                _ => "-".to_string(),
+            };
+
             Ok(format!(
                 "{} ({}) ({:?}), {} Hz, {}, {} kb/s",
                 track.media_type()?,
-                track.audio_profile()?,
+                profile,
                 track.box_type()?,
                 track.sample_freq_index()?.freq(),
-                track.channel_config()?,
+                channel_config,
                 track.bitrate() / 1000
             ))
         } else {
@@ -107,6 +119,18 @@ fn audio_info(track: &Mp4Track) -> Result<String> {
         }
     } else {
         Err(Error::InvalidData("mp4a box not found"))
+    }
+}
+
+fn subtitle_info(track: &Mp4Track) -> Result<String> {
+    if track.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
+        Ok(format!(
+            "{} ({:?})",
+            track.media_type()?,
+            track.box_type()?,
+        ))
+    } else {
+        Ok("subtitle test".to_string())
     }
 }
 
