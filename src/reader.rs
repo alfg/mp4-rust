@@ -109,11 +109,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
     }
 
     pub fn is_fragmented(&self) -> bool {
-        if self.moofs.len() != 0 {
-            true
-        } else {
-            false
-        }
+        self.moofs.len() != 0
     }
 
     pub fn tracks(&self) -> &[Mp4Track] {
