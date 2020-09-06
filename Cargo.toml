@@ -1,12 +1,17 @@
 [package]
 name = "mp4"
-version = "0.5.2"
+version = "0.6.0"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
 
 description = """
-MP4 Reader in Rust
-ISO/IEC 14496-12 - ISO Base Media File Format (QuickTime, MPEG-4, etc)
+MP4 Reader and Writer in Rust
+`mp4rs` is a Rust library to read and write ISO-MP4 files.
+
+This package contains MPEG-4 specifications defined in parts:
+* ISO/IEC 14496-12 - ISO Base Media File Format (QuickTime, MPEG-4, etc)
+* ISO/IEC 14496-14 - MP4 file format
+* ISO/IEC 14496-17 - Streaming text format
 """
 
 documentation = "https://docs.rs/mp4rs"
