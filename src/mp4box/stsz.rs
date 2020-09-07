@@ -10,6 +10,8 @@ pub struct StszBox {
     pub flags: u32,
     pub sample_size: u32,
     pub sample_count: u32,
+
+    #[serde(skip_serializing)]
     pub sample_sizes: Vec<u32>,
 }
 
