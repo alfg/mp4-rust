@@ -1,9 +1,10 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TkhdBox {
     pub version: u8,
     pub flags: u32,
@@ -38,7 +39,7 @@ impl Default for TkhdBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct Matrix {
     pub a: i32,
     pub b: i32,
@@ -84,6 +85,17 @@ impl Mp4Box for TkhdBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("creation_time={} track_id={} duration={} layer={} volume={} width={} height={}",
+            self.creation_time, self.track_id, self.duration, self.layer,
+            self.volume.value(), self.width.value(), self.height.value());
+        Ok(s)
     }
 }
 

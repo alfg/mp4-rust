@@ -1,9 +1,10 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Tx3gBox {
     pub data_reference_index: u16,
     pub display_flags: u32,
@@ -14,7 +15,7 @@ pub struct Tx3gBox {
     pub style_record: [u8; 12],
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct RgbaColor {
     pub red: u8,
     pub green: u8,
@@ -58,6 +59,18 @@ impl Mp4Box for Tx3gBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("data_reference_index={} horizontal_justification={} vertical_justification={} rgba={}{}{}{}",
+            self.data_reference_index, self.horizontal_justification,
+            self.vertical_justification, self.bg_color_rgba.red,
+            self.bg_color_rgba.green, self.bg_color_rgba.blue, self.bg_color_rgba.alpha);
+        Ok(s)
     }
 }
 

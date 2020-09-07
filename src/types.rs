@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::fmt;
+use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::*;
@@ -7,7 +8,7 @@ use crate::*;
 pub use bytes::Bytes;
 pub use num_rational::Ratio;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct FixedPointU8(Ratio<u16>);
 
 impl FixedPointU8 {
@@ -28,7 +29,7 @@ impl FixedPointU8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct FixedPointI8(Ratio<i16>);
 
 impl FixedPointI8 {
@@ -49,7 +50,7 @@ impl FixedPointI8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct FixedPointU16(Ratio<u32>);
 
 impl FixedPointU16 {
@@ -84,7 +85,7 @@ impl fmt::Display for BoxType {
     }
 }
 
-#[derive(Default, PartialEq, Clone)]
+#[derive(Default, PartialEq, Clone, Serialize)]
 pub struct FourCC {
     pub value: String,
 }

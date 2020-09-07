@@ -114,6 +114,8 @@ boxtype! {
 pub trait Mp4Box: Sized {
     fn box_type(&self) -> BoxType;
     fn box_size(&self) -> u64;
+    fn to_json(&self) -> Result<String>;
+    fn summary(&self) -> Result<String>;
 }
 
 pub trait ReadBox<T>: Sized {
