@@ -8,6 +8,8 @@ use crate::mp4box::*;
 pub struct SttsBox {
     pub version: u8,
     pub flags: u32,
+
+    #[serde(skip_serializing)]
     pub entries: Vec<SttsEntry>,
 }
 
