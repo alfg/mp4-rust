@@ -231,7 +231,7 @@ mod tests {
         let ftyp_fcc = 0x66747970;
         let ftyp_value = FourCC::from(ftyp_fcc);
         assert_eq!(ftyp_value.value, "ftyp");
-        let ftyp_fcc2 = ftyp_value.into();
+        let ftyp_fcc2: u32 = ftyp_value.into();
         assert_eq!(ftyp_fcc, ftyp_fcc2);
     }
 }
