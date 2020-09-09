@@ -8,6 +8,8 @@ use crate::mp4box::*;
 pub struct SmhdBox {
     pub version: u8,
     pub flags: u32,
+
+    #[serde(with = "value_i16")]
     pub balance: FixedPointI8,
 }
 

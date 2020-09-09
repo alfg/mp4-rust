@@ -9,6 +9,8 @@ pub struct Mp4aBox {
     pub data_reference_index: u16,
     pub channelcount: u16,
     pub samplesize: u16,
+
+    #[serde(with = "value_u32")]
     pub samplerate: FixedPointU16,
     pub esds: Option<EsdsBox>,
 }

@@ -14,9 +14,15 @@ pub struct TkhdBox {
     pub duration: u64,
     pub layer: u16,
     pub alternate_group: u16,
+
+    #[serde(with = "value_u8")]
     pub volume: FixedPointU8,
     pub matrix: Matrix,
+
+    #[serde(with = "value_u32")]
     pub width: FixedPointU16,
+
+    #[serde(with = "value_u32")]
     pub height: FixedPointU16,
 }
 

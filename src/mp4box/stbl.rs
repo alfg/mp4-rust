@@ -17,11 +17,19 @@ use crate::mp4box::{
 pub struct StblBox {
     pub stsd: StsdBox,
     pub stts: SttsBox,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ctts: Option<CttsBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub stss: Option<StssBox>,
     pub stsc: StscBox,
     pub stsz: StszBox,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub stco: Option<StcoBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub co64: Option<Co64Box>,
 }
 

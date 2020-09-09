@@ -12,6 +12,8 @@ pub struct MvhdBox {
     pub modification_time: u64,
     pub timescale: u32,
     pub duration: u64,
+
+    #[serde(with = "value_u32")]
     pub rate: FixedPointU16,
 }
 
@@ -61,8 +63,8 @@ impl Mp4Box for MvhdBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("creation_time={} timescale={} duration={}",
-            self.creation_time, self.timescale, self.duration);
+        let s = format!("creation_time={} timescale={} duration={} rate={}",
+            self.creation_time, self.timescale, self.duration, self.rate.value());
         Ok(s)
     }
 }

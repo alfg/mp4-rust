@@ -9,7 +9,11 @@ pub struct Avc1Box {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
+
+    #[serde(with = "value_u32")]
     pub horizresolution: FixedPointU16,
+
+    #[serde(with = "value_u32")]
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,

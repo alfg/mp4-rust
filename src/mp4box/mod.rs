@@ -222,6 +222,52 @@ pub fn write_zeros<W: Write>(writer: &mut W, size: u64) -> Result<()> {
     Ok(())
 }
 
+mod value_u32 {
+    use crate::types::FixedPointU16;
+    use serde::{self, Serializer};
+
+    pub fn serialize<S>(
+        fixed: &FixedPointU16,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        {
+            serializer.serialize_u16(fixed.value())
+        }
+}
+
+mod value_i16 {
+    use crate::types::FixedPointI8;
+    use serde::{self, Serializer};
+
+    pub fn serialize<S>(
+        fixed: &FixedPointI8,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        {
+            serializer.serialize_i8(fixed.value())
+        }
+}
+
+mod value_u8 {
+    use crate::types::FixedPointU8;
+    use serde::{self, Serializer};
+
+    pub fn serialize<S>(
+        fixed: &FixedPointU8,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        {
+            serializer.serialize_u8(fixed.value())
+        }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
