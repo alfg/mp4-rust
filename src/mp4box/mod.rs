@@ -114,6 +114,8 @@ boxtype! {
 pub trait Mp4Box: Sized {
     fn box_type(&self) -> BoxType;
     fn box_size(&self) -> u64;
+    fn to_json(&self) -> Result<String>;
+    fn summary(&self) -> Result<String>;
 }
 
 pub trait ReadBox<T>: Sized {
@@ -220,6 +222,52 @@ pub fn write_zeros<W: Write>(writer: &mut W, size: u64) -> Result<()> {
     Ok(())
 }
 
+mod value_u32 {
+    use crate::types::FixedPointU16;
+    use serde::{self, Serializer};
+
+    pub fn serialize<S>(
+        fixed: &FixedPointU16,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        {
+            serializer.serialize_u16(fixed.value())
+        }
+}
+
+mod value_i16 {
+    use crate::types::FixedPointI8;
+    use serde::{self, Serializer};
+
+    pub fn serialize<S>(
+        fixed: &FixedPointI8,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        {
+            serializer.serialize_i8(fixed.value())
+        }
+}
+
+mod value_u8 {
+    use crate::types::FixedPointU8;
+    use serde::{self, Serializer};
+
+    pub fn serialize<S>(
+        fixed: &FixedPointU8,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        {
+            serializer.serialize_u8(fixed.value())
+        }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,7 +277,7 @@ mod tests {
         let ftyp_fcc = 0x66747970;
         let ftyp_value = FourCC::from(ftyp_fcc);
         assert_eq!(ftyp_value.value, "ftyp");
-        let ftyp_fcc2 = ftyp_value.into();
+        let ftyp_fcc2: u32 = ftyp_value.into();
         assert_eq!(ftyp_fcc, ftyp_fcc2);
     }
 }

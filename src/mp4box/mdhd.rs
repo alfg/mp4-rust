@@ -1,10 +1,11 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MdhdBox {
     pub version: u8,
     pub flags: u32,
@@ -55,6 +56,16 @@ impl Mp4Box for MdhdBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("creation_time={} timescale={} duration={} language={}",
+            self.creation_time, self.timescale, self.duration, self.language);
+        Ok(s)
     }
 }
 

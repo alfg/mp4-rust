@@ -25,7 +25,7 @@ fn dump<P: AsRef<Path>>(filename: &P) -> Result<()> {
 
     // print out boxes
     for b in boxes.iter() {
-       println!("[{}] size={}", b.name, b.size); 
+       println!("[{}] size={} {}", b.name, b.size, b.summary); 
     }
 
     Ok(())
@@ -35,6 +35,7 @@ fn dump<P: AsRef<Path>>(filename: &P) -> Result<()> {
 pub struct Box {
     name: String,
     size: u64,
+    summary: String,
     indent: u32,
 }
 
@@ -125,6 +126,7 @@ fn build_box<M: Mp4Box + std::fmt::Debug>(ref m: &M) -> Box {
     return Box{
         name: m.box_type().to_string(),
         size: m.box_size(),
+        summary: m.summary().unwrap(),
         indent: 0,
     };
 }

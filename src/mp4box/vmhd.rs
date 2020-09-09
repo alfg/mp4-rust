@@ -1,9 +1,10 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct VmhdBox {
     pub version: u8,
     pub flags: u32,
@@ -11,7 +12,7 @@ pub struct VmhdBox {
     pub op_color: RgbColor,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct RgbColor {
     pub red: u16,
     pub green: u16,
@@ -35,6 +36,20 @@ impl Mp4Box for VmhdBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("graphics_mode={} op_color={}{}{}",
+            self.graphics_mode,
+            self.op_color.red,
+            self.op_color.green,
+            self.op_color.blue
+        );
+        Ok(s)
     }
 }
 

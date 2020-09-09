@@ -1,14 +1,19 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Hev1Box {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
+
+    #[serde(with = "value_u32")]
     pub horizresolution: FixedPointU16,
+
+    #[serde(with = "value_u32")]
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
@@ -60,6 +65,16 @@ impl Mp4Box for Hev1Box {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("data_reference_index={} width={} height={} frame_count={}",
+            self.data_reference_index, self.width, self.height, self.frame_count);
+        Ok(s)
     }
 }
 
@@ -136,7 +151,7 @@ impl<W: Write> WriteBox<&mut W> for Hev1Box {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct HvcCBox {
     pub configuration_version: u8,
 }
@@ -157,6 +172,16 @@ impl Mp4Box for HvcCBox {
     fn box_size(&self) -> u64 {
         let size = HEADER_SIZE + 1;
         size
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("configuration_version={}",
+            self.configuration_version);
+        Ok(s)
     }
 }
 

@@ -1,12 +1,15 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct CttsBox {
     pub version: u8,
     pub flags: u32,
+
+    #[serde(skip_serializing)]
     pub entries: Vec<CttsEntry>,
 }
 
@@ -20,7 +23,7 @@ impl CttsBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct CttsEntry {
     pub sample_count: u32,
     pub sample_offset: i32,
@@ -33,6 +36,15 @@ impl Mp4Box for CttsBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("entries_count={}", self.entries.len());
+        Ok(s)
     }
 }
 

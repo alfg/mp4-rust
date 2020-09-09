@@ -1,9 +1,10 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct FtypBox {
     pub major_brand: FourCC,
     pub minor_version: u32,
@@ -27,6 +28,20 @@ impl Mp4Box for FtypBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let mut compatible_brands = Vec::new();
+        for brand in self.compatible_brands.iter() {
+            compatible_brands.push(brand.to_string());
+        }
+        let s = format!("major_brand={} minor_version={} compatible_brands={}",
+            self.major_brand, self.minor_version, compatible_brands.join("-"));
+        Ok(s)
     }
 }
 

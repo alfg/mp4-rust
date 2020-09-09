@@ -1,14 +1,17 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct StszBox {
     pub version: u8,
     pub flags: u32,
     pub sample_size: u32,
     pub sample_count: u32,
+
+    #[serde(skip_serializing)]
     pub sample_sizes: Vec<u32>,
 }
 
@@ -29,6 +32,16 @@ impl Mp4Box for StszBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("sample_size={} sample_count={} sample_sizes={}",
+            self.sample_size, self.sample_count, self.sample_sizes.len());
+        Ok(s)
     }
 }
 

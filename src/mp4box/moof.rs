@@ -1,9 +1,10 @@
 use std::io::{Read, Seek, SeekFrom, Write};
+use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MoofBox {
     pub mfhd: MfhdBox,
     pub trafs: Vec<TrafBox>,
@@ -30,6 +31,15 @@ impl Mp4Box for MoofBox {
 
     fn box_size(&self) -> u64 {
         return self.get_size();
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!("trafs={}", self.trafs.len());
+        Ok(s)
     }
 }
 
