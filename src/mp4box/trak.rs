@@ -7,7 +7,10 @@ use crate::mp4box::{edts::EdtsBox, mdia::MdiaBox, tkhd::TkhdBox};
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct TrakBox {
     pub tkhd: TkhdBox,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edts: Option<EdtsBox>,
+
     pub mdia: MdiaBox,
 }
 
