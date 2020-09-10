@@ -6,8 +6,12 @@ use crate::mp4box::{smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MinfBox {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub vmhd: Option<VmhdBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub smhd: Option<SmhdBox>,
+
     pub stbl: StblBox,
 }
 
