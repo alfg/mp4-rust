@@ -7,6 +7,8 @@ use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MoofBox {
     pub mfhd: MfhdBox,
+
+    #[serde(rename = "traf")]
     pub trafs: Vec<TrafBox>,
 }
 

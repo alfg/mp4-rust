@@ -32,6 +32,7 @@ pub(crate) mod tkhd;
 pub(crate) mod tfhd;
 pub(crate) mod trak;
 pub(crate) mod traf;
+pub(crate) mod trun;
 pub(crate) mod tx3g;
 pub(crate) mod vmhd;
 
@@ -99,6 +100,7 @@ boxtype! {
     Co64Box => 0x636F3634,
     TrakBox => 0x7472616b,
     TrafBox => 0x74726166,
+    TrunBox => 0x7472756E,
     UdtaBox => 0x75647461,
     DinfBox => 0x64696e66,
     SmhdBox => 0x736d6864,

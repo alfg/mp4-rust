@@ -7,6 +7,8 @@ use crate::mp4box::{mvhd::MvhdBox, trak::TrakBox};
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MoovBox {
     pub mvhd: MvhdBox,
+
+    #[serde(rename = "trak")]
     pub traks: Vec<TrakBox>,
 }
 
