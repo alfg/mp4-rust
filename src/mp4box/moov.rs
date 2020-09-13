@@ -2,11 +2,16 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use serde::{Serialize};
 
 use crate::mp4box::*;
-use crate::mp4box::{mvhd::MvhdBox, trak::TrakBox};
+use crate::mp4box::{mvhd::MvhdBox, mvex::MvexBox, trak::TrakBox};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MoovBox {
     pub mvhd: MvhdBox,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mvex: Option<MvexBox>,
+
+    #[serde(rename = "trak")]
     pub traks: Vec<TrakBox>,
 }
 
@@ -48,6 +53,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
         let start = box_start(reader)?;
 
         let mut mvhd = None;
+        let mut mvex = None;
         let mut traks = Vec::new();
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
@@ -60,6 +66,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
             match name {
                 BoxType::MvhdBox => {
                     mvhd = Some(MvhdBox::read_box(reader, s)?);
+                }
+                BoxType::MvexBox => {
+                    mvex = Some(MvexBox::read_box(reader, s)?);
                 }
                 BoxType::TrakBox => {
                     let trak = TrakBox::read_box(reader, s)?;
@@ -86,6 +95,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
 
         Ok(MoovBox {
             mvhd: mvhd.unwrap(),
+            mvex,
             traks,
         })
     }

@@ -2,31 +2,25 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use serde::{Serialize};
 
 use crate::mp4box::*;
-use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
+use crate::mp4box::{mehd::MehdBox, trex::TrexBox};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
-pub struct MoofBox {
-    pub mfhd: MfhdBox,
-
-    #[serde(rename = "traf")]
-    pub trafs: Vec<TrafBox>,
+pub struct MvexBox {
+    pub mehd: MehdBox,
+    pub trex: TrexBox,
 }
 
-impl MoofBox {
+impl MvexBox {
     pub fn get_type(&self) -> BoxType {
-        BoxType::MoofBox
+        BoxType::MdiaBox
     }
 
     pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + self.mfhd.box_size();
-        for traf in self.trafs.iter() {
-            size += traf.box_size();
-        }
-        size
+        HEADER_SIZE + self.mehd.box_size() + self.trex.box_size()
     }
 }
 
-impl Mp4Box for MoofBox {
+impl Mp4Box for MvexBox {
     fn box_type(&self) -> BoxType {
         return self.get_type();
     }
@@ -40,17 +34,17 @@ impl Mp4Box for MoofBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("trafs={}", self.trafs.len());
+        let s = format!("");
         Ok(s)
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
+impl<R: Read + Seek> ReadBox<&mut R> for MvexBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
-        let mut mfhd = None;
-        let mut trafs = Vec::new();
+        let mut mehd = None;
+        let mut trex = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
         let end = start + size;
@@ -60,43 +54,45 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
             let BoxHeader { name, size: s } = header;
 
             match name {
-                BoxType::MfhdBox => {
-                    mfhd = Some(MfhdBox::read_box(reader, s)?);
+                BoxType::MehdBox => {
+                    mehd = Some(MehdBox::read_box(reader, s)?);
                 }
-                BoxType::TrafBox => {
-                    let traf = TrafBox::read_box(reader, s)?;
-                    trafs.push(traf);
+                BoxType::TrexBox => {
+                    trex = Some(TrexBox::read_box(reader, s)?);
                 }
                 _ => {
                     // XXX warn!()
                     skip_box(reader, s)?;
                 }
             }
+
             current = reader.seek(SeekFrom::Current(0))?;
         }
 
-        if mfhd.is_none() {
-            return Err(Error::BoxNotFound(BoxType::MfhdBox));
+        if mehd.is_none() {
+            return Err(Error::BoxNotFound(BoxType::MehdBox));
+        }
+        if trex.is_none() {
+            return Err(Error::BoxNotFound(BoxType::TrexBox));
         }
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MoofBox {
-            mfhd: mfhd.unwrap(),
-            trafs,
+        Ok(MvexBox {
+            mehd: mehd.unwrap(),
+            trex: trex.unwrap(),
         })
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for MoofBox {
+impl<W: Write> WriteBox<&mut W> for MvexBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
-        self.mfhd.write_box(writer)?;
-        for traf in self.trafs.iter() {
-            traf.write_box(writer)?;
-        }
-        Ok(0)
+        self.mehd.write_box(writer)?;
+        self.trex.write_box(writer)?;
+
+        Ok(size)
     }
 }

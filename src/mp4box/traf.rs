@@ -2,11 +2,12 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use serde::{Serialize};
 
 use crate::mp4box::*;
-use crate::mp4box::{tfhd::TfhdBox};
+use crate::mp4box::{tfhd::TfhdBox, trun::TrunBox};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct TrafBox {
     pub tfhd: TfhdBox,
+    pub trun: Option<TrunBox>,
 }
 
 impl TrafBox {
@@ -17,6 +18,9 @@ impl TrafBox {
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
         size += self.tfhd.box_size();
+        if let Some(ref trun) = self.trun {
+            size += trun.box_size();
+        }
         size
     }
 }
@@ -45,6 +49,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
         let start = box_start(reader)?;
 
         let mut tfhd = None;
+        let mut trun = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
         let end = start + size;
@@ -56,6 +61,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
             match name {
                 BoxType::TfhdBox => {
                     tfhd = Some(TfhdBox::read_box(reader, s)?);
+                }
+                BoxType::TrunBox => {
+                    trun = Some(TrunBox::read_box(reader, s)?);
                 }
                 _ => {
                     // XXX warn!()
@@ -74,6 +82,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
 
         Ok(TrafBox {
             tfhd: tfhd.unwrap(),
+            trun,
         })
     }
 }

@@ -16,6 +16,9 @@ pub(crate) mod mdhd;
 pub(crate) mod mdia;
 pub(crate) mod minf;
 pub(crate) mod moov;
+pub(crate) mod mvex;
+pub(crate) mod mehd;
+pub(crate) mod trex;
 pub(crate) mod moof;
 pub(crate) mod mp4a;
 pub(crate) mod mvhd;
@@ -32,6 +35,7 @@ pub(crate) mod tkhd;
 pub(crate) mod tfhd;
 pub(crate) mod trak;
 pub(crate) mod traf;
+pub(crate) mod trun;
 pub(crate) mod tx3g;
 pub(crate) mod vmhd;
 
@@ -78,6 +82,9 @@ boxtype! {
     FreeBox => 0x66726565,
     MdatBox => 0x6d646174,
     MoovBox => 0x6d6f6f76,
+    MvexBox => 0x6d766578,
+    MehdBox => 0x6d656864,
+    TrexBox => 0x74726578,
     MoofBox => 0x6d6f6f66,
     TkhdBox => 0x746b6864,
     TfhdBox => 0x74666864,
@@ -99,6 +106,7 @@ boxtype! {
     Co64Box => 0x636F3634,
     TrakBox => 0x7472616b,
     TrafBox => 0x74726166,
+    TrunBox => 0x7472756E,
     UdtaBox => 0x75647461,
     DinfBox => 0x64696e66,
     SmhdBox => 0x736d6864,
