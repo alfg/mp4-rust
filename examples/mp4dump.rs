@@ -52,6 +52,12 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
     boxes.push(build_box(&mp4.moov));
     boxes.push(build_box(&mp4.moov.mvhd));
 
+    if let Some(ref mvex) = &mp4.moov.mvex {
+        boxes.push(build_box(mvex));
+        boxes.push(build_box(&mvex.mehd));
+        boxes.push(build_box(&mvex.trex));
+    }
+
     // trak.
     for track in mp4.tracks().iter() {
         boxes.push(build_box(&track.trak));
@@ -116,6 +122,9 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
         for traf in moof.trafs.iter() {
             boxes.push(build_box(traf));
             boxes.push(build_box(&traf.tfhd));
+            if let Some(ref trun) = &traf.trun {
+                boxes.push(build_box(trun));
+            }
         }
     }
 

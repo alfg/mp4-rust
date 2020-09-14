@@ -11,7 +11,7 @@ pub struct TrunBox {
     pub sample_count: u32,
     pub data_offset: i32,
 
-    // #[serde(skip_serializing)]
+    #[serde(skip_serializing)]
     pub sample_sizes: Vec<u32>,
 }
 
@@ -56,8 +56,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
 
         let mut sample_sizes = Vec::with_capacity(sample_count as usize);
         for _ in 0..sample_count {
-            let sample_duration = reader.read_u32::<BigEndian>()?;
-            sample_sizes.push(sample_duration);
+            let sample_size = reader.read_u32::<BigEndian>()?;
+            sample_sizes.push(sample_size);
         }
 
         skip_bytes_to(reader, start + size)?;
