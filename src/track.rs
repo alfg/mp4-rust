@@ -90,12 +90,15 @@ impl From<TtxtConfig> for TrackConfig {
 pub struct Mp4Track {
     pub trak: TrakBox,
     pub trafs: Vec<TrafBox>,
+
+    // Fragmented Tracks Defaults.
+    pub default_sample_duration: u32,
 }
 
 impl Mp4Track {
     pub(crate) fn from(trak: &TrakBox) -> Self {
         let trak = trak.clone();
-        Self { trak, trafs: Vec::new() }
+        Self { trak, trafs: Vec::new(), default_sample_duration: 0, }
     }
 
     pub fn track_id(&self) -> u32 {
@@ -428,9 +431,8 @@ impl Mp4Track {
         let mut elapsed = 0;
 
         if self.trafs.len() > 0 {
-            // TODO: Get default_sample_duration from mvex.trex.
-            let start_time =  ((sample_id - 1) * 1000) as u64;
-            return Ok((start_time, 1000))
+            let start_time =  ((sample_id - 1) * self.default_sample_duration) as u64;
+            return Ok((start_time, self.default_sample_duration))
         } else {
             for entry in stts.entries.iter() {
                 if sample_id <= sample_count + entry.sample_count - 1 {

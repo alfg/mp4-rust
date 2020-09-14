@@ -75,10 +75,20 @@ impl<R: Read + Seek> Mp4Reader<R> {
         };
 
         // Update tracks if any fragmented (moof) boxes are found.
-        for moof in moofs.iter() {
-            for traf in moof.trafs.iter() {
-                let track_id = traf.tfhd.track_id as usize - 1;
-                tracks[track_id].trafs.push(traf.clone());
+        if moofs.len() > 0 {
+            let mut default_sample_duration = 0;
+            if let Some(ref moov) = moov {
+                if let Some(ref mvex) = &moov.mvex {
+                    default_sample_duration = mvex.trex.default_sample_duration
+                }
+            }
+
+            for moof in moofs.iter() {
+                for traf in moof.trafs.iter() {
+                    let track_id = traf.tfhd.track_id as usize - 1;
+                    tracks[track_id].default_sample_duration = default_sample_duration;
+                    tracks[track_id].trafs.push(traf.clone());
+                }
             }
         }
 
