@@ -68,33 +68,17 @@ impl<R: Read + Seek> Mp4Reader<R> {
             for (i, trak) in moov.traks.iter().enumerate() {
                 assert_eq!(trak.tkhd.track_id, i as u32 + 1);
                 tracks.push(Mp4Track::from(trak));
-
-                // if moofs.len() > 0 {
-                //     println!("found moofs: {}", moofs.len());
-                //     tracks.push(Mp4Track::from(trak, moofs));
-                // } else {
-                //     tracks.push(Mp4Track::from(trak, None));
-                // }
             }
             tracks
         } else {
             Vec::new()
         };
 
-        // println!("tracks count: {}", tracks.len());
-        // println!("tracks sample_count: {}", tracks[0].sample_count());
-
+        // Update tracks if any fragmented (moof) boxes are found.
         for moof in moofs.iter() {
-        //     // println!("{} {:?}", i, moof);
             for traf in moof.trafs.iter() {
                 let track_id = traf.tfhd.track_id as usize - 1;
-                // println!("{:?}", tracks[track_id]);
-
                 tracks[track_id].trafs.push(traf.clone());
-
-
-                // println!("{:?}", traf.tfhd.track_id);
-                // tracks.push(Mp4Track::from(None, traf));
             }
         }
 
