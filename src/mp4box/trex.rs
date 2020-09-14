@@ -21,7 +21,7 @@ impl TrexBox {
     }
 
     pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + 20
+        HEADER_SIZE + HEADER_EXT_SIZE + 20
     }
 }
 
@@ -51,7 +51,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrexBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        reader.read_u32::<BigEndian>()?; // pre-defined
         let track_id = reader.read_u32::<BigEndian>()?;
         let default_sample_description_index = reader.read_u32::<BigEndian>()?;
         let default_sample_duration = reader.read_u32::<BigEndian>()?;
@@ -79,7 +78,6 @@ impl<W: Write> WriteBox<&mut W> for TrexBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        writer.write_u32::<BigEndian>(0)?; // pre-defined
         writer.write_u32::<BigEndian>(self.track_id)?;
         writer.write_u32::<BigEndian>(self.default_sample_description_index)?;
         writer.write_u32::<BigEndian>(self.default_sample_duration)?;
