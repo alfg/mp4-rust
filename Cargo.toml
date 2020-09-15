@@ -3,18 +3,12 @@ name = "mp4"
 version = "0.6.0"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
-
-description = """
-MP4 reader and writer library in Rust.
-"""
-
-documentation = "https://docs.rs/mp4rs"
+description = "MP4 reader and writer library in Rust."
+documentation = "https://docs.rs/mp4"
 readme = "README.md"
-homepage = "https://github.com/alfg/mp4rs"
-repository = "https://github.com/alfg/mp4rs"
-
-keywords = ["mp4", "isobmff", "video", "multimedia"]
-
+homepage = "https://github.com/alfg/mp4-rust"
+repository = "https://github.com/alfg/mp4-rust"
+keywords = ["mp4", "iso-mp4", "isobmff", "video", "multimedia"]
 license = "MIT"
 
 [dependencies]
