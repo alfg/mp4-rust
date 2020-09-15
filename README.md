@@ -21,7 +21,7 @@ use std::io::{BufReader};
 use mp4::{Result};
 
 fn main() -> Result<()> {
-    let f = File::open("example.mp4").unwrap();
+    let f = File::open("tests/samples/minimal.mp4").unwrap();
     let size = f.metadata()?.len();
     let reader = BufReader::new(f);
 
@@ -61,7 +61,7 @@ See [examples/](examples/) for more examples.
 #### Install
 Add to your `Cargo.toml`:
 ```toml
-mp4 = "<version>"
+mp4 = "0.7.0"
 ```
 
 #### Documentation

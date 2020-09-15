@@ -15,7 +15,7 @@
 //! use mp4::{Result};
 //!
 //! fn main() -> Result<()> {
-//!     let f = File::open("example.mp4").unwrap();
+//!     let f = File::open("tests/samples/minimal.mp4").unwrap();
 //!     let size = f.metadata()?.len();
 //!     let reader = BufReader::new(f);
 //!
@@ -58,7 +58,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! mp4 = "<version>"
+//! mp4 = "0.7.0"
 //! ```
 //! 
 //! [mp4box]: https://github.com/alfg/mp4-rust/blob/master/src/mp4box/mod.rs
