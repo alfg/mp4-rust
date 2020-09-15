@@ -63,7 +63,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
         }
 
         let size = current - start;
-        let tracks = if let Some(ref moov) = moov {
+        let mut tracks = if let Some(ref moov) = moov {
             let mut tracks = Vec::with_capacity(moov.traks.len());
             for (i, trak) in moov.traks.iter().enumerate() {
                 assert_eq!(trak.tkhd.track_id, i as u32 + 1);
@@ -73,6 +73,24 @@ impl<R: Read + Seek> Mp4Reader<R> {
         } else {
             Vec::new()
         };
+
+        // Update tracks if any fragmented (moof) boxes are found.
+        if moofs.len() > 0 {
+            let mut default_sample_duration = 0;
+            if let Some(ref moov) = moov {
+                if let Some(ref mvex) = &moov.mvex {
+                    default_sample_duration = mvex.trex.default_sample_duration
+                }
+            }
+
+            for moof in moofs.iter() {
+                for traf in moof.trafs.iter() {
+                    let track_id = traf.tfhd.track_id as usize - 1;
+                    tracks[track_id].default_sample_duration = default_sample_duration;
+                    tracks[track_id].trafs.push(traf.clone());
+                }
+            }
+        }
 
         Ok(Mp4Reader {
             reader,

@@ -6,6 +6,8 @@
 * [ISO/IEC 14496-14](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - MP4 file format
 * ISO/IEC 14496-17 - Streaming text format
 
+https://crates.io/crates/mp4
+
 [![Crates.io](https://img.shields.io/crates/v/mp4)](https://crates.io/crates/mp4)
 [![Crates.io](https://img.shields.io/crates/d/mp4)](https://crates.io/crates/mp4)
 [![Build Status](https://travis-ci.org/alfg/mp4rs.svg?branch=master)](https://travis-ci.org/alfg/mp4rs)
@@ -55,6 +57,12 @@ fn main() -> Result<()> {
 
 See [examples/](examples/) for more examples.
 
+#### Install
+Add to your `Cargo.toml`:
+```
+mp4 = "0.6.0"
+```
+
 #### Documentation
 * https://docs.rs/mp4/
 
@@ -99,7 +107,7 @@ View HTML report at `target/criterion/report/index.html`
 ## Web Assembly
 See the [mp4-inspector](https://github.com/alfg/mp4-inspector) project as a reference for using this library in Javascript via Web Assembly.
 
-## Resources
+## Related Projects
 * https://github.com/mozilla/mp4parse-rust
 * https://github.com/pcwalton/rust-media
 * https://github.com/alfg/mp4
