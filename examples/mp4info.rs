@@ -57,13 +57,14 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     println!("Metadata:");
     println!("  size            : {}", mp4.size());
     println!("  major_brand     : {}", mp4.major_brand());
+    println!("  minor_version   : {}", mp4.minor_version());
     let mut compatible_brands = String::new();
     for brand in mp4.compatible_brands().iter() {
         compatible_brands.push_str(&brand.to_string());
         compatible_brands.push_str(",");
     }
     println!("  compatible_brands: {}", compatible_brands);
-    println!("Duration: {:?}", mp4.duration());
+    println!("Duration: {:?}, timescale: {}", mp4.duration(), mp4.timescale());
 
     for track in mp4.tracks().iter() {
         let media_info = match track.track_type()? {
@@ -92,6 +93,7 @@ async fn async_info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     println!("Metadata:");
     println!("  size            : {}", mp4.size());
     println!("  major_brand     : {}", mp4.major_brand());
+    println!("  minor_version   : {}", mp4.minor_version());
     let mut compatible_brands = String::new();
     for brand in mp4.compatible_brands().iter() {
         compatible_brands.push_str(&brand.to_string());
@@ -119,10 +121,11 @@ async fn async_info<P: AsRef<Path>>(filename: &P) -> Result<()> {
 
 fn video_info(track: &Mp4Track) -> Result<String> {
     Ok(format!(
-        "{} ({}) ({:?}), {}x{}, {} kb/s, {:.2} fps",
+        "{} ({}) ({:?}), {}, {}x{}, {} kb/s, {:.2} fps",
         track.media_type()?,
         track.video_profile()?,
         track.box_type()?,
+        track.timescale(),
         track.width(),
         track.height(),
         track.bitrate() / 1000,
@@ -132,10 +135,11 @@ fn video_info(track: &Mp4Track) -> Result<String> {
 
 fn audio_info(track: &Mp4Track) -> Result<String> {
     Ok(format!(
-        "{} ({}) ({:?}), {} Hz, {}, {} kb/s",
+        "{} ({}) ({:?}), {}, {} Hz, {}, {} kb/s",
         track.media_type()?,
         track.audio_profile()?,
         track.box_type()?,
+        track.timescale(),
         track.sample_freq_index()?.freq(),
         track.channel_config()?,
         track.bitrate() / 1000
