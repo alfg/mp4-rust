@@ -458,8 +458,8 @@ pub(crate) struct Mp4TrackWriter {
     chunk_duration: u32,
     chunk_buffer: BytesMut,
 
-    samples_per_chunk: u32,
     duration_per_chunk: u32,
+    size_per_chunk: usize,
 }
 
 impl Mp4TrackWriter {
@@ -498,7 +498,7 @@ impl Mp4TrackWriter {
             trak,
             chunk_buffer: BytesMut::new(),
             sample_id: 1,
-            duration_per_chunk: config.timescale, // 1 second
+            size_per_chunk: 1024 * 1024,
             ..Self::default()
         })
     }
@@ -605,10 +605,10 @@ impl Mp4TrackWriter {
     }
 
     fn is_chunk_full(&self) -> bool {
-        if self.samples_per_chunk > 0 {
-            self.chunk_samples >= self.samples_per_chunk
-        } else {
+        if self.duration_per_chunk > 0 {
             self.chunk_duration >= self.duration_per_chunk
+        } else {
+            self.chunk_buffer.len() >= self.size_per_chunk
         }
     }
 
