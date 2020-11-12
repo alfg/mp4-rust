@@ -274,7 +274,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
         let mut sl_config = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
-        let end = start + size as u64 + 1;
+        let end = start + size as u64 + 1; // XXX flags must be 0
         while current < end {
             let (desc_tag, desc_size) = read_desc(reader)?;
             match desc_tag {
@@ -306,7 +306,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size - 2)?; // XXX size > 0x7F
 
         writer.write_u16::<BigEndian>(self.es_id)?;
         writer.write_u8(0)?;
@@ -370,7 +370,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
         let mut dec_specific = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
-        let end = start + size as u64 + 1;
+        let end = start + size as u64 + 1; // XXX flags must be 0
         while current < end {
             let (desc_tag, desc_size) = read_desc(reader)?;
             match desc_tag {
@@ -403,7 +403,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size - 2)?; // XXX size > 0x7F
 
         writer.write_u8(self.object_type_indication)?;
         writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02))?;
@@ -464,7 +464,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size - 2)?; // XXX size > 0x7F
 
         writer.write_u8((self.profile << 3) + (self.freq_index >> 1))?;
         writer.write_u8((self.freq_index << 7) + (self.chan_conf << 3))?;
@@ -504,7 +504,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size - 2)?; // XXX size > 0x7F
 
         writer.write_u8(0)?; // pre-defined
         Ok(size)
