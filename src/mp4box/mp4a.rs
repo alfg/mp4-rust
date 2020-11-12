@@ -124,7 +124,7 @@ impl Mp4Box for EsdsBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 2 + ESDescriptor::desc_size() as u64  // XXX desc_size < 0x80
+        HEADER_SIZE + HEADER_EXT_SIZE + 5 + ESDescriptor::desc_size() as u64  // XXX desc_size < 0x80
     }
 }
 
@@ -211,12 +211,13 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
         return Err(Error::InvalidData("invalid descriptor length range"));
     }
 
-    let nbytes = match size {
-        0x0..=0x7F => 1,
-        0x80..=0x3FFF => 2,
-        0x4000..=0x1FFFFF => 3,
-        _ => 4,
-    };
+    // let nbytes = match size {
+    //     0x0..=0x7F => 1,
+    //     0x80..=0x3FFF => 2,
+    //     0x4000..=0x1FFFFF => 3,
+    //     _ => 4,
+    // };
+    let nbytes = 4;
 
     for i in 0..nbytes {
         let mut b = (size >> ((nbytes - i - 1) * 7)) as u8 & 0x7F;
@@ -226,7 +227,7 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
         writer.write_u8(b)?;
     }
 
-    Ok(1 + nbytes)
+    Ok(1 + 4)
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -254,7 +255,7 @@ impl Descriptor for ESDescriptor {
 
     // XXX size < 0x80
     fn desc_size() -> u32 {
-        3 + 2 + DecoderConfigDescriptor::desc_size() + 2 + SLConfigDescriptor::desc_size()
+        3 + 5 + DecoderConfigDescriptor::desc_size() + 5 + SLConfigDescriptor::desc_size()
     }
 }
 
@@ -346,7 +347,7 @@ impl Descriptor for DecoderConfigDescriptor {
 
     // XXX size < 0x80
     fn desc_size() -> u32 {
-        13 + 2 + DecoderSpecificDescriptor::desc_size()
+        13 + 5 + DecoderSpecificDescriptor::desc_size()
     }
 }
 
