@@ -401,7 +401,7 @@ impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
         write_desc(writer, Self::desc_tag(), size)?;
 
         writer.write_u8(self.object_type_indication)?;
-        writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02))?;
+        writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02) + 1)?; // 1 reserved
         writer.write_u24::<BigEndian>(self.buffer_size_db)?;
         writer.write_u32::<BigEndian>(self.max_bitrate)?;
         writer.write_u32::<BigEndian>(self.avg_bitrate)?;

@@ -23,7 +23,7 @@ impl Default for TkhdBox {
     fn default() -> Self {
         TkhdBox {
             version: 0,
-            flags: 1, // XXX enum Track_enabled
+            flags: 3, // XXX enum Track_enabled | Track_in_movie
             creation_time: 0,
             modification_time: 0,
             track_id: 0,
@@ -199,7 +199,7 @@ mod tests {
     fn test_tkhd32() {
         let src_box = TkhdBox {
             version: 0,
-            flags: 1, // XXX enum Track_enabled
+            flags: 3, // XXX enum Track_enabled | Track_in_movie
             creation_time: 100,
             modification_time: 200,
             track_id: 1,
@@ -238,7 +238,7 @@ mod tests {
     fn test_tkhd64() {
         let src_box = TkhdBox {
             version: 1,
-            flags: 1, // XXX enum Track_enabled
+            flags: 3, // XXX enum Track_enabled | Track_in_movie
             creation_time: 100,
             modification_time: 200,
             track_id: 1,

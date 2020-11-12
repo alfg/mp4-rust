@@ -469,6 +469,10 @@ impl Mp4TrackWriter {
         trak.mdia.mdhd.timescale = config.timescale;
         trak.mdia.mdhd.language = config.language.to_owned();
         trak.mdia.hdlr.handler_type = config.track_type.into();
+        trak.mdia.hdlr.name = match config.track_type { // XXX enum or something
+            TrackType::Video => String::from("VideoHandler"),
+            TrackType::Audio => String::from("SoundHandler"),
+        };
         // XXX largesize
         trak.mdia.minf.stbl.stco = Some(StcoBox::default());
         match config.media_conf {
