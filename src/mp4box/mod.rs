@@ -14,6 +14,7 @@ use crate::*;
 pub(crate) mod avc1;
 pub(crate) mod co64;
 pub(crate) mod ctts;
+pub(crate) mod dinf;
 pub(crate) mod edts;
 pub(crate) mod elst;
 pub(crate) mod ftyp;
@@ -98,6 +99,8 @@ boxtype! {
     TrakBox => 0x7472616b,
     UdtaBox => 0x75647461,
     DinfBox => 0x64696e66,
+    DrefBox => 0x64726566,
+    UrlBox  => 0x75726C20,
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
     AvcCBox => 0x61766343,
