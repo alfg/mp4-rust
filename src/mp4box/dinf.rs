@@ -84,11 +84,23 @@ impl<W: Write> WriteBox<&mut W> for DinfBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DrefBox {
     pub version: u8,
     pub flags: u32,
-    pub url: UrlBox,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<UrlBox>,
+}
+
+impl Default for DrefBox {
+    fn default() -> Self {
+        DrefBox {
+            version: 0,
+            flags: 0,
+            url: Some(UrlBox::default()),
+        }
+    }
 }
 
 impl DrefBox {
@@ -97,7 +109,11 @@ impl DrefBox {
     }
 
     pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + self.url.box_size()
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
+        if let Some(ref url) = self.url {
+            size += url.box_size();
+        }
+        size
     }
 }
 
@@ -153,16 +169,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
             current = reader.seek(SeekFrom::Current(0))?;
         }
 
-        if url.is_none() {
-            return Err(Error::BoxNotFound(BoxType::UrlBox));
-        }
-
         skip_bytes_to(reader, start + size)?;
 
         Ok(DrefBox {
             version,
             flags,
-            url: url.unwrap(),
+            url,
         })
     }
 }
@@ -175,7 +187,10 @@ impl<W: Write> WriteBox<&mut W> for DrefBox {
         write_box_header_ext(writer, self.version, self.flags)?;
 
         writer.write_u32::<BigEndian>(1)?;
-        self.url.write_box(writer)?;
+
+        if let Some(ref url) = self.url {
+            url.write_box(writer)?;
+        }
 
         Ok(size)
     }
