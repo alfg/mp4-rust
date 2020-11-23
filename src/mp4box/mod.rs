@@ -18,21 +18,23 @@
 //!             mdhd
 //!             hdlr
 //!             minf
-//!             stbl
-//!                 stsd
-//!                     avc1
-//!                     hev1
-//!                     mp4a
-//!                     tx3g
-//!                 stts
-//!                 stsc
-//!                 stsz
-//!                 stss
-//!                 stco
-//!                 co64
-//!                 ctts
-//!             smhd
-//!             vmhd
+//!                 stbl
+//!                     stsd
+//!                         avc1
+//!                         hev1
+//!                         mp4a
+//!                         tx3g
+//!                     stts
+//!                     stsc
+//!                     stsz
+//!                     stss
+//!                     stco
+//!                     co64
+//!                     ctts
+//!                 dinf
+//!                     dref
+//!                 smhd
+//!                 vmhd
 //!         edts
 //!             elst
 //!     mvex
@@ -56,6 +58,7 @@ use crate::*;
 pub(crate) mod avc1;
 pub(crate) mod co64;
 pub(crate) mod ctts;
+pub(crate) mod dinf;
 pub(crate) mod edts;
 pub(crate) mod elst;
 pub(crate) mod ftyp;
@@ -158,6 +161,8 @@ boxtype! {
     TrunBox => 0x7472756E,
     UdtaBox => 0x75647461,
     DinfBox => 0x64696e66,
+    DrefBox => 0x64726566,
+    UrlBox  => 0x75726C20,
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
     AvcCBox => 0x61766343,

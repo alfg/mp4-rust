@@ -150,7 +150,8 @@ impl Mp4Box for EsdsBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + ESDescriptor::desc_size() as u64
+        HEADER_SIZE + HEADER_EXT_SIZE
+            + 1 + size_of_length(ESDescriptor::desc_size()) as u64 + ESDescriptor::desc_size() as u64
     }
 
     fn to_json(&self) -> Result<String> {
@@ -224,11 +225,6 @@ trait WriteDesc<T>: Sized {
     fn write_desc(&self, _: T) -> Result<u32>;
 }
 
-// XXX assert_eq!(size, 1)
-fn desc_start<R: Seek>(reader: &mut R) -> Result<u64> {
-    Ok(reader.seek(SeekFrom::Current(0))? - 2)
-}
-
 fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     let tag = reader.read_u8()?;
 
@@ -244,6 +240,15 @@ fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     Ok((tag, size))
 }
 
+fn size_of_length(size: u32) -> u32 {
+    match size {
+        0x0..=0x7F => 1,
+        0x80..=0x3FFF => 2,
+        0x4000..=0x1FFFFF => 3,
+        _ => 4,
+    }
+}
+
 fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
     writer.write_u8(tag)?;
 
@@ -251,12 +256,7 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
         return Err(Error::InvalidData("invalid descriptor length range"));
     }
 
-    let nbytes = match size {
-        0x0..=0x7F => 1,
-        0x80..=0x3FFF => 2,
-        0x4000..=0x1FFFFF => 3,
-        _ => 4,
-    };
+    let nbytes = size_of_length(size);
 
     for i in 0..nbytes {
         let mut b = (size >> ((nbytes - i - 1) * 7)) as u8 & 0x7F;
@@ -266,7 +266,7 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
         writer.write_u8(b)?;
     }
 
-    Ok(1 + nbytes)
+    Ok(1 + nbytes as u64)
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
@@ -292,15 +292,16 @@ impl Descriptor for ESDescriptor {
         0x03
     }
 
-    // XXX size > 0x7F
     fn desc_size() -> u32 {
-        2 + 3 + DecoderConfigDescriptor::desc_size() + SLConfigDescriptor::desc_size()
+        3
+        + 1 + size_of_length(DecoderConfigDescriptor::desc_size()) + DecoderConfigDescriptor::desc_size()
+        + 1 + size_of_length(SLConfigDescriptor::desc_size()) + SLConfigDescriptor::desc_size()
     }
 }
 
 impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
     fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
-        let start = desc_start(reader)?;
+        let start = reader.seek(SeekFrom::Current(0))?;
 
         let es_id = reader.read_u16::<BigEndian>()?;
         reader.read_u8()?; // XXX flags must be 0
@@ -309,7 +310,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
         let mut sl_config = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
-        let end = start + size as u64 + 1;
+        let end = start + size as u64;
         while current < end {
             let (desc_tag, desc_size) = read_desc(reader)?;
             match desc_tag {
@@ -320,7 +321,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
                     sl_config = Some(SLConfigDescriptor::read_desc(reader, desc_size)?);
                 }
                 _ => {
-                    skip_bytes(reader, desc_size as u64 - 1)?;
+                    skip_bytes(reader, desc_size as u64)?;
                 }
             }
             current = reader.seek(SeekFrom::Current(0))?;
@@ -337,7 +338,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size)?;
 
         writer.write_u16::<BigEndian>(self.es_id)?;
         writer.write_u8(0)?;
@@ -380,15 +381,14 @@ impl Descriptor for DecoderConfigDescriptor {
         0x04
     }
 
-    // XXX size > 0x7F
     fn desc_size() -> u32 {
-        2 + 13 + DecoderSpecificDescriptor::desc_size()
+        13 + 1 + size_of_length(DecoderSpecificDescriptor::desc_size()) + DecoderSpecificDescriptor::desc_size()
     }
 }
 
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
     fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
-        let start = desc_start(reader)?;
+        let start = reader.seek(SeekFrom::Current(0))?;
 
         let object_type_indication = reader.read_u8()?;
         let byte_a = reader.read_u8()?;
@@ -401,7 +401,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
         let mut dec_specific = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
-        let end = start + size as u64 + 1;
+        let end = start + size as u64;
         while current < end {
             let (desc_tag, desc_size) = read_desc(reader)?;
             match desc_tag {
@@ -409,7 +409,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
                     dec_specific = Some(DecoderSpecificDescriptor::read_desc(reader, desc_size)?);
                 }
                 _ => {
-                    skip_bytes(reader, desc_size as u64 - 1)?;
+                    skip_bytes(reader, desc_size as u64)?;
                 }
             }
             current = reader.seek(SeekFrom::Current(0))?;
@@ -430,10 +430,10 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size)?;
 
         writer.write_u8(self.object_type_indication)?;
-        writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02))?;
+        writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02) + 1)?; // 1 reserved
         writer.write_u24::<BigEndian>(self.buffer_size_db)?;
         writer.write_u32::<BigEndian>(self.max_bitrate)?;
         writer.write_u32::<BigEndian>(self.avg_bitrate)?;
@@ -466,9 +466,8 @@ impl Descriptor for DecoderSpecificDescriptor {
         0x05
     }
 
-    // XXX size > 0x7F
     fn desc_size() -> u32 {
-        2 + 2
+        2
     }
 }
 
@@ -491,7 +490,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
 impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size)?;
 
         writer.write_u8((self.profile << 3) + (self.freq_index >> 1))?;
         writer.write_u8((self.freq_index << 7) + (self.chan_conf << 3))?;
@@ -514,9 +513,8 @@ impl Descriptor for SLConfigDescriptor {
         0x06
     }
 
-    // XXX size > 0x7F
     fn desc_size() -> u32 {
-        2 + 1
+        1
     }
 }
 
