@@ -2,7 +2,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use serde::{Serialize};
 
 use crate::mp4box::*;
-use crate::mp4box::{smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
+use crate::mp4box::{dinf::DinfBox, smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MinfBox {
@@ -12,6 +12,7 @@ pub struct MinfBox {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub smhd: Option<SmhdBox>,
 
+    pub dinf: DinfBox,
     pub stbl: StblBox,
 }
 
@@ -28,6 +29,7 @@ impl MinfBox {
         if let Some(ref smhd) = self.smhd {
             size += smhd.box_size();
         }
+        size += self.dinf.box_size();
         size += self.stbl.box_size();
         size
     }
@@ -58,6 +60,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
 
         let mut vmhd = None;
         let mut smhd = None;
+        let mut dinf = None;
         let mut stbl = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
@@ -75,8 +78,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
                     smhd = Some(SmhdBox::read_box(reader, s)?);
                 }
                 BoxType::DinfBox => {
-                    // XXX warn!()
-                    skip_box(reader, s)?;
+                    dinf = Some(DinfBox::read_box(reader, s)?);
                 }
                 BoxType::StblBox => {
                     stbl = Some(StblBox::read_box(reader, s)?);
@@ -90,6 +92,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
             current = reader.seek(SeekFrom::Current(0))?;
         }
 
+        if dinf.is_none() {
+            return Err(Error::BoxNotFound(BoxType::DinfBox));
+        }
         if stbl.is_none() {
             return Err(Error::BoxNotFound(BoxType::StblBox));
         }
@@ -99,6 +104,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
         Ok(MinfBox {
             vmhd,
             smhd,
+            dinf: dinf.unwrap(),
             stbl: stbl.unwrap(),
         })
     }
@@ -115,6 +121,7 @@ impl<W: Write> WriteBox<&mut W> for MinfBox {
         if let Some(ref smhd) = self.smhd {
             smhd.write_box(writer)?;
         }
+        self.dinf.write_box(writer)?;
         self.stbl.write_box(writer)?;
 
         Ok(size)
