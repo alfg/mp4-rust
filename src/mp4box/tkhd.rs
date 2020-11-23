@@ -4,6 +4,12 @@ use serde::{Serialize};
 
 use crate::mp4box::*;
 
+pub enum TrackFlag {
+    TrackEnabled = 0x000001,
+    // TrackInMovie = 0x000002,
+    // TrackInPreview = 0x000004,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TkhdBox {
     pub version: u8,
@@ -30,7 +36,7 @@ impl Default for TkhdBox {
     fn default() -> Self {
         TkhdBox {
             version: 0,
-            flags: 0,
+            flags: TrackFlag::TrackEnabled as u32,
             creation_time: 0,
             modification_time: 0,
             track_id: 0,
@@ -225,7 +231,7 @@ mod tests {
     fn test_tkhd32() {
         let src_box = TkhdBox {
             version: 0,
-            flags: 0,
+            flags: TrackFlag::TrackEnabled as u32,
             creation_time: 100,
             modification_time: 200,
             track_id: 1,
@@ -264,7 +270,7 @@ mod tests {
     fn test_tkhd64() {
         let src_box = TkhdBox {
             version: 1,
-            flags: 0,
+            flags: TrackFlag::TrackEnabled as u32,
             creation_time: 100,
             modification_time: 200,
             track_id: 1,
