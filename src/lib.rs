@@ -62,7 +62,7 @@
 //! ```
 //! 
 //! [mp4box]: https://github.com/alfg/mp4-rust/blob/master/src/mp4box/mod.rs
-//! [examples]: https://github.com/alfg/mp4-rust/examples
+//! [examples]: https://github.com/alfg/mp4-rust/blob/master/src/examples
 #![doc(html_root_url = "https://docs.rs/mp4/*")]
 
 
