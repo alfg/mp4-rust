@@ -10,7 +10,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        println!("Usage: mp4sample <track_id> <filename>");
+        println!("Usage: mp4sample <filename>");
         std::process::exit(1);
     }
 
