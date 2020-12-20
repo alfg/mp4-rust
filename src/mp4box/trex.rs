@@ -1,18 +1,21 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
+use crate::SampleFlags;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct TrexBox {
     pub version: u8,
     pub flags: u32,
     pub track_id: u32,
-    pub default_sample_description_index: u32, 
-    pub default_sample_duration: u32, 
-    pub default_sample_size: u32, 
-    pub default_sample_flags: u32, 
+    pub default_sample_description_index: u32,
+    pub default_sample_duration: u32,
+    pub default_sample_size: u32,
+    pub default_sample_flags: SampleFlags,
 }
 
 impl TrexBox {
@@ -34,13 +37,16 @@ impl Mp4Box for TrexBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("track_id={} default_sample_duration={}",
-            self.track_id, self.default_sample_duration);
+        let s = format!(
+            "track_id={} default_sample_duration={}",
+            self.track_id, self.default_sample_duration
+        );
         Ok(s)
     }
 }
@@ -55,7 +61,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrexBox {
         let default_sample_description_index = reader.read_u32::<BigEndian>()?;
         let default_sample_duration = reader.read_u32::<BigEndian>()?;
         let default_sample_size = reader.read_u32::<BigEndian>()?;
-        let default_sample_flags = reader.read_u32::<BigEndian>()?;
+        let default_sample_flags = SampleFlags::new(reader.read_u32::<BigEndian>()?);
 
         skip_bytes_to(reader, start + size)?;
 
@@ -82,7 +88,7 @@ impl<W: Write> WriteBox<&mut W> for TrexBox {
         writer.write_u32::<BigEndian>(self.default_sample_description_index)?;
         writer.write_u32::<BigEndian>(self.default_sample_duration)?;
         writer.write_u32::<BigEndian>(self.default_sample_size)?;
-        writer.write_u32::<BigEndian>(self.default_sample_flags)?;
+        writer.write_u32::<BigEndian>(self.default_sample_flags.to_u32())?;
 
         Ok(size)
     }

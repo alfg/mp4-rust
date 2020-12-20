@@ -1,15 +1,17 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{dinf::DinfBox, smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct MinfBox {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub vmhd: Option<VmhdBox>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub smhd: Option<SmhdBox>,
 
     pub dinf: DinfBox,
@@ -44,6 +46,7 @@ impl Mp4Box for MinfBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }

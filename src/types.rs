@@ -1,73 +1,190 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::convert::TryFrom;
 use std::fmt;
-use serde::{Serialize};
+use std::marker::PhantomData;
 
 use crate::mp4box::*;
 use crate::*;
 
 pub use bytes::Bytes;
-pub use num_rational::Ratio;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-pub struct FixedPointU8(Ratio<u16>);
+pub trait FixedPointKind {
+    const POINT: usize;
+    type Carrier;
+}
 
-impl FixedPointU8 {
-    pub fn new(val: u8) -> Self {
-        Self(Ratio::new_raw(val as u16 * 0x100, 0x100))
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FPi4_4 {}
+impl FixedPointKind for FPi4_4 {
+    const POINT: usize = 4;
+    type Carrier = i8;
+}
 
-    pub fn new_raw(val: u16) -> Self {
-        Self(Ratio::new_raw(val, 0x100))
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FPu4_4 {}
+impl FixedPointKind for FPu4_4 {
+    const POINT: usize = 4;
+    type Carrier = u8;
+}
 
-    pub fn value(&self) -> u8 {
-        self.0.to_integer() as u8
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FPi8_8 {}
+impl FixedPointKind for FPi8_8 {
+    const POINT: usize = 8;
+    type Carrier = i16;
+}
 
-    pub fn raw_value(&self) -> u16 {
-        *self.0.numer()
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FPu8_8 {}
+impl FixedPointKind for FPu8_8 {
+    const POINT: usize = 8;
+    type Carrier = u16;
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FPi16_16 {}
+impl FixedPointKind for FPi16_16 {
+    const POINT: usize = 16;
+    type Carrier = i32;
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FPu16_16 {}
+impl FixedPointKind for FPu16_16 {
+    const POINT: usize = 16;
+    type Carrier = u32;
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FPi2_30 {}
+impl FixedPointKind for FPi2_30 {
+    const POINT: usize = 30;
+    type Carrier = i32;
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
+#[cfg_attr(feature = "use_serde", serde(transparent))]
+pub struct FixedPoint<T: FixedPointKind>(T::Carrier, PhantomData<T>);
+
+impl<T: FixedPointKind> fmt::Debug for FixedPoint<T>
+where
+    T::Carrier: Into<f64> + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let raw_float: f64 = self.0.into();
+        let float = raw_float / (1 << T::POINT) as f64;
+        write!(
+            f,
+            "{}fp{}.{}",
+            float,
+            std::any::type_name::<T::Carrier>(),
+            T::POINT
+        )
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-pub struct FixedPointI8(Ratio<i16>);
-
-impl FixedPointI8 {
-    pub fn new(val: i8) -> Self {
-        Self(Ratio::new_raw(val as i16 * 0x100, 0x100))
+impl<T: FixedPointKind> FixedPoint<T> {
+    pub fn new_whole(val: T::Carrier) -> Self
+    where
+        T::Carrier: std::ops::Shl<Output = T::Carrier> + TryFrom<usize>,
+    {
+        let point: T::Carrier = TryFrom::try_from(T::POINT).map_err(|_| ()).unwrap();
+        Self(val << point, PhantomData)
     }
-
-    pub fn new_raw(val: i16) -> Self {
-        Self(Ratio::new_raw(val, 0x100))
-    }
-
-    pub fn value(&self) -> i8 {
-        self.0.to_integer() as i8
-    }
-
-    pub fn raw_value(&self) -> i16 {
-        *self.0.numer()
+    pub fn new_raw(val: T::Carrier) -> Self {
+        Self(val, PhantomData)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-pub struct FixedPointU16(Ratio<u32>);
-
-impl FixedPointU16 {
-    pub fn new(val: u16) -> Self {
-        Self(Ratio::new_raw(val as u32 * 0x10000, 0x10000))
+impl<T: FixedPointKind> FixedPoint<T>
+where
+    T::Carrier: Copy,
+{
+    pub fn value(&self) -> T::Carrier {
+        self.0
     }
-
-    pub fn new_raw(val: u32) -> Self {
-        Self(Ratio::new_raw(val, 0x10000))
+    pub fn raw_value(&self) -> T::Carrier {
+        self.0
     }
+}
 
-    pub fn value(&self) -> u16 {
-        self.0.to_integer() as u16
+impl<T: FixedPointKind> Default for FixedPoint<T>
+where
+    T::Carrier: Default,
+{
+    fn default() -> Self {
+        Self(Default::default(), PhantomData)
     }
+}
 
-    pub fn raw_value(&self) -> u32 {
-        *self.0.numer()
+pub type FixedPointU8 = FixedPoint<FPu4_4>;
+pub type FixedPointI8 = FixedPoint<FPi4_4>;
+pub type FixedPointU16 = FixedPoint<FPu8_8>;
+pub type FixedPointI16 = FixedPoint<FPi8_8>;
+pub type FixedPointU32 = FixedPoint<FPu16_16>;
+pub type FixedPointI32 = FixedPoint<FPi16_16>;
+pub type FixedPointI2_30 = FixedPoint<FPi2_30>;
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
+pub struct Matrix {
+    pub a: FixedPointI32,
+    pub b: FixedPointI32,
+    pub u: FixedPointI2_30,
+    pub c: FixedPointI32,
+    pub d: FixedPointI32,
+    pub v: FixedPointI2_30,
+    pub x: FixedPointI32,
+    pub y: FixedPointI32,
+    pub w: FixedPointI2_30,
+}
+
+impl Default for Matrix {
+    fn default() -> Self {
+        Matrix {
+            a: FixedPointI32::new_whole(1),
+            b: FixedPointI32::new_whole(0),
+            u: FixedPointI2_30::new_whole(0),
+            c: FixedPointI32::new_whole(0),
+            d: FixedPointI32::new_whole(1),
+            v: FixedPointI2_30::new_whole(0),
+            x: FixedPointI32::new_whole(0),
+            y: FixedPointI32::new_whole(0),
+            w: FixedPointI2_30::new_whole(1),
+        }
+    }
+}
+
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Write};
+
+impl Matrix {
+    pub fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        Ok(Matrix {
+            a: FixedPointI32::new_raw(reader.read_i32::<BigEndian>()?),
+            b: FixedPointI32::new_raw(reader.read_i32::<BigEndian>()?),
+            u: FixedPointI2_30::new_raw(reader.read_i32::<BigEndian>()?),
+            c: FixedPointI32::new_raw(reader.read_i32::<BigEndian>()?),
+            d: FixedPointI32::new_raw(reader.read_i32::<BigEndian>()?),
+            v: FixedPointI2_30::new_raw(reader.read_i32::<BigEndian>()?),
+            x: FixedPointI32::new_raw(reader.read_i32::<BigEndian>()?),
+            y: FixedPointI32::new_raw(reader.read_i32::<BigEndian>()?),
+            w: FixedPointI2_30::new_raw(reader.read_i32::<BigEndian>()?),
+        })
+    }
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_i32::<BigEndian>(self.a.raw_value())?;
+        writer.write_i32::<BigEndian>(self.b.raw_value())?;
+        writer.write_i32::<BigEndian>(self.u.raw_value())?;
+        writer.write_i32::<BigEndian>(self.c.raw_value())?;
+        writer.write_i32::<BigEndian>(self.d.raw_value())?;
+        writer.write_i32::<BigEndian>(self.v.raw_value())?;
+        writer.write_i32::<BigEndian>(self.x.raw_value())?;
+        writer.write_i32::<BigEndian>(self.y.raw_value())?;
+        writer.write_i32::<BigEndian>(self.w.raw_value())?;
+        Ok(())
     }
 }
 
@@ -85,7 +202,8 @@ impl fmt::Display for BoxType {
     }
 }
 
-#[derive(Default, PartialEq, Clone, Serialize)]
+#[derive(Default, PartialEq, Clone)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct FourCC {
     pub value: String,
 }
@@ -461,8 +579,16 @@ impl fmt::Display for ChannelConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone)]
+pub enum AvcVariant {
+    Avc1,
+    Avc2,
+    Avc3,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct AvcConfig {
+    pub variant: AvcVariant,
     pub width: u16,
     pub height: u16,
     pub seq_param_set: Vec<u8>,

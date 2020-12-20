@@ -1,10 +1,12 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct MfhdBox {
     pub version: u8,
     pub flags: u32,
@@ -27,7 +29,7 @@ impl MfhdBox {
     }
 
     pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 
+        HEADER_SIZE + HEADER_EXT_SIZE + 4
     }
 }
 
@@ -40,6 +42,7 @@ impl Mp4Box for MfhdBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }

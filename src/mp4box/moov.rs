@@ -1,17 +1,19 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
-use crate::mp4box::{mvhd::MvhdBox, mvex::MvexBox, trak::TrakBox};
+use crate::mp4box::{mvex::MvexBox, mvhd::MvhdBox, trak::TrakBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct MoovBox {
     pub mvhd: MvhdBox,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub mvex: Option<MvexBox>,
 
-    #[serde(rename = "trak")]
+    #[cfg_attr(feature = "use_serde", serde(rename = "trak"))]
     pub traks: Vec<TrakBox>,
 }
 
@@ -24,6 +26,9 @@ impl MoovBox {
         let mut size = HEADER_SIZE + self.mvhd.box_size();
         for trak in self.traks.iter() {
             size += trak.box_size();
+        }
+        if let Some(mvex) = &self.mvex {
+            size += mvex.box_size();
         }
         size
     }
@@ -38,6 +43,7 @@ impl Mp4Box for MoovBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -109,6 +115,9 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         self.mvhd.write_box(writer)?;
         for trak in self.traks.iter() {
             trak.write_box(writer)?;
+        }
+        if let Some(mvex) = &self.mvex {
+            mvex.write_box(writer)?;
         }
         Ok(0)
     }

@@ -5,6 +5,70 @@ use crate::mp4box::*;
 use crate::*;
 
 #[derive(Debug)]
+pub struct Mp4BoxReader<R> {
+    reader: R,
+    root: Vec<RootBox<'static>>,
+}
+
+impl<R: Read + Seek> Mp4BoxReader<R> {
+    pub fn read(mut reader: R, size: u64) -> Result<Self> {
+        let start = reader.seek(SeekFrom::Current(0))?;
+
+        let mut boxes = Vec::new();
+
+        let mut current = start;
+        while current < size {
+            // Get box header.
+            let header = BoxHeader::read(&mut reader)?;
+            let BoxHeader { name, size: s } = header;
+            println!("{:?} {:?}", name, s);
+
+            let inner_size = (s - 8) as usize;
+
+            match name {
+                BoxType::FtypBox => {
+                    let ftyp = FtypBox::read_box(&mut reader, s)?;
+                    boxes.push(RootBox::FtypBox(ftyp));
+                }
+                BoxType::FreeBox => {
+                    skip_box(&mut reader, s)?;
+                    boxes.push(RootBox::FreeBox(inner_size));
+                }
+                BoxType::MdatBox => {
+                    skip_box(&mut reader, s)?;
+                    let mdat = DataOrOffset::OffsetSize(current as usize, inner_size);
+                    boxes.push(RootBox::MdatBox(mdat));
+                }
+                BoxType::MoovBox => {
+                    let moov = MoovBox::read_box(&mut reader, s)?;
+                    boxes.push(RootBox::MoovBox(moov));
+                }
+                BoxType::MoofBox => {
+                    let moof = MoofBox::read_box(&mut reader, s)?;
+                    boxes.push(RootBox::MoofBox(moof));
+                }
+                _ => {
+                    skip_box(&mut reader, s)?;
+                    let data = DataOrOffset::OffsetSize(current as usize, inner_size);
+                    boxes.push(RootBox::Unknown(name, data));
+                }
+            }
+
+            current = reader.seek(SeekFrom::Current(0))?;
+        }
+
+        Ok(Self {
+            reader,
+            root: boxes,
+        })
+    }
+
+    pub fn root_boxes(&self) -> &[RootBox<'static>] {
+        &self.root
+    }
+}
+
+#[derive(Debug)]
 pub struct Mp4Reader<R> {
     reader: R,
     pub ftyp: FtypBox,
@@ -146,15 +210,15 @@ impl<R: Read + Seek> Mp4Reader<R> {
         }
     }
 
-    pub fn read_sample(&mut self, track_id: u32, sample_id: u32) -> Result<Option<Mp4Sample>> {
-        if track_id == 0 {
-            return Err(Error::TrakNotFound(track_id));
-        }
+    //pub fn read_sample(&mut self, track_id: u32, sample_id: u32) -> Result<Option<Mp4Sample>> {
+    //    if track_id == 0 {
+    //        return Err(Error::TrakNotFound(track_id));
+    //    }
 
-        if let Some(ref track) = self.tracks.get(track_id as usize - 1) {
-            track.read_sample(&mut self.reader, sample_id)
-        } else {
-            Err(Error::TrakNotFound(track_id))
-        }
-    }
+    //    if let Some(ref track) = self.tracks.get(track_id as usize - 1) {
+    //        track.read_sample(&mut self.reader, sample_id)
+    //    } else {
+    //        Err(Error::TrakNotFound(track_id))
+    //    }
+    //}
 }

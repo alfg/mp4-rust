@@ -1,35 +1,31 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{
-    co64::Co64Box,
-    ctts::CttsBox,
-    stco::StcoBox,
-    stsc::StscBox,
-    stsd::StsdBox,
-    stss::StssBox,
-    stsz::StszBox,
-    stts::SttsBox,
+    co64::Co64Box, ctts::CttsBox, stco::StcoBox, stsc::StscBox, stsd::StsdBox, stss::StssBox,
+    stsz::StszBox, stts::SttsBox,
 };
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct StblBox {
     pub stsd: StsdBox,
     pub stts: SttsBox,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub ctts: Option<CttsBox>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub stss: Option<StssBox>,
     pub stsc: StscBox,
     pub stsz: StszBox,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub stco: Option<StcoBox>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub co64: Option<Co64Box>,
 }
 
@@ -69,6 +65,7 @@ impl Mp4Box for StblBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }

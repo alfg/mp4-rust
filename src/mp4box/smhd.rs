@@ -1,16 +1,17 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct SmhdBox {
     pub version: u8,
     pub flags: u32,
 
-    #[serde(with = "value_i16")]
-    pub balance: FixedPointI8,
+    pub balance: FixedPointI16,
 }
 
 impl SmhdBox {
@@ -28,7 +29,7 @@ impl Default for SmhdBox {
         SmhdBox {
             version: 0,
             flags: 0,
-            balance: FixedPointI8::new_raw(0),
+            balance: FixedPointI16::new_raw(0),
         }
     }
 }
@@ -42,6 +43,7 @@ impl Mp4Box for SmhdBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -58,7 +60,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for SmhdBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let balance = FixedPointI8::new_raw(reader.read_i16::<BigEndian>()?);
+        let balance = FixedPointI16::new_raw(reader.read_i16::<BigEndian>()?);
 
         skip_bytes_to(reader, start + size)?;
 
@@ -95,7 +97,7 @@ mod tests {
         let src_box = SmhdBox {
             version: 0,
             flags: 0,
-            balance: FixedPointI8::new_raw(-1),
+            balance: FixedPointI16::new_raw(-1),
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

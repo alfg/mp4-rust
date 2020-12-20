@@ -1,10 +1,12 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct Tx3gBox {
     pub data_reference_index: u16,
     pub display_flags: u32,
@@ -15,12 +17,13 @@ pub struct Tx3gBox {
     pub style_record: [u8; 12],
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct RgbaColor {
     pub red: u8,
     pub green: u8,
     pub blue: u8,
-    pub alpha: u8
+    pub alpha: u8,
 }
 
 impl Default for Tx3gBox {
@@ -30,7 +33,7 @@ impl Default for Tx3gBox {
             display_flags: 0,
             horizontal_justification: 1,
             vertical_justification: -1,
-            bg_color_rgba: RgbaColor{
+            bg_color_rgba: RgbaColor {
                 red: 0,
                 green: 0,
                 blue: 0,
@@ -48,7 +51,7 @@ impl Tx3gBox {
     }
 
     pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + 6 + 32 
+        HEADER_SIZE + 6 + 32
     }
 }
 
@@ -61,6 +64,7 @@ impl Mp4Box for Tx3gBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -165,7 +169,7 @@ mod tests {
             display_flags: 0,
             horizontal_justification: 1,
             vertical_justification: -1,
-            bg_color_rgba: RgbaColor{
+            bg_color_rgba: RgbaColor {
                 red: 0,
                 green: 0,
                 blue: 0,

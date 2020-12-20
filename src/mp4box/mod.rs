@@ -1,13 +1,13 @@
 //! All ISO-MP4 boxes (atoms) and operations.
-//! 
+//!
 //! * [ISO/IEC 14496-12](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - ISO Base Media File Format (QuickTime, MPEG-4, etc)
 //! * [ISO/IEC 14496-14](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - MP4 file format
 //! * ISO/IEC 14496-17 - Streaming text format
-//! 
+//!
 //! http://developer.apple.com/documentation/QuickTime/QTFF/index.html
 //! http://www.adobe.com/devnet/video/articles/mp4_movie_atom.html
-//! http://mp4ra.org/#/atoms 
-//! 
+//! http://mp4ra.org/#/atoms
+//!
 //! Supported Atoms:
 //! ftyp
 //! moov
@@ -47,34 +47,35 @@
 //!         trun
 //! mdat
 //! free
-//! 
+//!
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::borrow::Cow;
 use std::convert::TryInto;
+use std::fmt::{Display, Formatter};
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::*;
 
-pub(crate) mod avc1;
+pub(crate) mod avcn;
 pub(crate) mod co64;
 pub(crate) mod ctts;
 pub(crate) mod dinf;
 pub(crate) mod edts;
 pub(crate) mod elst;
 pub(crate) mod ftyp;
-pub(crate) mod hev1;
 pub(crate) mod hdlr;
+pub(crate) mod hev1;
 pub(crate) mod mdhd;
 pub(crate) mod mdia;
-pub(crate) mod minf;
-pub(crate) mod moov;
-pub(crate) mod mvex;
 pub(crate) mod mehd;
-pub(crate) mod trex;
-pub(crate) mod moof;
-pub(crate) mod mp4a;
-pub(crate) mod mvhd;
 pub(crate) mod mfhd;
+pub(crate) mod minf;
+pub(crate) mod moof;
+pub(crate) mod moov;
+pub(crate) mod mp4a;
+pub(crate) mod mvex;
+pub(crate) mod mvhd;
 pub(crate) mod smhd;
 pub(crate) mod stbl;
 pub(crate) mod stco;
@@ -83,17 +84,43 @@ pub(crate) mod stsd;
 pub(crate) mod stss;
 pub(crate) mod stsz;
 pub(crate) mod stts;
-pub(crate) mod tkhd;
+pub(crate) mod tfdt;
 pub(crate) mod tfhd;
-pub(crate) mod trak;
+pub(crate) mod tkhd;
 pub(crate) mod traf;
+pub(crate) mod trak;
+pub(crate) mod trex;
 pub(crate) mod trun;
 pub(crate) mod tx3g;
 pub(crate) mod vmhd;
 
+pub use avcn::{AvcCBox, AvcNBox};
+pub use dinf::{DinfBox, DrefBox, UrlBox};
 pub use ftyp::FtypBox;
-pub use moov::MoovBox;
+pub use hdlr::HdlrBox;
+pub use mdhd::MdhdBox;
+pub use mdia::MdiaBox;
+pub use mehd::MehdBox;
+pub use mfhd::MfhdBox;
+pub use minf::MinfBox;
 pub use moof::MoofBox;
+pub use moov::MoovBox;
+pub use mvex::MvexBox;
+pub use mvhd::MvhdBox;
+pub use stbl::StblBox;
+pub use stco::StcoBox;
+pub use stsc::StscBox;
+pub use stsd::StsdBox;
+pub use stsz::StszBox;
+pub use stts::SttsBox;
+pub use tfdt::TfdtBox;
+pub use tfhd::TfhdBox;
+pub use tkhd::TkhdBox;
+pub use traf::TrafBox;
+pub use trak::TrakBox;
+pub use trex::TrexBox;
+pub use trun::TrunBox;
+pub use vmhd::VmhdBox;
 
 pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;
@@ -140,6 +167,7 @@ boxtype! {
     MoofBox => 0x6d6f6f66,
     TkhdBox => 0x746b6864,
     TfhdBox => 0x74666864,
+    TfdtBox => 0x74666474,
     EdtsBox => 0x65647473,
     MdiaBox => 0x6d646961,
     ElstBox => 0x656c7374,
@@ -165,6 +193,8 @@ boxtype! {
     UrlBox  => 0x75726C20,
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
+    Avc2Box => 0x61766332,
+    Avc3Box => 0x61766333,
     AvcCBox => 0x61766343,
     Hev1Box => 0x68657631,
     HvcCBox => 0x68766343,
@@ -176,6 +206,7 @@ boxtype! {
 pub trait Mp4Box: Sized {
     fn box_type(&self) -> BoxType;
     fn box_size(&self) -> u64;
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String>;
     fn summary(&self) -> Result<String>;
 }
@@ -186,6 +217,46 @@ pub trait ReadBox<T>: Sized {
 
 pub trait WriteBox<T>: Sized {
     fn write_box(&self, _: T) -> Result<u64>;
+}
+
+#[derive(Debug, Clone)]
+pub enum DataOrOffset<'a> {
+    Data(Cow<'a, [u8]>),
+    OffsetSize(usize, usize),
+}
+impl<'a> Display for DataOrOffset<'a> {
+    fn fmt(&self, fmt: &mut Formatter) -> std::fmt::Result {
+        match self {
+            DataOrOffset::Data(Cow::Borrowed(data)) => write!(fmt, "[borrowed len={}]", data.len()),
+            DataOrOffset::Data(Cow::Owned(data)) => write!(fmt, "[owned len={}]", data.len()),
+            DataOrOffset::OffsetSize(offset, size) => {
+                write!(fmt, "[reader offset={} size={}]", offset, size)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum RootBox<'a> {
+    FtypBox(FtypBox),
+    FreeBox(usize),
+    MdatBox(DataOrOffset<'a>),
+    MoovBox(MoovBox),
+    MoofBox(MoofBox),
+    Unknown(BoxType, DataOrOffset<'a>),
+}
+
+impl<'a> RootBox<'a> {
+    pub fn box_type(&self) -> BoxType {
+        match self {
+            RootBox::FtypBox(_) => BoxType::FtypBox,
+            RootBox::FreeBox(_) => BoxType::FreeBox,
+            RootBox::MdatBox(_) => BoxType::MdatBox,
+            RootBox::MoovBox(_) => BoxType::MoovBox,
+            RootBox::MoofBox(_) => BoxType::MoofBox,
+            RootBox::Unknown(typ, _) => *typ,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -267,7 +338,12 @@ pub fn skip_bytes<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
 }
 
 pub fn skip_bytes_to<S: Seek>(seeker: &mut S, pos: u64) -> Result<()> {
-    seeker.seek(SeekFrom::Start(pos))?;
+    let old = seeker.seek(SeekFrom::Start(pos))?;
+    println!("check {} {}", pos, old);
+    if pos != old {
+        println!("WARNING: box length mismatch");
+    }
+    assert!(old <= pos);
     Ok(())
 }
 
@@ -286,49 +362,45 @@ pub fn write_zeros<W: Write>(writer: &mut W, size: u64) -> Result<()> {
 
 mod value_u32 {
     use crate::types::FixedPointU16;
+    #[cfg(feature = "use_serde")]
     use serde::{self, Serializer};
 
-    pub fn serialize<S>(
-        fixed: &FixedPointU16,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    #[cfg(feature = "use_serde")]
+    pub fn serialize<S>(fixed: &FixedPointU16, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
-        {
-            serializer.serialize_u16(fixed.value())
-        }
+    {
+        serializer.serialize_u16(fixed.value())
+    }
 }
 
 mod value_i16 {
     use crate::types::FixedPointI8;
+    #[cfg(feature = "use_serde")]
     use serde::{self, Serializer};
 
-    pub fn serialize<S>(
-        fixed: &FixedPointI8,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    #[cfg(feature = "use_serde")]
+    pub fn serialize<S>(fixed: &FixedPointI8, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
-        {
-            serializer.serialize_i8(fixed.value())
-        }
+    {
+        serializer.serialize_i8(fixed.value())
+    }
 }
 
 mod value_u8 {
     use crate::types::FixedPointU8;
+    #[cfg(feature = "use_serde")]
     use serde::{self, Serializer};
 
-    pub fn serialize<S>(
-        fixed: &FixedPointU8,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    #[cfg(feature = "use_serde")]
+    pub fn serialize<S>(fixed: &FixedPointU8, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
-        {
-            serializer.serialize_u8(fixed.value())
-        }
+    {
+        serializer.serialize_u8(fixed.value())
+    }
 }
-
 
 #[cfg(test)]
 mod tests {

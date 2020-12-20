@@ -1,12 +1,15 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{tfhd::TfhdBox, trun::TrunBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct TrafBox {
     pub tfhd: TfhdBox,
+    pub tfdt: Option<TfdtBox>,
     pub trun: Option<TrunBox>,
 }
 
@@ -18,6 +21,9 @@ impl TrafBox {
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
         size += self.tfhd.box_size();
+        if let Some(ref tfdt) = self.tfdt {
+            size += tfdt.box_size();
+        }
         if let Some(ref trun) = self.trun {
             size += trun.box_size();
         }
@@ -34,6 +40,7 @@ impl Mp4Box for TrafBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -50,6 +57,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
 
         let mut tfhd = None;
         let mut trun = None;
+        let mut tfdt = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
         let end = start + size;
@@ -65,8 +73,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
                 BoxType::TrunBox => {
                     trun = Some(TrunBox::read_box(reader, s)?);
                 }
+                BoxType::TfdtBox => {
+                    tfdt = Some(TfdtBox::read_box(reader, s)?);
+                }
                 _ => {
                     // XXX warn!()
+                    println!("WARNING: unexpected box {:?}", name);
                     skip_box(reader, s)?;
                 }
             }
@@ -82,6 +94,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
 
         Ok(TrafBox {
             tfhd: tfhd.unwrap(),
+            tfdt,
             trun,
         })
     }
@@ -93,6 +106,13 @@ impl<W: Write> WriteBox<&mut W> for TrafBox {
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.tfhd.write_box(writer)?;
+
+        if let Some(tfdt) = &self.tfdt {
+            tfdt.write_box(writer)?;
+        }
+        if let Some(trun) = &self.trun {
+            trun.write_box(writer)?;
+        }
 
         Ok(size)
     }

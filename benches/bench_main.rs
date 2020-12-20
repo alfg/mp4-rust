@@ -13,9 +13,13 @@ fn read_mp4(filename: &str) -> u64 {
 fn criterion_benchmark(c: &mut Criterion) {
     let filename = "tests/samples/minimal.mp4";
 
-    c.bench_with_input(BenchmarkId::new("input_example", filename), &filename, |b, &s| {
-        b.iter(|| read_mp4(s));
-    });
+    c.bench_with_input(
+        BenchmarkId::new("input_example", filename),
+        &filename,
+        |b, &s| {
+            b.iter(|| read_mp4(s));
+        },
+    );
 }
 
 criterion_group!(benches, criterion_benchmark);

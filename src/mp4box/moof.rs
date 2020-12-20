@@ -1,14 +1,16 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct MoofBox {
     pub mfhd: MfhdBox,
 
-    #[serde(rename = "traf")]
+    #[cfg_attr(feature = "use_serde", serde(rename = "traf"))]
     pub trafs: Vec<TrafBox>,
 }
 
@@ -35,6 +37,7 @@ impl Mp4Box for MoofBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -68,7 +71,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
                     trafs.push(traf);
                 }
                 _ => {
-                    // XXX warn!()
+                    if log::log_enabled!(log::Level::Warn) {
+                        let num: u32 = name.into();
+                        let name_str = FourCC::from(num);
+                        log::warn!("unknown box in `moof`: {}", name_str);
+                    }
+
                     skip_box(reader, s)?;
                 }
             }

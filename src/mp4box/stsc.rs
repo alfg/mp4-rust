@@ -1,15 +1,17 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct StscBox {
     pub version: u8,
     pub flags: u32,
 
-    #[serde(skip_serializing)]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing))]
     pub entries: Vec<StscEntry>,
 }
 
@@ -23,7 +25,8 @@ impl StscBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct StscEntry {
     pub first_chunk: u32,
     pub samples_per_chunk: u32,
@@ -40,6 +43,7 @@ impl Mp4Box for StscBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }

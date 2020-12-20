@@ -1,10 +1,12 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct MvhdBox {
     pub version: u8,
     pub flags: u32,
@@ -13,8 +15,10 @@ pub struct MvhdBox {
     pub timescale: u32,
     pub duration: u64,
 
-    #[serde(with = "value_u32")]
-    pub rate: FixedPointU16,
+    pub rate: FixedPointU32,
+    pub volume: FixedPointU16,
+    pub matrix: Matrix,
+    pub next_track_id: u32,
 }
 
 impl MvhdBox {
@@ -44,7 +48,10 @@ impl Default for MvhdBox {
             modification_time: 0,
             timescale: 1000,
             duration: 0,
-            rate: FixedPointU16::new(1),
+            rate: FixedPointU32::new_whole(1),
+            volume: FixedPointU16::new_whole(0),
+            matrix: Matrix::default(),
+            next_track_id: 0,
         }
     }
 }
@@ -58,13 +65,19 @@ impl Mp4Box for MvhdBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("creation_time={} timescale={} duration={} rate={}",
-            self.creation_time, self.timescale, self.duration, self.rate.value());
+        let s = format!(
+            "creation_time={} timescale={} duration={} rate={}",
+            self.creation_time,
+            self.timescale,
+            self.duration,
+            self.rate.value()
+        );
         Ok(s)
     }
 }
@@ -91,7 +104,18 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
                 reader.read_u32::<BigEndian>()? as u64,
             )
         };
-        let rate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let rate = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
+        let volume = FixedPointU16::new_raw(reader.read_u16::<BigEndian>()?);
+
+        // Reserved
+        reader.seek(SeekFrom::Current(10))?;
+
+        let matrix = Matrix::read_from(reader)?;
+
+        // Pre-defined (?)
+        reader.seek(SeekFrom::Current(36))?;
+
+        let next_track_id = reader.read_u32::<BigEndian>()?;
 
         skip_bytes_to(reader, start + size)?;
 
@@ -103,6 +127,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
             timescale,
             duration,
             rate,
+            volume,
+            matrix,
+            next_track_id,
         })
     }
 }
@@ -127,9 +154,11 @@ impl<W: Write> WriteBox<&mut W> for MvhdBox {
             writer.write_u32::<BigEndian>(self.duration as u32)?;
         }
         writer.write_u32::<BigEndian>(self.rate.raw_value())?;
-
-        // XXX volume, ...
-        write_zeros(writer, 76)?;
+        writer.write_u16::<BigEndian>(self.volume.raw_value())?;
+        writer.write(&[0u8; 10])?;
+        self.matrix.write_to(writer)?;
+        writer.write(&[0u8; 24])?;
+        writer.write_u32::<BigEndian>(self.next_track_id)?;
 
         Ok(size)
     }
@@ -150,7 +179,10 @@ mod tests {
             modification_time: 200,
             timescale: 1000,
             duration: 634634,
-            rate: FixedPointU16::new(1),
+            rate: FixedPointU32::new_whole(1),
+            volume: FixedPointU16::new_whole(0),
+            matrix: Matrix::default(),
+            next_track_id: 0,
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -174,7 +206,10 @@ mod tests {
             modification_time: 200,
             timescale: 1000,
             duration: 634634,
-            rate: FixedPointU16::new(1),
+            rate: FixedPointU32::new_whole(1),
+            volume: FixedPointU16::new_whole(0),
+            matrix: Matrix::default(),
+            next_track_id: 0,
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();

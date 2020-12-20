@@ -1,33 +1,65 @@
+use std::marker::PhantomData;
+
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Avc1Box {
+pub trait AvcVariant {
+    const TYPE: BoxType;
+}
+
+/// SPS and PPS stored out of band from main video stream.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Avc1Variant {}
+impl AvcVariant for Avc1Variant {
+    const TYPE: BoxType = BoxType::Avc1Box;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Avc2Variant {}
+impl AvcVariant for Avc2Variant {
+    const TYPE: BoxType = BoxType::Avc2Box;
+}
+
+/// SPS and PPS stored inline in main video stream,
+/// `sequence_parameter_sets` and `picture_parameter_sets` expected
+/// empty.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Avc3Variant {}
+impl AvcVariant for Avc3Variant {
+    const TYPE: BoxType = BoxType::Avc3Box;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
+pub struct AvcNBox<Variant: AvcVariant> {
+    #[cfg_attr(feature = "use_serde", serde(skip))]
+    pub variant: PhantomData<Variant>,
+
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
 
-    #[serde(with = "value_u32")]
-    pub horizresolution: FixedPointU16,
+    pub horizresolution: FixedPointU32,
+    pub vertresolution: FixedPointU32,
 
-    #[serde(with = "value_u32")]
-    pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
     pub avcc: AvcCBox,
 }
 
-impl Default for Avc1Box {
+impl<Variant: AvcVariant> Default for AvcNBox<Variant> {
     fn default() -> Self {
-        Avc1Box {
+        AvcNBox {
+            variant: PhantomData,
             data_reference_index: 0,
             width: 0,
             height: 0,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
+            horizresolution: FixedPointU32::new_whole(0x48),
+            vertresolution: FixedPointU32::new_whole(0x48),
             frame_count: 1,
             depth: 0x0018,
             avcc: AvcCBox::default(),
@@ -35,14 +67,15 @@ impl Default for Avc1Box {
     }
 }
 
-impl Avc1Box {
+impl<Variant: AvcVariant> AvcNBox<Variant> {
     pub fn new(config: &AvcConfig) -> Self {
-        Avc1Box {
+        AvcNBox {
+            variant: PhantomData,
             data_reference_index: 1,
             width: config.width,
             height: config.height,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
+            horizresolution: FixedPointU32::new_whole(0x48),
+            vertresolution: FixedPointU32::new_whole(0x48),
             frame_count: 1,
             depth: 0x0018,
             avcc: AvcCBox::new(&config.seq_param_set, &config.pic_param_set),
@@ -50,7 +83,7 @@ impl Avc1Box {
     }
 
     pub fn get_type(&self) -> BoxType {
-        BoxType::Avc1Box
+        Variant::TYPE
     }
 
     pub fn get_size(&self) -> u64 {
@@ -58,7 +91,7 @@ impl Avc1Box {
     }
 }
 
-impl Mp4Box for Avc1Box {
+impl<Variant: AvcVariant> Mp4Box for AvcNBox<Variant> {
     fn box_type(&self) -> BoxType {
         return self.get_type();
     }
@@ -67,18 +100,21 @@ impl Mp4Box for Avc1Box {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("data_reference_index={} width={} height={} frame_count={}",
-            self.data_reference_index, self.width, self.height, self.frame_count);
+        let s = format!(
+            "data_reference_index={} width={} height={} frame_count={}",
+            self.data_reference_index, self.width, self.height, self.frame_count
+        );
         Ok(s)
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
+impl<R: Read + Seek, Variant: AvcVariant> ReadBox<&mut R> for AvcNBox<Variant> {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
@@ -91,8 +127,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         reader.read_u32::<BigEndian>()?; // pre-defined
         let width = reader.read_u16::<BigEndian>()?;
         let height = reader.read_u16::<BigEndian>()?;
-        let horizresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
-        let vertresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let horizresolution = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
+        let vertresolution = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
         reader.read_u32::<BigEndian>()?; // reserved
         let frame_count = reader.read_u16::<BigEndian>()?;
         skip_bytes(reader, 32)?; // compressorname
@@ -106,7 +142,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
 
             skip_bytes_to(reader, start + size)?;
 
-            Ok(Avc1Box {
+            Ok(AvcNBox {
+                variant: PhantomData,
                 data_reference_index,
                 width,
                 height,
@@ -122,7 +159,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for Avc1Box {
+impl<W: Write, Variant: AvcVariant> WriteBox<&mut W> for AvcNBox<Variant> {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(self.box_type(), size).write(writer)?;
@@ -151,7 +188,8 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct AvcCBox {
     pub configuration_version: u8,
     pub avc_profile_indication: u8,
@@ -192,13 +230,18 @@ impl Mp4Box for AvcCBox {
         size
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("avc_profile_indication={}",
-            self.avc_profile_indication);
+        let s = format!(
+            "avc_profile_indication={} num_sps={} num_pps={}",
+            self.avc_profile_indication,
+            self.sequence_parameter_sets.len(),
+            self.picture_parameter_sets.len()
+        );
         Ok(s)
     }
 }
@@ -261,7 +304,8 @@ impl<W: Write> WriteBox<&mut W> for AvcCBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct NalUnit {
     pub bytes: Vec<u8>,
 }

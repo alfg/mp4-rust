@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -10,7 +11,8 @@ pub enum TrackFlag {
     // TrackInPreview = 0x000004,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct TkhdBox {
     pub version: u8,
     pub flags: u32,
@@ -21,15 +23,11 @@ pub struct TkhdBox {
     pub layer: u16,
     pub alternate_group: u16,
 
-    #[serde(with = "value_u8")]
-    pub volume: FixedPointU8,
+    pub volume: FixedPointU16,
     pub matrix: Matrix,
 
-    #[serde(with = "value_u32")]
-    pub width: FixedPointU16,
-
-    #[serde(with = "value_u32")]
-    pub height: FixedPointU16,
+    pub width: FixedPointU32,
+    pub height: FixedPointU32,
 }
 
 impl Default for TkhdBox {
@@ -43,25 +41,12 @@ impl Default for TkhdBox {
             duration: 0,
             layer: 0,
             alternate_group: 0,
-            volume: FixedPointU8::new(1),
+            volume: FixedPointU16::new_whole(1),
             matrix: Matrix::default(),
-            width: FixedPointU16::new(0),
-            height: FixedPointU16::new(0),
+            width: FixedPointU32::new_raw(0),
+            height: FixedPointU32::new_raw(0),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
-pub struct Matrix {
-    pub a: i32,
-    pub b: i32,
-    pub u: i32,
-    pub c: i32,
-    pub d: i32,
-    pub v: i32,
-    pub x: i32,
-    pub y: i32,
-    pub w: i32,
 }
 
 impl TkhdBox {
@@ -82,11 +67,11 @@ impl TkhdBox {
     }
 
     pub fn set_width(&mut self, width: u16) {
-        self.width = FixedPointU16::new(width);
+        self.width = FixedPointU32::new_whole(width as u32);
     }
 
     pub fn set_height(&mut self, height: u16) {
-        self.height = FixedPointU16::new(height);
+        self.height = FixedPointU32::new_whole(height as u32);
     }
 }
 
@@ -99,14 +84,22 @@ impl Mp4Box for TkhdBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("creation_time={} track_id={} duration={} layer={} volume={} width={} height={}",
-            self.creation_time, self.track_id, self.duration, self.layer,
-            self.volume.value(), self.width.value(), self.height.value());
+        let s = format!(
+            "creation_time={} track_id={} duration={} layer={} volume={:?} width={:?} height={:?}",
+            self.creation_time,
+            self.track_id,
+            self.duration,
+            self.layer,
+            self.volume,
+            self.width,
+            self.height
+        );
         Ok(s)
     }
 }
@@ -138,23 +131,13 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
         reader.read_u64::<BigEndian>()?; // reserved
         let layer = reader.read_u16::<BigEndian>()?;
         let alternate_group = reader.read_u16::<BigEndian>()?;
-        let volume = FixedPointU8::new_raw(reader.read_u16::<BigEndian>()?);
+        let volume = FixedPointU16::new_raw(reader.read_u16::<BigEndian>()?);
 
         reader.read_u16::<BigEndian>()?; // reserved
-        let matrix = Matrix {
-            a: reader.read_i32::<byteorder::LittleEndian>()?,
-            b: reader.read_i32::<BigEndian>()?,
-            u: reader.read_i32::<BigEndian>()?,
-            c: reader.read_i32::<BigEndian>()?,
-            d: reader.read_i32::<BigEndian>()?,
-            v: reader.read_i32::<BigEndian>()?,
-            x: reader.read_i32::<BigEndian>()?,
-            y: reader.read_i32::<BigEndian>()?,
-            w: reader.read_i32::<BigEndian>()?,
-        };
+        let matrix = Matrix::read_from(reader)?;
 
-        let width = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
-        let height = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let width = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
+        let height = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
 
         skip_bytes_to(reader, start + size)?;
 
@@ -204,15 +187,7 @@ impl<W: Write> WriteBox<&mut W> for TkhdBox {
 
         writer.write_u16::<BigEndian>(0)?; // reserved
 
-        writer.write_i32::<byteorder::LittleEndian>(self.matrix.a)?;
-        writer.write_i32::<BigEndian>(self.matrix.b)?;
-        writer.write_i32::<BigEndian>(self.matrix.u)?;
-        writer.write_i32::<BigEndian>(self.matrix.c)?;
-        writer.write_i32::<BigEndian>(self.matrix.d)?;
-        writer.write_i32::<BigEndian>(self.matrix.v)?;
-        writer.write_i32::<BigEndian>(self.matrix.x)?;
-        writer.write_i32::<BigEndian>(self.matrix.y)?;
-        writer.write_i32::<BigEndian>(self.matrix.w)?;
+        self.matrix.write_to(writer)?;
 
         writer.write_u32::<BigEndian>(self.width.raw_value())?;
         writer.write_u32::<BigEndian>(self.height.raw_value())?;

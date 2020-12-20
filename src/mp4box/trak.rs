@@ -1,14 +1,16 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{edts::EdtsBox, mdia::MdiaBox, tkhd::TkhdBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct TrakBox {
     pub tkhd: TkhdBox,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "use_serde", serde(skip_serializing_if = "Option::is_none"))]
     pub edts: Option<EdtsBox>,
 
     pub mdia: MdiaBox,
@@ -39,6 +41,7 @@ impl Mp4Box for TrakBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }

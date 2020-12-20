@@ -1,10 +1,12 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct HdlrBox {
     pub version: u8,
     pub flags: u32,
@@ -31,12 +33,17 @@ impl Mp4Box for HdlrBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("handler_type={} name={}", self.handler_type.to_string(), self.name);
+        let s = format!(
+            "handler_type={} name={}",
+            self.handler_type.to_string(),
+            self.name
+        );
         Ok(s)
     }
 }

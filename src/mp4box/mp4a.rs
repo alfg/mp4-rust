@@ -1,17 +1,18 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct Mp4aBox {
     pub data_reference_index: u16,
     pub channelcount: u16,
     pub samplesize: u16,
 
-    #[serde(with = "value_u32")]
-    pub samplerate: FixedPointU16,
+    pub samplerate: FixedPointU32,
     pub esds: Option<EsdsBox>,
 }
 
@@ -21,7 +22,7 @@ impl Default for Mp4aBox {
             data_reference_index: 0,
             channelcount: 2,
             samplesize: 16,
-            samplerate: FixedPointU16::new(48000),
+            samplerate: FixedPointU32::new_whole(48000),
             esds: Some(EsdsBox::default()),
         }
     }
@@ -33,7 +34,7 @@ impl Mp4aBox {
             data_reference_index: 1,
             channelcount: config.chan_conf as u16,
             samplesize: 16,
-            samplerate: FixedPointU16::new(config.freq_index.freq() as u16),
+            samplerate: FixedPointU32::new_whole(config.freq_index.freq() as u32),
             esds: Some(EsdsBox::new(config)),
         }
     }
@@ -60,13 +61,18 @@ impl Mp4Box for Mp4aBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("channel_count={} sample_size={} sample_rate={}",
-            self.channelcount, self.samplesize, self.samplerate.value());
+        let s = format!(
+            "channel_count={} sample_size={} sample_rate={}",
+            self.channelcount,
+            self.samplesize,
+            self.samplerate.value()
+        );
         Ok(s)
     }
 }
@@ -83,7 +89,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         let channelcount = reader.read_u16::<BigEndian>()?;
         let samplesize = reader.read_u16::<BigEndian>()?;
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
-        let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let samplerate = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
 
         let header = BoxHeader::read(reader)?;
         let BoxHeader { name, size: s } = header;
@@ -127,7 +133,8 @@ impl<W: Write> WriteBox<&mut W> for Mp4aBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct EsdsBox {
     pub version: u8,
     pub flags: u32,
@@ -150,10 +157,14 @@ impl Mp4Box for EsdsBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE
-            + 1 + size_of_length(ESDescriptor::desc_size()) as u64 + ESDescriptor::desc_size() as u64
+        HEADER_SIZE
+            + HEADER_EXT_SIZE
+            + 1
+            + size_of_length(ESDescriptor::desc_size()) as u64
+            + ESDescriptor::desc_size() as u64
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -269,7 +280,8 @@ fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
     Ok(1 + nbytes as u64)
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct ESDescriptor {
     pub es_id: u16,
 
@@ -293,9 +305,12 @@ impl Descriptor for ESDescriptor {
     }
 
     fn desc_size() -> u32 {
-        3
-        + 1 + size_of_length(DecoderConfigDescriptor::desc_size()) + DecoderConfigDescriptor::desc_size()
-        + 1 + size_of_length(SLConfigDescriptor::desc_size()) + SLConfigDescriptor::desc_size()
+        3 + 1
+            + size_of_length(DecoderConfigDescriptor::desc_size())
+            + DecoderConfigDescriptor::desc_size()
+            + 1
+            + size_of_length(SLConfigDescriptor::desc_size())
+            + SLConfigDescriptor::desc_size()
     }
 }
 
@@ -350,7 +365,8 @@ impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct DecoderConfigDescriptor {
     pub object_type_indication: u8,
     pub stream_type: u8,
@@ -382,7 +398,9 @@ impl Descriptor for DecoderConfigDescriptor {
     }
 
     fn desc_size() -> u32 {
-        13 + 1 + size_of_length(DecoderSpecificDescriptor::desc_size()) + DecoderSpecificDescriptor::desc_size()
+        13 + 1
+            + size_of_length(DecoderSpecificDescriptor::desc_size())
+            + DecoderSpecificDescriptor::desc_size()
     }
 }
 
@@ -444,7 +462,8 @@ impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct DecoderSpecificDescriptor {
     pub profile: u8,
     pub freq_index: u8,
@@ -499,7 +518,8 @@ impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct SLConfigDescriptor {}
 
 impl SLConfigDescriptor {

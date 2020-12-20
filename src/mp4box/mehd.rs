@@ -1,10 +1,12 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct MehdBox {
     pub version: u8,
     pub flags: u32,
@@ -48,6 +50,8 @@ impl Mp4Box for MehdBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -103,7 +107,6 @@ mod tests {
     use super::*;
     use crate::mp4box::BoxHeader;
     use std::io::Cursor;
-
 
     #[test]
     fn test_mehd32() {

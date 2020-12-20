@@ -1,20 +1,20 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct Hev1Box {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
 
-    #[serde(with = "value_u32")]
-    pub horizresolution: FixedPointU16,
+    pub horizresolution: FixedPointU32,
+    pub vertresolution: FixedPointU32,
 
-    #[serde(with = "value_u32")]
-    pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
     pub hvcc: HvcCBox,
@@ -26,8 +26,8 @@ impl Default for Hev1Box {
             data_reference_index: 0,
             width: 0,
             height: 0,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
+            horizresolution: FixedPointU32::new_whole(0x48),
+            vertresolution: FixedPointU32::new_whole(0x48),
             frame_count: 1,
             depth: 0x0018,
             hvcc: HvcCBox::default(),
@@ -41,8 +41,8 @@ impl Hev1Box {
             data_reference_index: 1,
             width: config.width,
             height: config.height,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
+            horizresolution: FixedPointU32::new_whole(0x48),
+            vertresolution: FixedPointU32::new_whole(0x48),
             frame_count: 1,
             depth: 0x0018,
             hvcc: HvcCBox::new(),
@@ -67,13 +67,17 @@ impl Mp4Box for Hev1Box {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("data_reference_index={} width={} height={} frame_count={}",
-            self.data_reference_index, self.width, self.height, self.frame_count);
+        let s = format!(
+            "data_reference_index={} width={} height={} frame_count={}",
+            self.data_reference_index, self.width, self.height, self.frame_count
+        );
         Ok(s)
     }
 }
@@ -91,8 +95,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
         reader.read_u32::<BigEndian>()?; // pre-defined
         let width = reader.read_u16::<BigEndian>()?;
         let height = reader.read_u16::<BigEndian>()?;
-        let horizresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
-        let vertresolution = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let horizresolution = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
+        let vertresolution = FixedPointU32::new_raw(reader.read_u32::<BigEndian>()?);
         reader.read_u32::<BigEndian>()?; // reserved
         let frame_count = reader.read_u16::<BigEndian>()?;
         skip_bytes(reader, 32)?; // compressorname
@@ -151,7 +155,8 @@ impl<W: Write> WriteBox<&mut W> for Hev1Box {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct HvcCBox {
     pub configuration_version: u8,
 }
@@ -174,13 +179,13 @@ impl Mp4Box for HvcCBox {
         size
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("configuration_version={}",
-            self.configuration_version);
+        let s = format!("configuration_version={}", self.configuration_version);
         Ok(s)
     }
 }

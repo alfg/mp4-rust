@@ -1,11 +1,13 @@
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct DinfBox {
-    dref: DrefBox,
+    pub dref: DrefBox,
 }
 
 impl DinfBox {
@@ -27,6 +29,8 @@ impl Mp4Box for DinfBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -84,13 +88,13 @@ impl<W: Write> WriteBox<&mut W> for DinfBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct DrefBox {
     pub version: u8,
     pub flags: u32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<UrlBox>,
+    pub data_entries: Vec<UrlBox>,
 }
 
 impl Default for DrefBox {
@@ -98,7 +102,7 @@ impl Default for DrefBox {
         DrefBox {
             version: 0,
             flags: 0,
-            url: Some(UrlBox::default()),
+            data_entries: vec![UrlBox::default()],
         }
     }
 }
@@ -110,8 +114,8 @@ impl DrefBox {
 
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if let Some(ref url) = self.url {
-            size += url.box_size();
+        for entry in self.data_entries.iter() {
+            size += entry.box_size();
         }
         size
     }
@@ -126,6 +130,7 @@ impl Mp4Box for DrefBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -145,7 +150,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
         let (version, flags) = read_box_header_ext(reader)?;
         let end = start + size;
 
-        let mut url = None;
+        let mut data_entries = vec![];
 
         let entry_count = reader.read_u32::<BigEndian>()?;
         for _i in 0..entry_count {
@@ -159,7 +164,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
 
             match name {
                 BoxType::UrlBox => {
-                   url = Some(UrlBox::read_box(reader, s)?);
+                    data_entries.push(UrlBox::read_box(reader, s)?);
                 }
                 _ => {
                     skip_box(reader, s)?;
@@ -174,7 +179,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
         Ok(DrefBox {
             version,
             flags,
-            url,
+            data_entries,
         })
     }
 }
@@ -188,15 +193,16 @@ impl<W: Write> WriteBox<&mut W> for DrefBox {
 
         writer.write_u32::<BigEndian>(1)?;
 
-        if let Some(ref url) = self.url {
-            url.write_box(writer)?;
+        for entry in self.data_entries.iter() {
+            entry.write_box(writer)?;
         }
 
         Ok(size)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(Serialize))]
 pub struct UrlBox {
     pub version: u8,
     pub flags: u32,
@@ -221,7 +227,7 @@ impl UrlBox {
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
 
-        if ! self.location.is_empty() {
+        if !self.location.is_empty() {
             size += self.location.bytes().len() as u64 + 1;
         }
 
@@ -238,6 +244,7 @@ impl Mp4Box for UrlBox {
         return self.get_size();
     }
 
+    #[cfg(feature = "use_serde")]
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).unwrap())
     }
@@ -254,8 +261,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for UrlBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let location = if size - HEADER_SIZE - HEADER_EXT_SIZE > 0 {
-            let buf_size = size - HEADER_SIZE - HEADER_EXT_SIZE - 1;
+        println!("FOOBAR");
+
+        let rem_size = size - HEADER_SIZE - HEADER_EXT_SIZE;
+
+        let location = if rem_size > 0 {
+            let buf_size = rem_size - 1;
             let mut buf = vec![0u8; buf_size as usize];
             reader.read_exact(&mut buf)?;
             match String::from_utf8(buf) {
@@ -266,7 +277,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for UrlBox {
                 _ => String::default(),
             }
         } else {
-            String::default()
+            String::new()
         };
 
         skip_bytes_to(reader, start + size)?;
@@ -286,7 +297,7 @@ impl<W: Write> WriteBox<&mut W> for UrlBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        if ! self.location.is_empty() {
+        if !self.location.is_empty() {
             writer.write(self.location.as_bytes())?;
             writer.write_u8(0)?;
         }
