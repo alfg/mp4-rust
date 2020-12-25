@@ -663,16 +663,19 @@ impl Mp4TrackWriter {
 
     fn update_sync_samples(&mut self, is_sync: bool) {
         if let Some(ref mut stss) = self.trak.mdia.minf.stbl.stss {
-            stss.entries.push(self.sample_id);
-        } else {
-            if is_sync {
+            if !is_sync {
                 return;
             }
 
-            let mut stss = StssBox::default();
-            for i in 1..=self.trak.mdia.minf.stbl.stsz.sample_count {
-                stss.entries.push(i);
+            stss.entries.push(self.sample_id);
+        } else {
+            if !is_sync {
+                return;
             }
+
+            // Create the stts box if not found and push the entry.
+            let mut stss = StssBox::default();
+            stss.entries.push(self.sample_id);
             self.trak.mdia.minf.stbl.stss = Some(stss);
         };
     }
