@@ -238,6 +238,7 @@ impl Into<FourCC> for TrackType {
 
 const MEDIA_TYPE_H264: &str = "h264";
 const MEDIA_TYPE_H265: &str = "h265";
+const MEDIA_TYPE_VP9: &str = "vp9";
 const MEDIA_TYPE_AAC: &str = "aac";
 const MEDIA_TYPE_TTXT: &str = "ttxt";
 
@@ -245,6 +246,7 @@ const MEDIA_TYPE_TTXT: &str = "ttxt";
 pub enum MediaType {
     H264,
     H265,
+    VP9,
     AAC,
     TTXT,
 }
@@ -262,9 +264,12 @@ impl TryFrom<&str> for MediaType {
         match media {
             MEDIA_TYPE_H264 => Ok(MediaType::H264),
             MEDIA_TYPE_H265 => Ok(MediaType::H265),
+            MEDIA_TYPE_VP9 => Ok(MediaType::VP9),
             MEDIA_TYPE_AAC => Ok(MediaType::AAC),
             MEDIA_TYPE_TTXT => Ok(MediaType::TTXT),
-            _ => Err(Error::InvalidData("unsupported media type")),
+            _ => {
+                Err(Error::InvalidData("unsupported media type"))
+            }
         }
     }
 }
@@ -274,6 +279,7 @@ impl Into<&str> for MediaType {
         match self {
             MediaType::H264 => MEDIA_TYPE_H264,
             MediaType::H265 => MEDIA_TYPE_H265,
+            MediaType::VP9 => MEDIA_TYPE_VP9,
             MediaType::AAC => MEDIA_TYPE_AAC,
             MediaType::TTXT => MEDIA_TYPE_TTXT,
         }
@@ -287,18 +293,23 @@ impl Into<&str> for &MediaType {
             MediaType::H265 => MEDIA_TYPE_H265,
             MediaType::AAC => MEDIA_TYPE_AAC,
             MediaType::TTXT => MEDIA_TYPE_TTXT,
+            MediaType::VP9 => MEDIA_TYPE_VP9,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AvcProfile {
-    AvcConstrainedBaseline, // 66 with constraint set 1
-    AvcBaseline,            // 66,
-    AvcMain,                // 77,
-    AvcExtended,            // 88,
+    AvcConstrainedBaseline,
+    // 66 with constraint set 1
+    AvcBaseline,
+    // 66,
+    AvcMain,
+    // 77,
+    AvcExtended,
+    // 88,
     AvcHigh,                // 100
-                            // TODO Progressive High Profile, Constrained High Profile, ...
+    // TODO Progressive High Profile, Constrained High Profile, ...
 }
 
 impl TryFrom<(u8, u8)> for AvcProfile {
@@ -497,12 +508,19 @@ impl Default for AacConfig {
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct TtxtConfig {}
 
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct Vp9Config {
+    pub width: u16,
+    pub height: u16,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum MediaConfig {
     AvcConfig(AvcConfig),
     HevcConfig(HevcConfig),
     AacConfig(AacConfig),
     TtxtConfig(TtxtConfig),
+    Vp9Config(Vp9Config),
 }
 
 #[derive(Debug)]

@@ -38,6 +38,7 @@ impl From<MediaConfig> for TrackConfig {
             MediaConfig::HevcConfig(hevc_conf) => Self::from(hevc_conf),
             MediaConfig::AacConfig(aac_conf) => Self::from(aac_conf),
             MediaConfig::TtxtConfig(ttxt_conf) => Self::from(ttxt_conf),
+            MediaConfig::Vp9Config(vp9_config) => Self::from(vp9_config),
         }
     }
 }
@@ -86,6 +87,17 @@ impl From<TtxtConfig> for TrackConfig {
     }
 }
 
+impl From<Vp9Config> for TrackConfig {
+    fn from(vp9_conf: Vp9Config) -> Self {
+        Self {
+            track_type: TrackType::Video,
+            timescale: 1000,               // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::Vp9Config(vp9_conf),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Mp4Track {
     pub trak: TrakBox,
@@ -118,6 +130,8 @@ impl Mp4Track {
             Ok(MediaType::AAC)
         } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
             Ok(MediaType::TTXT)
+        } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
+            Ok(MediaType::VP9)
         } else {
             Err(Error::InvalidData("unsupported media type"))
         }
@@ -555,6 +569,12 @@ impl Mp4TrackWriter {
                 let hev1 = Hev1Box::new(hevc_config);
                 trak.mdia.minf.stbl.stsd.hev1 = Some(hev1);
             }
+            MediaConfig::Vp9Config(ref config) => {
+                trak.tkhd.set_width(config.width);
+                trak.tkhd.set_height(config.height);
+
+                trak.mdia.minf.stbl.stsd.vp09 = Default::default();
+            }
             MediaConfig::AacConfig(ref aac_config) => {
                 let smhd = SmhdBox::default();
                 trak.mdia.minf.smhd = Some(smhd);
@@ -566,6 +586,7 @@ impl Mp4TrackWriter {
                 let tx3g = Tx3gBox::default();
                 trak.mdia.minf.stbl.stsd.tx3g = Some(tx3g);
             }
+
         }
         Ok(Mp4TrackWriter {
             trak,

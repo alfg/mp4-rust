@@ -4,6 +4,7 @@ use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{avc1::Avc1Box, hev1::Hev1Box, mp4a::Mp4aBox, tx3g::Tx3gBox};
+use crate::mp4box::vp09::Vp09Box;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct StsdBox {
@@ -21,6 +22,9 @@ pub struct StsdBox {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tx3g: Option<Tx3gBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vp09: Option<Vp09Box>,
 }
 
 impl StsdBox {
@@ -38,6 +42,8 @@ impl StsdBox {
             size += mp4a.box_size();
         } else if let Some(ref tx3g) = self.tx3g {
             size += tx3g.box_size();
+        } else if let Some(ref vp09) = self.vp09 {
+            size += vp09.box_size();
         }
         size
     }
@@ -74,6 +80,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         let mut hev1 = None;
         let mut mp4a = None;
         let mut tx3g = None;
+        let mut vp09 = None;
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
@@ -92,6 +99,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Tx3gBox => {
                 tx3g = Some(Tx3gBox::read_box(reader, s)?);
             }
+            BoxType::Vp09Box => {
+                vp09 = Some(Vp09Box::read_box(reader, s)?);
+            }
             _ => {}
         }
 
@@ -104,6 +114,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             hev1,
             mp4a,
             tx3g,
+            vp09,
         })
     }
 }
