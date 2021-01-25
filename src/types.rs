@@ -267,7 +267,7 @@ impl TryFrom<&str> for MediaType {
             MEDIA_TYPE_VP9 => Ok(MediaType::VP9),
             MEDIA_TYPE_AAC => Ok(MediaType::AAC),
             MEDIA_TYPE_TTXT => Ok(MediaType::TTXT),
-             _ => Err(Error::InvalidData("unsupported media type")),
+            _ => Err(Error::InvalidData("unsupported media type")),
         }
     }
 }
