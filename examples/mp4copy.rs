@@ -4,7 +4,16 @@ use std::io::prelude::*;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 
-use mp4::{AacConfig, AvcConfig, HevcConfig, TtxtConfig, MediaConfig, MediaType, Mp4Config, Result, TrackConfig, Vp9Config};
+use mp4::{
+    AacConfig,
+    AvcConfig,
+    HevcConfig,
+    TtxtConfig,
+    MediaConfig,
+    MediaType,
+    Mp4Config,
+    Result,
+    TrackConfig};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -52,6 +61,10 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
                     width: track.width(),
                     height: track.height(),
                 }),
+                MediaType::VP9 => MediaConfig::Vp9Config(Vp9Config {
+                    width: track.width(),
+                    height: track.height(),
+                }),
                 MediaType::AAC => MediaConfig::AacConfig(AacConfig {
                     bitrate: track.bitrate(),
                     profile: track.audio_profile()?,
@@ -59,10 +72,6 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
                     chan_conf: track.channel_config()?,
                 }),
                 MediaType::TTXT => MediaConfig::TtxtConfig(TtxtConfig {}),
-                MediaType::VP9 => MediaConfig::Vp9Config(Vp9Config {
-                    width: track.width(),
-                    height: track.height(),
-                }),
             };
 
             let track_conf = TrackConfig {
