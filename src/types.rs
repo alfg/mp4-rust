@@ -303,7 +303,7 @@ pub enum AvcProfile {
     AvcMain,                // 77,
     AvcExtended,            // 88,
     AvcHigh,                // 100
-                            // TODO Progressive High Profile, Constrained High Profile, .
+                            // TODO Progressive High Profile, Constrained High Profile, ...
 }
 
 impl TryFrom<(u8, u8)> for AvcProfile {
