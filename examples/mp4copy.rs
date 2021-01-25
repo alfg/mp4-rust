@@ -8,6 +8,7 @@ use mp4::{
     AacConfig,
     AvcConfig,
     HevcConfig,
+    Vp9Config,
     TtxtConfig,
     MediaConfig,
     MediaType,

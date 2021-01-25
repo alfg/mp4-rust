@@ -126,12 +126,12 @@ impl Mp4Track {
             Ok(MediaType::H264)
         } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
             Ok(MediaType::H265)
+        } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
+            Ok(MediaType::VP9)
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(MediaType::AAC)
         } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
             Ok(MediaType::TTXT)
-        } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
-            Ok(MediaType::VP9)
         } else {
             Err(Error::InvalidData("unsupported media type"))
         }
@@ -142,6 +142,8 @@ impl Mp4Track {
             Ok(FourCC::from(BoxType::Avc1Box))
         } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
             Ok(FourCC::from(BoxType::Hev1Box))
+        } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
+            Ok(FourCC::from(BoxType::Vp09Box))
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(FourCC::from(BoxType::Mp4aBox))
         } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
