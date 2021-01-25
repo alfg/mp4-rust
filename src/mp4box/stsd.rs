@@ -16,15 +16,15 @@ pub struct StsdBox {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hev1: Option<Hev1Box>,
+    
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vp09: Option<Vp09Box>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mp4a: Option<Mp4aBox>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tx3g: Option<Tx3gBox>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vp09: Option<Vp09Box>,
 }
 
 impl StsdBox {
@@ -38,12 +38,12 @@ impl StsdBox {
             size += avc1.box_size();
         } else if let Some(ref hev1) = self.hev1 {
             size += hev1.box_size();
+        } else if let Some(ref vp09) = self.vp09 {
+            size += vp09.box_size();
         } else if let Some(ref mp4a) = self.mp4a {
             size += mp4a.box_size();
         } else if let Some(ref tx3g) = self.tx3g {
             size += tx3g.box_size();
-        } else if let Some(ref vp09) = self.vp09 {
-            size += vp09.box_size();
         }
         size
     }
@@ -78,9 +78,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 
         let mut avc1 = None;
         let mut hev1 = None;
+        let mut vp09 = None;
         let mut mp4a = None;
         let mut tx3g = None;
-        let mut vp09 = None;
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
@@ -93,14 +93,14 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Hev1Box => {
                 hev1 = Some(Hev1Box::read_box(reader, s)?);
             }
+            BoxType::Vp09Box => {
+                vp09 = Some(Vp09Box::read_box(reader, s)?);
+            }
             BoxType::Mp4aBox => {
                 mp4a = Some(Mp4aBox::read_box(reader, s)?);
             }
             BoxType::Tx3gBox => {
                 tx3g = Some(Tx3gBox::read_box(reader, s)?);
-            }
-            BoxType::Vp09Box => {
-                vp09 = Some(Vp09Box::read_box(reader, s)?);
             }
             _ => {}
         }
@@ -112,9 +112,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             flags,
             avc1,
             hev1,
+            vp09,
             mp4a,
             tx3g,
-            vp09,
         })
     }
 }
@@ -132,6 +132,8 @@ impl<W: Write> WriteBox<&mut W> for StsdBox {
             avc1.write_box(writer)?;
         } else if let Some(ref hev1) = self.hev1 {
             hev1.write_box(writer)?;
+        } else if let Some(ref vp09) = self.vp09 {
+            vp09.write_box(writer)?;
         } else if let Some(ref mp4a) = self.mp4a {
             mp4a.write_box(writer)?;
         } else if let Some(ref tx3g) = self.tx3g {
