@@ -267,9 +267,7 @@ impl TryFrom<&str> for MediaType {
             MEDIA_TYPE_VP9 => Ok(MediaType::VP9),
             MEDIA_TYPE_AAC => Ok(MediaType::AAC),
             MEDIA_TYPE_TTXT => Ok(MediaType::TTXT),
-            _ => {
-                Err(Error::InvalidData("unsupported media type"))
-            }
+             _ => Err(Error::InvalidData("unsupported media type")),
         }
     }
 }
@@ -291,25 +289,21 @@ impl Into<&str> for &MediaType {
         match self {
             MediaType::H264 => MEDIA_TYPE_H264,
             MediaType::H265 => MEDIA_TYPE_H265,
+            MediaType::VP9 => MEDIA_TYPE_VP9,
             MediaType::AAC => MEDIA_TYPE_AAC,
             MediaType::TTXT => MEDIA_TYPE_TTXT,
-            MediaType::VP9 => MEDIA_TYPE_VP9,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AvcProfile {
-    AvcConstrainedBaseline,
-    // 66 with constraint set 1
-    AvcBaseline,
-    // 66,
-    AvcMain,
-    // 77,
-    AvcExtended,
-    // 88,
+    AvcConstrainedBaseline, // 66 with constraint set 1
+    AvcBaseline,            // 66,
+    AvcMain,                // 77,
+    AvcExtended,            // 88,
     AvcHigh,                // 100
-    // TODO Progressive High Profile, Constrained High Profile, ...
+                            // TODO Progressive High Profile, Constrained High Profile, .
 }
 
 impl TryFrom<(u8, u8)> for AvcProfile {
