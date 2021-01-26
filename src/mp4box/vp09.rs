@@ -31,6 +31,38 @@ impl Vp09Box {
     pub const DEFAULT_FRAME_COUNT: u16 = 1;
     pub const DEFAULT_COMPRESSORNAME: [u8; 32] = [0; 32];
     pub const DEFAULT_DEPTH: u16 = 24;
+
+    pub fn new(config: &Vp9Config) -> Self {
+        Vp09Box {
+            version: 0,
+            flags: 0,
+            start_code: Vp09Box::DEFAULT_START_CODE,
+            data_reference_index: Vp09Box::DEFAULT_DATA_REFERENCE_INDEX,
+            reserved0: Default::default(),
+            width: config.width,
+            height: config.height,
+            horizresolution: Vp09Box::DEFAULT_HORIZRESOLUTION,
+            vertresolution: Vp09Box::DEFAULT_VERTRESOLUTION,
+            reserved1: Default::default(),
+            frame_count: Vp09Box::DEFAULT_FRAME_COUNT,
+            compressorname: Vp09Box::DEFAULT_COMPRESSORNAME,
+            depth: Vp09Box::DEFAULT_DEPTH,
+            end_code: Vp09Box::DEFAULT_END_CODE,
+            vpcc: VpccBox {
+                version: VpccBox::DEFAULT_VERSION,
+                flags: 0,
+                profile: 0,
+                level: 0x1F,
+                bit_depth: VpccBox::DEFAULT_BIT_DEPTH,
+                chroma_subsampling: 0,
+                video_full_range_flag: false,
+                color_primaries: 0,
+                transfer_characteristics: 0,
+                matrix_coefficients: 0,
+                codec_initialization_data_size: 0,
+            },
+        }
+    }
 }
 
 impl Mp4Box for Vp09Box {
@@ -143,35 +175,7 @@ mod tests {
 
     #[test]
     fn test_vpcc() {
-        let src_box = Vp09Box {
-            version: 0,
-            flags: 0,
-            start_code: Vp09Box::DEFAULT_START_CODE,
-            data_reference_index: Vp09Box::DEFAULT_DATA_REFERENCE_INDEX,
-            reserved0: Default::default(),
-            width: 0,
-            height: 0,
-            horizresolution: Vp09Box::DEFAULT_HORIZRESOLUTION,
-            vertresolution: Vp09Box::DEFAULT_VERTRESOLUTION,
-            reserved1: Default::default(),
-            frame_count: Vp09Box::DEFAULT_FRAME_COUNT,
-            compressorname: Vp09Box::DEFAULT_COMPRESSORNAME,
-            depth: Vp09Box::DEFAULT_DEPTH,
-            end_code: Vp09Box::DEFAULT_END_CODE,
-            vpcc: VpccBox {
-                version: VpccBox::DEFAULT_VERSION,
-                flags: 0,
-                profile: 0,
-                level: 0x1F,
-                bit_depth: VpccBox::DEFAULT_BIT_DEPTH,
-                chroma_subsampling: 0,
-                video_full_range_flag: false,
-                color_primaries: 0,
-                transfer_characteristics: 0,
-                matrix_coefficients: 0,
-                codec_initialization_data_size: 0,
-            },
-        };
+        let src_box = Vp09Box::new(&Vp9Config{ width: 1920, height: 1080 });
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);

@@ -10,6 +10,7 @@ use crate::mp4box::*;
 use crate::mp4box::{
     avc1::Avc1Box,
     hev1::Hev1Box,
+    vp09::Vp09Box,
     ctts::CttsBox,
     ctts::CttsEntry,
     mp4a::Mp4aBox,
@@ -575,7 +576,7 @@ impl Mp4TrackWriter {
                 trak.tkhd.set_width(config.width);
                 trak.tkhd.set_height(config.height);
 
-                trak.mdia.minf.stbl.stsd.vp09 = Default::default();
+                trak.mdia.minf.stbl.stsd.vp09 = Some(Vp09Box::new(config));
             }
             MediaConfig::AacConfig(ref aac_config) => {
                 let smhd = SmhdBox::default();
