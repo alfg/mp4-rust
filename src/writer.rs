@@ -22,6 +22,43 @@ pub struct Mp4Writer<W> {
     duration: u64,
 }
 
+impl<W> Mp4Writer<W> {
+    /// Consume self, returning the inner writer.
+    ///
+    /// This can be useful to recover the inner writer after completion in case
+    /// it's owned by the [Mp4Writer] instance.
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use mp4::{Mp4Writer, Mp4Config};
+    /// use std::io::Cursor;
+    ///
+    /// # fn main() -> mp4::Result<()> {
+    /// let config = Mp4Config {
+    ///     major_brand: "isom / 0x69736F6D".into(),
+    ///     minor_version: 512,
+    ///     compatible_brands: vec![
+    ///         "isom".into(),
+    ///         "iso2".into(),
+    ///         "avc1".into(),
+    ///         "mp41".into(),
+    ///     ],
+    ///     timescale: 1000,
+    /// };
+    ///
+    /// let data = Cursor::new(Vec::<u8>::new());
+    /// let mut writer = mp4::Mp4Writer::write_start(data, &config)?;
+    /// writer.write_end()?;
+    ///
+    /// let data: Vec<u8> = writer.into_writer().into_inner();
+    /// # Ok(()) }
+    /// ```
+    pub fn into_writer(self) -> W {
+        self.writer
+    }
+}
+
 impl<W: Write + Seek> Mp4Writer<W> {
     pub fn write_start(mut writer: W, config: &Mp4Config) -> Result<Self> {
         let ftyp = FtypBox {
