@@ -10,6 +10,7 @@ use crate::mp4box::*;
 use crate::mp4box::{
     avc1::Avc1Box,
     hev1::Hev1Box,
+    vp09::Vp09Box,
     ctts::CttsBox,
     ctts::CttsEntry,
     mp4a::Mp4aBox,
@@ -38,6 +39,7 @@ impl From<MediaConfig> for TrackConfig {
             MediaConfig::HevcConfig(hevc_conf) => Self::from(hevc_conf),
             MediaConfig::AacConfig(aac_conf) => Self::from(aac_conf),
             MediaConfig::TtxtConfig(ttxt_conf) => Self::from(ttxt_conf),
+            MediaConfig::Vp9Config(vp9_config) => Self::from(vp9_config),
         }
     }
 }
@@ -86,6 +88,17 @@ impl From<TtxtConfig> for TrackConfig {
     }
 }
 
+impl From<Vp9Config> for TrackConfig {
+    fn from(vp9_conf: Vp9Config) -> Self {
+        Self {
+            track_type: TrackType::Video,
+            timescale: 1000,               // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::Vp9Config(vp9_conf),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Mp4Track {
     pub trak: TrakBox,
@@ -114,6 +127,8 @@ impl Mp4Track {
             Ok(MediaType::H264)
         } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
             Ok(MediaType::H265)
+        } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
+            Ok(MediaType::VP9)
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(MediaType::AAC)
         } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
@@ -128,6 +143,8 @@ impl Mp4Track {
             Ok(FourCC::from(BoxType::Avc1Box))
         } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
             Ok(FourCC::from(BoxType::Hev1Box))
+        } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
+            Ok(FourCC::from(BoxType::Vp09Box))
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
             Ok(FourCC::from(BoxType::Mp4aBox))
         } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
@@ -555,6 +572,12 @@ impl Mp4TrackWriter {
                 let hev1 = Hev1Box::new(hevc_config);
                 trak.mdia.minf.stbl.stsd.hev1 = Some(hev1);
             }
+            MediaConfig::Vp9Config(ref config) => {
+                trak.tkhd.set_width(config.width);
+                trak.tkhd.set_height(config.height);
+
+                trak.mdia.minf.stbl.stsd.vp09 = Some(Vp09Box::new(config));
+            }
             MediaConfig::AacConfig(ref aac_config) => {
                 let smhd = SmhdBox::default();
                 trak.mdia.minf.smhd = Some(smhd);
@@ -566,6 +589,7 @@ impl Mp4TrackWriter {
                 let tx3g = Tx3gBox::default();
                 trak.mdia.minf.stbl.stsd.tx3g = Some(tx3g);
             }
+
         }
         Ok(Mp4TrackWriter {
             trak,

@@ -90,6 +90,8 @@ pub(crate) mod traf;
 pub(crate) mod trun;
 pub(crate) mod tx3g;
 pub(crate) mod vmhd;
+pub(crate) mod vp09;
+pub(crate) mod vpcc;
 
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
@@ -170,7 +172,9 @@ boxtype! {
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
     EsdsBox => 0x65736473,
-    Tx3gBox => 0x74783367
+    Tx3gBox => 0x74783367,
+    VpccBox => 0x76706343,
+    Vp09Box => 0x76703039
 }
 
 pub trait Mp4Box: Sized {
