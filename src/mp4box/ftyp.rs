@@ -95,23 +95,13 @@ mod tests {
     #[test]
     fn test_ftyp() {
         let src_box = FtypBox {
-            major_brand: FourCC {
-                value: String::from("isom"),
-            },
+            major_brand: str::parse("isom").unwrap(),
             minor_version: 0,
             compatible_brands: vec![
-                FourCC {
-                    value: String::from("isom"),
-                },
-                FourCC {
-                    value: String::from("iso2"),
-                },
-                FourCC {
-                    value: String::from("avc1"),
-                },
-                FourCC {
-                    value: String::from("mp41"),
-                },
+                str::parse("isom").unwrap(),
+                str::parse("iso2").unwrap(),
+                str::parse("avc1").unwrap(),
+                str::parse("mp41").unwrap(),
             ],
         };
         let mut buf = Vec::new();
