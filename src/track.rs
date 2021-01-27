@@ -363,24 +363,28 @@ impl Mp4Track {
 
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
         if self.trafs.len() > 0 {
-            let sample_sizes_count = self.sample_count() / self.trafs.len() as u32;
-            let traf_idx = (sample_id - 1) / sample_sizes_count;
-            if let Some(trun) = &self.trafs[traf_idx as usize].trun {
-                if let Some(size) = trun.sample_sizes.get((sample_id - (sample_sizes_count * traf_idx)) as usize - 1) {
-                    Ok(*size)
-                } else {
-                    return Err(Error::EntryInTrunNotFound(
-                        self.track_id(),
-                        BoxType::TrunBox,
-                        sample_id,
-                    ));
+            let mut offset = 0;
+            for traf_idx in 0..self.trafs.len() {
+                if let Some(trun) = &self.trafs[traf_idx].trun {
+                    let sample_count = trun.sample_count;
+                    if sample_count > (sample_id - 1 - offset) {
+                        if let Some(size) = trun.sample_sizes.get((sample_id - offset) as usize - 1) {
+                            return Ok(*size);
+                        } else {
+                            return Err(Error::EntryInTrunNotFound(
+                                self.track_id(),
+                                BoxType::TrunBox,
+                                sample_id,
+                            ));
+                        }
+                    }
+                    offset += sample_count;
                 }
-            } else {
-                return Err(Error::BoxInTrafNotFound(
-                    self.track_id(),
-                    BoxType::TrafBox,
-                ));
             }
+            return Err(Error::BoxInTrafNotFound(
+                self.track_id(),
+                BoxType::TrafBox,
+            ));
         } else {
             let stsz = &self.trak.mdia.minf.stbl.stsz;
             if stsz.sample_size > 0 {
@@ -413,9 +417,20 @@ impl Mp4Track {
 
     fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if self.trafs.len() > 0 {
-            let sample_sizes_count = self.sample_count() / self.trafs.len() as u32;
-            let traf_idx = (sample_id - 1) / sample_sizes_count;
-            Ok(self.trafs[(sample_id - (sample_sizes_count * traf_idx)) as usize].tfhd.base_data_offset as u64)
+            let mut offset = 0;
+            for traf_idx in 0..self.trafs.len() {
+                if let Some(trun) = &self.trafs[traf_idx].trun {
+                    let sample_count = trun.sample_count;
+                    if sample_count > (sample_id - 1 - offset) {
+                        return Ok(self.trafs[traf_idx].tfhd.base_data_offset as u64);
+                    }
+                    offset += sample_count;
+                }
+            }
+            return Err(Error::BoxInTrafNotFound(
+                self.track_id(),
+                BoxType::TrafBox,
+            ));
         } else {
             let stsc_index = self.stsc_index(sample_id);
 
