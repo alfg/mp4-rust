@@ -54,7 +54,9 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
 
     if let Some(ref mvex) = &mp4.moov.mvex {
         boxes.push(build_box(mvex));
-        boxes.push(build_box(&mvex.mehd));
+        if let Some(mehd) = &mvex.mehd {
+            boxes.push(build_box(mehd));
+        }
         boxes.push(build_box(&mvex.trex));
     }
 
