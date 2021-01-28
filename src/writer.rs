@@ -36,13 +36,13 @@ impl<W> Mp4Writer<W> {
     ///
     /// # fn main() -> mp4::Result<()> {
     /// let config = Mp4Config {
-    ///     major_brand: "isom / 0x69736F6D".into(),
+    ///     major_brand: str::parse("isom").unwrap(),
     ///     minor_version: 512,
     ///     compatible_brands: vec![
-    ///         "isom".into(),
-    ///         "iso2".into(),
-    ///         "avc1".into(),
-    ///         "mp41".into(),
+    ///         str::parse("isom").unwrap(),
+    ///         str::parse("iso2").unwrap(),
+    ///         str::parse("avc1").unwrap(),
+    ///         str::parse("mp41").unwrap(),
     ///     ],
     ///     timescale: 1000,
     /// };
