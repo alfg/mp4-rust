@@ -529,7 +529,7 @@ impl Mp4Track {
 
         let mut buffer = vec![0x0u8; sample_size as usize];
         reader.seek(SeekFrom::Start(sample_offset))?;
-        reader.read_exact(&mut buffer);
+        reader.read_exact(&mut buffer)?;
 
         let (start_time, duration) = self.sample_time(sample_id).unwrap(); // XXX
         let rendering_offset = self.sample_rendering_offset(sample_id);
