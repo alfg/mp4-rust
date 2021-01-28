@@ -85,26 +85,26 @@ impl fmt::Display for BoxType {
     }
 }
 
-#[derive(Default, PartialEq, Clone, Serialize)]
+#[derive(Default, PartialEq, Clone, Copy, Serialize)]
 pub struct FourCC {
-    pub value: String,
+    pub value: [u8; 4],
+}
+
+impl std::str::FromStr for FourCC {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if let [a, b, c, d] = s.as_bytes() {
+            Ok(Self { value: [*a, *b, *c, *d] })
+        } else {
+            Err(Error::InvalidData("expected exactly four bytes in string"))
+        }
+    }
 }
 
 impl From<u32> for FourCC {
     fn from(number: u32) -> Self {
-        let mut box_chars = Vec::new();
-        for x in 0..4 {
-            let c = (number >> (x * 8) & 0x0000_00FF) as u8;
-            box_chars.push(c);
-        }
-        box_chars.reverse();
-
-        let box_string = match String::from_utf8(box_chars) {
-            Ok(t) => t,
-            _ => String::from("null"), // error to retrieve fourcc
-        };
-
-        FourCC { value: box_string }
+        FourCC { value: number.to_be_bytes() }
     }
 }
 
@@ -116,30 +116,12 @@ impl From<FourCC> for u32 {
 
 impl From<&FourCC> for u32 {
     fn from(fourcc: &FourCC) -> u32 {
-        let mut b: [u8; 4] = Default::default();
-        b.copy_from_slice(fourcc.value.as_bytes());
-        u32::from_be_bytes(b)
+        u32::from_be_bytes(fourcc.value)
     }
 }
 
-impl From<String> for FourCC {
-    fn from(fourcc: String) -> FourCC {
-        let value = if fourcc.len() > 4 {
-            fourcc[0..4].to_string()
-        } else {
-            fourcc
-        };
-        FourCC { value }
-    }
-}
-
-impl From<&str> for FourCC {
-    fn from(fourcc: &str) -> FourCC {
-        let value = if fourcc.len() > 4 {
-            fourcc[0..4].to_string()
-        } else {
-            fourcc.to_string()
-        };
+impl From<[u8; 4]> for FourCC {
+    fn from(value: [u8; 4]) -> FourCC {
         FourCC { value }
     }
 }
@@ -154,13 +136,14 @@ impl From<BoxType> for FourCC {
 impl fmt::Debug for FourCC {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let code: u32 = self.into();
-        write!(f, "{} / {:#010X}", self.value, code)
+        let string = String::from_utf8_lossy(&self.value[..]);
+        write!(f, "{} / {:#010X}", string, code)
     }
 }
 
 impl fmt::Display for FourCC {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
+        write!(f, "{}", String::from_utf8_lossy(&self.value[..]))
     }
 }
 
@@ -169,8 +152,13 @@ const DISPLAY_TYPE_AUDIO: &str = "Audio";
 const DISPLAY_TYPE_SUBTITLE: &str = "Subtitle";
 
 const HANDLER_TYPE_VIDEO: &str = "vide";
+const HANDLER_TYPE_VIDEO_FOURCC: [u8; 4] = [b'v', b'i', b'd', b'e'];
+
 const HANDLER_TYPE_AUDIO: &str = "soun";
+const HANDLER_TYPE_AUDIO_FOURCC: [u8; 4] = [b's', b'o', b'u', b'n'];
+
 const HANDLER_TYPE_SUBTITLE: &str = "sbtl";
+const HANDLER_TYPE_SUBTITLE_FOURCC: [u8; 4] = [b's', b'b', b't', b'l'];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TrackType {
@@ -202,37 +190,25 @@ impl TryFrom<&str> for TrackType {
     }
 }
 
-impl Into<&str> for TrackType {
-    fn into(self) -> &'static str {
-        match self {
-            TrackType::Video => HANDLER_TYPE_VIDEO,
-            TrackType::Audio => HANDLER_TYPE_AUDIO,
-            TrackType::Subtitle => HANDLER_TYPE_SUBTITLE,
-        }
-    }
-}
-
-impl Into<&str> for &TrackType {
-    fn into(self) -> &'static str {
-        match self {
-            TrackType::Video => HANDLER_TYPE_VIDEO,
-            TrackType::Audio => HANDLER_TYPE_AUDIO,
-            TrackType::Subtitle => HANDLER_TYPE_SUBTITLE,
-        }
-    }
-}
-
 impl TryFrom<&FourCC> for TrackType {
     type Error = Error;
     fn try_from(fourcc: &FourCC) -> Result<TrackType> {
-        TrackType::try_from(fourcc.value.as_str())
+        match fourcc.value {
+            HANDLER_TYPE_VIDEO_FOURCC => Ok(TrackType::Video),
+            HANDLER_TYPE_AUDIO_FOURCC => Ok(TrackType::Audio),
+            HANDLER_TYPE_SUBTITLE_FOURCC => Ok(TrackType::Subtitle),
+            _ => Err(Error::InvalidData("unsupported handler type")),
+        }
     }
 }
 
 impl Into<FourCC> for TrackType {
     fn into(self) -> FourCC {
-        let s: &str = self.into();
-        FourCC::from(s)
+        match self {
+            TrackType::Video => HANDLER_TYPE_VIDEO_FOURCC.into(),
+            TrackType::Audio => HANDLER_TYPE_AUDIO_FOURCC.into(),
+            TrackType::Subtitle => HANDLER_TYPE_SUBTITLE_FOURCC.into(),
+        }
     }
 }
 

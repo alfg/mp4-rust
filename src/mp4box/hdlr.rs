@@ -108,7 +108,7 @@ mod tests {
         let src_box = HdlrBox {
             version: 0,
             flags: 0,
-            handler_type: FourCC::from("vide"),
+            handler_type: str::parse::<FourCC>("vide").unwrap(),
             name: String::from("VideoHandler"),
         };
         let mut buf = Vec::new();
