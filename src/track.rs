@@ -361,30 +361,41 @@ impl Mp4Track {
         ));
     }
 
+    /// return `(traf_idx, sample_idx_in_trun)`
+    fn find_traf_idx_and_sample_idx(&self, sample_id: u32) -> Option<(usize, usize)>{
+        let global_idx = sample_id - 1;
+        let mut offset = 0;
+        for traf_idx in 0..self.trafs.len() {
+            if let Some(trun) = &self.trafs[traf_idx].trun {
+                let sample_count = trun.sample_count;
+                if sample_count > (global_idx - offset) {
+                    return Some((traf_idx, (global_idx - offset) as _));
+                }
+                offset += sample_count;
+            }
+        }
+        None
+    }
+
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
         if self.trafs.len() > 0 {
-            let mut offset = 0;
-            for traf_idx in 0..self.trafs.len() {
-                if let Some(trun) = &self.trafs[traf_idx].trun {
-                    let sample_count = trun.sample_count;
-                    if sample_count > (sample_id - 1 - offset) {
-                        if let Some(size) = trun.sample_sizes.get((sample_id - offset) as usize - 1) {
-                            return Ok(*size);
-                        } else {
-                            return Err(Error::EntryInTrunNotFound(
-                                self.track_id(),
-                                BoxType::TrunBox,
-                                sample_id,
-                            ));
-                        }
-                    }
-                    offset += sample_count;
+            println!("trafs.len={}", self.trafs.len());
+            return if let Some((traf_idx, offset)) = self.find_traf_idx_and_sample_idx(sample_id) {
+                if let Some(size) = self.trafs[traf_idx].trun.as_ref().unwrap().sample_sizes.get(offset) {
+                    Ok(*size)
+                } else {
+                    Err(Error::EntryInTrunNotFound(
+                        self.track_id(),
+                        BoxType::TrunBox,
+                        sample_id,
+                    ))
                 }
-            }
-            return Err(Error::BoxInTrafNotFound(
-                self.track_id(),
-                BoxType::TrafBox,
-            ));
+            } else {
+                Err(Error::BoxInTrafNotFound(
+                    self.track_id(),
+                    BoxType::TrafBox,
+                ))
+            };
         } else {
             let stsz = &self.trak.mdia.minf.stbl.stsz;
             if stsz.sample_size > 0 {
@@ -417,20 +428,14 @@ impl Mp4Track {
 
     fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if self.trafs.len() > 0 {
-            let mut offset = 0;
-            for traf_idx in 0..self.trafs.len() {
-                if let Some(trun) = &self.trafs[traf_idx].trun {
-                    let sample_count = trun.sample_count;
-                    if sample_count > (sample_id - 1 - offset) {
-                        return Ok(self.trafs[traf_idx].tfhd.base_data_offset as u64);
-                    }
-                    offset += sample_count;
-                }
-            }
-            return Err(Error::BoxInTrafNotFound(
-                self.track_id(),
-                BoxType::TrafBox,
-            ));
+            return if let Some((traf_idx, _offset)) = self.find_traf_idx_and_sample_idx(sample_id) {
+                Ok(self.trafs[traf_idx].tfhd.base_data_offset as u64)
+            } else {
+                Err(Error::BoxInTrafNotFound(
+                    self.track_id(),
+                    BoxType::TrafBox,
+                ))
+            };
         } else {
             let stsc_index = self.stsc_index(sample_id);
 
