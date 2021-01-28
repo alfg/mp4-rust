@@ -379,9 +379,8 @@ impl Mp4Track {
 
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
         if self.trafs.len() > 0 {
-            println!("trafs.len={}", self.trafs.len());
-            return if let Some((traf_idx, offset)) = self.find_traf_idx_and_sample_idx(sample_id) {
-                if let Some(size) = self.trafs[traf_idx].trun.as_ref().unwrap().sample_sizes.get(offset) {
+            return if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+                if let Some(size) = self.trafs[traf_idx].trun.as_ref().unwrap().sample_sizes.get(sample_idx) {
                     Ok(*size)
                 } else {
                     Err(Error::EntryInTrunNotFound(
@@ -428,7 +427,7 @@ impl Mp4Track {
 
     fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if self.trafs.len() > 0 {
-            return if let Some((traf_idx, _offset)) = self.find_traf_idx_and_sample_idx(sample_id) {
+            return if let Some((traf_idx, _sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
                 Ok(self.trafs[traf_idx].tfhd.base_data_offset as u64)
             } else {
                 Err(Error::BoxInTrafNotFound(
@@ -530,7 +529,8 @@ impl Mp4Track {
 
         let mut buffer = vec![0x0u8; sample_size as usize];
         reader.seek(SeekFrom::Start(sample_offset))?;
-        reader.read_exact(&mut buffer)?;
+        reader.read_exact(&mut buffer)
+            .expect(&format!("sample_offset={}, sample_size={}", sample_offset, sample_size));
 
         let (start_time, duration) = self.sample_time(sample_id).unwrap(); // XXX
         let rendering_offset = self.sample_rendering_offset(sample_id);
