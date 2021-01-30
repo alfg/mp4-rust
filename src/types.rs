@@ -358,6 +358,7 @@ pub enum SampleFreqIndex {
     Freq12000 = 0x9,
     Freq11025 = 0xa,
     Freq8000 = 0xb,
+    Freq7350 = 0xc,
 }
 
 impl TryFrom<u8> for SampleFreqIndex {
@@ -376,6 +377,7 @@ impl TryFrom<u8> for SampleFreqIndex {
             0x9 => Ok(SampleFreqIndex::Freq12000),
             0xa => Ok(SampleFreqIndex::Freq11025),
             0xb => Ok(SampleFreqIndex::Freq8000),
+            0xc => Ok(SampleFreqIndex::Freq7350),
             _ => Err(Error::InvalidData("invalid sampling frequency index")),
         }
     }
@@ -396,6 +398,7 @@ impl SampleFreqIndex {
             &SampleFreqIndex::Freq12000 => 12000,
             &SampleFreqIndex::Freq11025 => 11025,
             &SampleFreqIndex::Freq8000 => 8000,
+            &SampleFreqIndex::Freq7350 => 7350,
         }
     }
 }
