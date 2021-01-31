@@ -225,7 +225,7 @@ impl BoxHeader {
 
             Ok(BoxHeader {
                 name: BoxType::from(typ),
-                size: largesize,
+                size: largesize - HEADER_SIZE,
             })
         } else {
             Ok(BoxHeader {
