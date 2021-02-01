@@ -61,7 +61,7 @@ See [examples/](examples/) for more examples.
 #### Install
 Add to your `Cargo.toml`:
 ```toml
-mp4 = "0.8.0"
+mp4 = "0.8.1"
 ```
 
 #### Documentation
