@@ -6,7 +6,7 @@ use std::ops::Range;
 use std::time::Duration;
 
 fn main() {
-    let path = "tests/samples/Simbai & Elke Bay - Energy.m4a";
+    let path = "audio_aac.m4a";
     let file = File::open(path).expect("Error opening file");
 
     let metadata = file.metadata().expect("Error getting file metadata");
