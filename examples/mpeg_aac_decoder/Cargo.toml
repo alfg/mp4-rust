@@ -1,0 +1,9 @@
+[package]
+name = "mpeg_aac_decoder"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+mp4 = "0.8.1"
+fdk-aac = "0.4.0"
+rodio = { version = "0.13.0", default-features = false }
