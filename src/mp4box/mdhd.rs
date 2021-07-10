@@ -26,8 +26,7 @@ impl MdhdBox {
 
         if self.version == 1 {
             size += 28;
-        } else {
-            assert_eq!(self.version, 0);
+        } else if self.version == 0 {
             size += 16;
         }
         size += 4;
@@ -82,14 +81,15 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
                 reader.read_u32::<BigEndian>()?,
                 reader.read_u64::<BigEndian>()?,
             )
-        } else {
-            assert_eq!(version, 0);
+        } else if version == 0 {
             (
                 reader.read_u32::<BigEndian>()? as u64,
                 reader.read_u32::<BigEndian>()? as u64,
                 reader.read_u32::<BigEndian>()?,
                 reader.read_u32::<BigEndian>()? as u64,
             )
+        } else {
+            return Err(Error::InvalidData("version must be 0 or 1"));
         };
         let language_code = reader.read_u16::<BigEndian>()?;
         let language = language_string(language_code);
@@ -120,12 +120,13 @@ impl<W: Write> WriteBox<&mut W> for MdhdBox {
             writer.write_u64::<BigEndian>(self.modification_time)?;
             writer.write_u32::<BigEndian>(self.timescale)?;
             writer.write_u64::<BigEndian>(self.duration)?;
-        } else {
-            assert_eq!(self.version, 0);
+        } else if self.version == 0 {
             writer.write_u32::<BigEndian>(self.creation_time as u32)?;
             writer.write_u32::<BigEndian>(self.modification_time as u32)?;
             writer.write_u32::<BigEndian>(self.timescale)?;
             writer.write_u32::<BigEndian>(self.duration as u32)?;
+        } else {
+            return Err(Error::InvalidData("version must be 0 or 1"));
         }
 
         let language_code = language_code(&self.language);

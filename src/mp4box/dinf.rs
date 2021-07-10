@@ -260,7 +260,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for UrlBox {
             reader.read_exact(&mut buf)?;
             match String::from_utf8(buf) {
                 Ok(t) => {
-                    assert_eq!(t.len(), buf_size as usize);
+                    if t.len() != buf_size as usize {
+                        return Err(Error::InvalidData("string too small"))
+                    }
                     t
                 }
                 _ => String::default(),

@@ -83,7 +83,9 @@ impl<W: Write> WriteBox<&mut W> for StszBox {
         writer.write_u32::<BigEndian>(self.sample_size)?;
         writer.write_u32::<BigEndian>(self.sample_count)?;
         if self.sample_size == 0 {
-            assert_eq!(self.sample_count, self.sample_sizes.len() as u32);
+            if self.sample_count != self.sample_sizes.len() as u32 {
+                return Err(Error::InvalidData("sample count out of sync"));
+            }
             for sample_number in self.sample_sizes.iter() {
                 writer.write_u32::<BigEndian>(*sample_number)?;
             }

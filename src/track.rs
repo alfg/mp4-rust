@@ -303,19 +303,26 @@ impl Mp4Track {
         }
     }
 
-    fn stsc_index(&self, sample_id: u32) -> usize {
+    fn stsc_index(&self, sample_id: u32) -> Result<usize> {
+        if self.trak.mdia.minf.stbl.stsc.entries.is_empty() {
+            return Err(Error::InvalidData("no stsc entries"));
+        }
         for (i, entry) in self.trak.mdia.minf.stbl.stsc.entries.iter().enumerate() {
             if sample_id < entry.first_sample {
-                assert_ne!(i, 0);
-                return i - 1;
+                return if i == 0 {
+                    Err(Error::InvalidData("sample not found"))
+                } else {
+                    Ok(i - 1)
+                };
             }
         }
-
-        assert_ne!(self.trak.mdia.minf.stbl.stsc.entries.len(), 0);
-        self.trak.mdia.minf.stbl.stsc.entries.len() - 1
+        Ok(self.trak.mdia.minf.stbl.stsc.entries.len() - 1)
     }
 
     fn chunk_offset(&self, chunk_id: u32) -> Result<u64> {
+        if self.trak.mdia.minf.stbl.stco.is_none() && self.trak.mdia.minf.stbl.co64.is_none() {
+            return Err(Error::InvalidData("must have either stco or co64 boxes"));
+        }
         if let Some(ref stco) = self.trak.mdia.minf.stbl.stco {
             if let Some(offset) = stco.entries.get(chunk_id as usize - 1) {
                 return Ok(*offset as u64);
@@ -326,21 +333,17 @@ impl Mp4Track {
                     chunk_id,
                 ));
             }
-        } else {
-            if let Some(ref co64) = self.trak.mdia.minf.stbl.co64 {
-                if let Some(offset) = co64.entries.get(chunk_id as usize - 1) {
-                    return Ok(*offset);
-                } else {
-                    return Err(Error::EntryInStblNotFound(
-                        self.track_id(),
-                        BoxType::Co64Box,
-                        chunk_id,
-                    ));
-                }
+        } else if let Some(ref co64) = self.trak.mdia.minf.stbl.co64 {
+            if let Some(offset) = co64.entries.get(chunk_id as usize - 1) {
+                return Ok(*offset);
+            } else {
+                return Err(Error::EntryInStblNotFound(
+                    self.track_id(),
+                    BoxType::Co64Box,
+                    chunk_id,
+                ));
             }
         }
-
-        assert!(self.trak.mdia.minf.stbl.stco.is_some() || self.trak.mdia.minf.stbl.co64.is_some());
         return Err(Error::Box2NotFound(BoxType::StcoBox, BoxType::Co64Box));
     }
 
@@ -436,7 +439,7 @@ impl Mp4Track {
                 ))
             }
         } else {
-            let stsc_index = self.stsc_index(sample_id);
+            let stsc_index = self.stsc_index(sample_id)?;
 
             let stsc = &self.trak.mdia.minf.stbl.stsc;
             let stsc_entry = stsc.entries.get(stsc_index).unwrap();
@@ -631,7 +634,6 @@ impl Mp4TrackWriter {
                 self.is_fixed_sample_size = true;
             }
         } else {
-            assert!(self.trak.mdia.minf.stbl.stsz.sample_count > 0);
             if self.is_fixed_sample_size {
                 if self.fixed_sample_size != size {
                     self.is_fixed_sample_size = false;

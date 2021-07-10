@@ -21,8 +21,7 @@ impl MehdBox {
 
         if self.version == 1 {
             size += 8;
-        } else {
-            assert_eq!(self.version, 0);
+        } else if self.version == 0 {
             size += 4;
         }
         size
@@ -66,9 +65,10 @@ impl<R: Read + Seek> ReadBox<&mut R> for MehdBox {
 
         let fragment_duration = if version == 1 {
             reader.read_u64::<BigEndian>()?
-        } else {
-            assert_eq!(version, 0);
+        } else if version == 0 {
             reader.read_u32::<BigEndian>()? as u64
+        } else {
+            return Err(Error::InvalidData("version must be 0 or 1"));
         };
         skip_bytes_to(reader, start + size)?;
 
@@ -89,9 +89,10 @@ impl<W: Write> WriteBox<&mut W> for MehdBox {
 
         if self.version == 1 {
             writer.write_u64::<BigEndian>(self.fragment_duration)?;
-        } else {
-            assert_eq!(self.version, 0);
+        } else if self.version == 0 {
             writer.write_u32::<BigEndian>(self.fragment_duration as u32)?;
+        } else {
+            return Err(Error::InvalidData("version must be 0 or 1"));
         }
 
         Ok(size)
