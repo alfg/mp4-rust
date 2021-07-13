@@ -73,8 +73,7 @@ impl TkhdBox {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
         if self.version == 1 {
             size += 32;
-        } else {
-            assert_eq!(self.version, 0);
+        } else if self.version == 0 {
             size += 20;
         }
         size += 60;
@@ -125,8 +124,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
                 reader.read_u32::<BigEndian>()?,
                 reader.read_u64::<BigEndian>()?,
             )
-        } else {
-            assert_eq!(version, 0);
+        } else if version == 0 {
             (
                 reader.read_u32::<BigEndian>()? as u64,
                 reader.read_u32::<BigEndian>()? as u64,
@@ -134,6 +132,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
                 reader.read_u32::<BigEndian>()?,
                 reader.read_u32::<BigEndian>()? as u64,
             )
+        } else {
+            return Err(Error::InvalidData("version must be 0 or 1"));
         };
         reader.read_u64::<BigEndian>()?; // reserved
         let layer = reader.read_u16::<BigEndian>()?;
@@ -188,13 +188,14 @@ impl<W: Write> WriteBox<&mut W> for TkhdBox {
             writer.write_u32::<BigEndian>(self.track_id)?;
             writer.write_u32::<BigEndian>(0)?; // reserved
             writer.write_u64::<BigEndian>(self.duration)?;
-        } else {
-            assert_eq!(self.version, 0);
+        } else if self.version == 0 {
             writer.write_u32::<BigEndian>(self.creation_time as u32)?;
             writer.write_u32::<BigEndian>(self.modification_time as u32)?;
             writer.write_u32::<BigEndian>(self.track_id)?;
             writer.write_u32::<BigEndian>(0)?; // reserved
             writer.write_u32::<BigEndian>(self.duration as u32)?;
+        } else {
+            return Err(Error::InvalidData("version must be 0 or 1"));
         }
 
         writer.write_u64::<BigEndian>(0)?; // reserved

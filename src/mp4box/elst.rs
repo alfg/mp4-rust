@@ -30,8 +30,7 @@ impl ElstBox {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
         if self.version == 1 {
             size += self.entries.len() as u64 * 20;
-        } else {
-            assert_eq!(self.version, 0);
+        } else if self.version == 0 {
             size += self.entries.len() as u64 * 12;
         }
         size

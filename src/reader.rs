@@ -66,7 +66,9 @@ impl<R: Read + Seek> Mp4Reader<R> {
         let mut tracks = if let Some(ref moov) = moov {
             let mut tracks = Vec::with_capacity(moov.traks.len());
             for (i, trak) in moov.traks.iter().enumerate() {
-                assert_eq!(trak.tkhd.track_id, i as u32 + 1);
+                if trak.tkhd.track_id != i as u32 + 1 {
+                    return Err(Error::InvalidData("tracks out of order"));
+                }
                 tracks.push(Mp4Track::from(trak));
             }
             tracks
