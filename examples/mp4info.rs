@@ -44,7 +44,7 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     println!("  timescale:      {:?}\n", mp4.timescale());
 
     println!("Found {} Tracks", mp4.tracks().len());
-    for track in mp4.tracks().iter() {
+    for track in mp4.tracks().values() {
         let media_info = match track.track_type()? {
             TrackType::Video => video_info(track)?,
             TrackType::Audio => audio_info(track)?,

@@ -49,45 +49,42 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
     )?;
 
     // TODO interleaving
-    for track_idx in 0..mp4_reader.tracks().len() {
-        if let Some(ref track) = mp4_reader.tracks().get(track_idx) {
-            let media_conf = match track.media_type()? {
-                MediaType::H264 => MediaConfig::AvcConfig(AvcConfig {
-                    width: track.width(),
-                    height: track.height(),
-                    seq_param_set: track.sequence_parameter_set()?.to_vec(),
-                    pic_param_set: track.picture_parameter_set()?.to_vec(),
-                }),
-                MediaType::H265 => MediaConfig::HevcConfig(HevcConfig {
-                    width: track.width(),
-                    height: track.height(),
-                }),
-                MediaType::VP9 => MediaConfig::Vp9Config(Vp9Config {
-                    width: track.width(),
-                    height: track.height(),
-                }),
-                MediaType::AAC => MediaConfig::AacConfig(AacConfig {
-                    bitrate: track.bitrate(),
-                    profile: track.audio_profile()?,
-                    freq_index: track.sample_freq_index()?,
-                    chan_conf: track.channel_config()?,
-                }),
-                MediaType::TTXT => MediaConfig::TtxtConfig(TtxtConfig {}),
-            };
+    for track in mp4_reader.tracks().values() {
+        let media_conf = match track.media_type()? {
+            MediaType::H264 => MediaConfig::AvcConfig(AvcConfig {
+                width: track.width(),
+                height: track.height(),
+                seq_param_set: track.sequence_parameter_set()?.to_vec(),
+                pic_param_set: track.picture_parameter_set()?.to_vec(),
+            }),
+            MediaType::H265 => MediaConfig::HevcConfig(HevcConfig {
+                width: track.width(),
+                height: track.height(),
+            }),
+            MediaType::VP9 => MediaConfig::Vp9Config(Vp9Config {
+                width: track.width(),
+                height: track.height(),
+            }),
+            MediaType::AAC => MediaConfig::AacConfig(AacConfig {
+                bitrate: track.bitrate(),
+                profile: track.audio_profile()?,
+                freq_index: track.sample_freq_index()?,
+                chan_conf: track.channel_config()?,
+            }),
+            MediaType::TTXT => MediaConfig::TtxtConfig(TtxtConfig {}),
+        };
 
-            let track_conf = TrackConfig {
-                track_type: track.track_type()?,
-                timescale: track.timescale(),
-                language: track.language().to_string(),
-                media_conf,
-            };
+        let track_conf = TrackConfig {
+            track_type: track.track_type()?,
+            timescale: track.timescale(),
+            language: track.language().to_string(),
+            media_conf,
+        };
 
-            mp4_writer.add_track(&track_conf)?;
-        } else {
-            unreachable!()
-        }
+        mp4_writer.add_track(&track_conf)?;
+    }
 
-        let track_id = track_idx as u32 + 1;
+    for track_id in mp4_reader.tracks().keys().copied().collect::<Vec<u32>>() {
         let sample_count = mp4_reader.sample_count(track_id)?;
         for sample_idx in 0..sample_count {
             let sample_id = sample_idx + 1;

@@ -61,7 +61,7 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
     }
 
     // trak.
-    for track in mp4.tracks().iter() {
+    for track in mp4.tracks().values() {
         boxes.push(build_box(&track.trak));
         boxes.push(build_box(&track.trak.tkhd));
         if let Some(ref edts) = track.trak.edts {
