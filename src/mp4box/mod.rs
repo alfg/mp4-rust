@@ -99,6 +99,7 @@ pub(crate) mod vpcc;
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
 pub use moof::MoofBox;
+pub use emsg::EmsgBox;
 
 pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;

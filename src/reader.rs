@@ -10,6 +10,7 @@ pub struct Mp4Reader<R> {
     pub ftyp: FtypBox,
     pub moov: MoovBox,
     pub moofs: Vec<MoofBox>,
+    pub emsgs: Vec<EmsgBox>,
 
     tracks: Vec<Mp4Track>,
     size: u64,
@@ -22,6 +23,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
         let mut ftyp = None;
         let mut moov = None;
         let mut moofs = Vec::new();
+        let mut emsgs = Vec::new();
 
         let mut current = start;
         while current < size {
@@ -46,6 +48,10 @@ impl<R: Read + Seek> Mp4Reader<R> {
                 BoxType::MoofBox => {
                     let moof = MoofBox::read_box(&mut reader, s)?;
                     moofs.push(moof);
+                }
+                BoxType::EmsgBox => {
+                    let emsg = EmsgBox::read_box(&mut reader, s)?;
+                    emsgs.push(emsg);
                 }
                 _ => {
                     // XXX warn!()
@@ -99,6 +105,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
             ftyp: ftyp.unwrap(),
             moov: moov.unwrap(),
             moofs,
+            emsgs,
             size,
             tracks,
         })
