@@ -78,7 +78,7 @@ mod types;
 pub use types::*;
 
 mod mp4box;
-pub use mp4box::{Mp4Box};
+pub use mp4box::*;
 
 mod track;
 pub use track::{Mp4Track, TrackConfig};
