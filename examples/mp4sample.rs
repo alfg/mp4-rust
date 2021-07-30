@@ -26,8 +26,7 @@ fn samples<P: AsRef<Path>>(filename: &P) -> Result<()> {
 
     let mut mp4 = mp4::Mp4Reader::read_header(reader, size)?;
 
-    for track_idx in 0..mp4.tracks().len() {
-        let track_id = track_idx as u32 + 1;
+    for track_id in mp4.tracks().keys().copied().collect::<Vec<u32>>() {
         let sample_count = mp4.sample_count(track_id).unwrap();
 
         for sample_idx in 0..sample_count {

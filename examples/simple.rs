@@ -16,7 +16,7 @@ fn main() {
 
     println!("Major Brand: {}", mp4.major_brand());
 
-    for track in mp4.tracks().iter() {
+    for track in mp4.tracks().values() {
         println!("Track: #{}({}) {} {}",
             track.track_id(),
             track.language(),

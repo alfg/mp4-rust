@@ -37,7 +37,7 @@
 //!     println!("duration: {:?}", mp4.duration());
 //!
 //!    // Track info.
-//!    for track in mp4.tracks().iter() {
+//!    for track in mp4.tracks().values() {
 //!        println!(
 //!            "track: #{}({}) {} : {}",
 //!            track.track_id(),

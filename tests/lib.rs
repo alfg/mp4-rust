@@ -94,7 +94,7 @@ fn test_read_mp4() {
     assert!(eos.is_none());
 
     // track #1
-    let track1 = mp4.tracks().get(0).unwrap();
+    let track1 = mp4.tracks().get(&1).unwrap();
     assert_eq!(track1.track_id(), 1);
     assert_eq!(track1.track_type().unwrap(), TrackType::Video);
     assert_eq!(track1.media_type().unwrap(), MediaType::H264);
@@ -105,7 +105,7 @@ fn test_read_mp4() {
     assert_eq!(track1.frame_rate(), 25.00); // XXX
 
     // track #2
-    let track2 = mp4.tracks().get(1).unwrap();
+    let track2 = mp4.tracks().get(&2).unwrap();
     assert_eq!(track2.track_type().unwrap(), TrackType::Audio);
     assert_eq!(track2.media_type().unwrap(), MediaType::AAC);
     assert_eq!(
