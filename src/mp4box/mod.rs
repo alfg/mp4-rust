@@ -3,6 +3,7 @@
 //! * [ISO/IEC 14496-12](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - ISO Base Media File Format (QuickTime, MPEG-4, etc)
 //! * [ISO/IEC 14496-14](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - MP4 file format
 //! * ISO/IEC 14496-17 - Streaming text format
+//! * [ISO 23009-1](https://www.iso.org/standard/79329.html) -Dynamic adaptive streaming over HTTP (DASH)
 //! 
 //! http://developer.apple.com/documentation/QuickTime/QTFF/index.html
 //! http://www.adobe.com/devnet/video/articles/mp4_movie_atom.html
@@ -40,6 +41,7 @@
 //!     mvex
 //!         mehd
 //!         trex
+//! emsg
 //! moof
 //!     mfhd
 //!     traf
@@ -71,6 +73,7 @@ pub(crate) mod moov;
 pub(crate) mod mvex;
 pub(crate) mod mehd;
 pub(crate) mod trex;
+pub(crate) mod emsg;
 pub(crate) mod moof;
 pub(crate) mod mp4a;
 pub(crate) mod mvhd;
@@ -96,6 +99,7 @@ pub(crate) mod vpcc;
 pub use ftyp::FtypBox;
 pub use moov::MoovBox;
 pub use moof::MoofBox;
+pub use emsg::EmsgBox;
 
 pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;
@@ -139,6 +143,7 @@ boxtype! {
     MvexBox => 0x6d766578,
     MehdBox => 0x6d656864,
     TrexBox => 0x74726578,
+    EmsgBox => 0x656d7367,
     MoofBox => 0x6d6f6f66,
     TkhdBox => 0x746b6864,
     TfhdBox => 0x74666864,
