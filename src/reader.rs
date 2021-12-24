@@ -32,6 +32,11 @@ impl<R: Read + Seek> Mp4Reader<R> {
             let header = BoxHeader::read(&mut reader)?;
             let BoxHeader { name, size: s } = header;
 
+            // Break if size zero BoxHeader, which can result in dead-loop.
+            if s == 0 {
+                break;
+            }
+
             // Match and parse the atom boxes.
             match name {
                 BoxType::FtypBox => {
