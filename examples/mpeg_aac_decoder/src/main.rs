@@ -172,7 +172,7 @@ pub fn construct_adts_header(track: &mp4::Mp4Track, sample: &mp4::Mp4Sample) -> 
         Ok(mp4::AudioObjectType::AacLowComplexity) => 2,
         Ok(mp4::AudioObjectType::AacScalableSampleRate) => 3,
         Ok(mp4::AudioObjectType::AacLongTermPrediction) => 4,
-        Err(_) => return None,
+        _ => return None,
     };
     let adts_object_type = object_type - 1;
     byte2 = (byte2 << 2) | adts_object_type; // EE
