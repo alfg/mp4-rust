@@ -3,6 +3,10 @@ name = "mpeg_aac_decoder"
 version = "0.1.0"
 edition = "2018"
 
+[[example]]
+name = "mpeg_aac_decoder"
+path = "src/main.rs"
+
 [dependencies]
 mp4 = "0.8.1"
 fdk-aac = "0.4.0"
