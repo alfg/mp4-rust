@@ -3,7 +3,6 @@ use std::io::{Read, Seek, SeekFrom};
 use std::time::Duration;
 
 use crate::*;
-use crate::mp4box::*;
 
 #[derive(Debug)]
 pub struct Mp4Reader<R> {

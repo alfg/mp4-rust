@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use crate::mp4box::trak::TrakBox;
 use crate::mp4box::traf::TrafBox;
-use crate::mp4box::*;
 use crate::mp4box::{
     avc1::Avc1Box,
     hev1::Hev1Box,
