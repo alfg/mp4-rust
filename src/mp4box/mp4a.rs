@@ -53,11 +53,11 @@ impl Mp4aBox {
 
 impl Mp4Box for Mp4aBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -159,8 +159,7 @@ impl Mp4Box for EsdsBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("");
-        Ok(s)
+        Ok(String::new())
     }
 }
 
@@ -471,13 +470,45 @@ impl Descriptor for DecoderSpecificDescriptor {
     }
 }
 
+fn get_audio_object_type(byte_a: u8, byte_b: u8) -> u8 {
+    let mut profile = byte_a >> 3;
+    if profile == 31 {
+        profile = 32 + ((byte_a & 7) | (byte_b >> 5));
+    }
+
+    profile
+}
+
+fn get_chan_conf<R: Read + Seek>(reader: &mut R, byte_b: u8, freq_index: u8, extended_profile: bool) -> Result<u8> {
+    let chan_conf;
+    if freq_index == 15 {
+        // Skip the 24 bit sample rate
+        let sample_rate = reader.read_u24::<BigEndian>()?;
+        chan_conf = ((sample_rate >> 4) & 0x0F) as u8;
+    } else if extended_profile {
+        let byte_c = reader.read_u8()?;
+        chan_conf = (byte_b & 1) | (byte_c & 0xE0);
+    } else {
+        chan_conf = (byte_b >> 3) & 0x0F;
+    }
+
+    Ok(chan_conf)
+}
+
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
     fn read_desc(reader: &mut R, _size: u32) -> Result<Self> {
         let byte_a = reader.read_u8()?;
         let byte_b = reader.read_u8()?;
-        let profile = byte_a >> 3;
-        let freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
-        let chan_conf = (byte_b >> 3) & 0x0F;
+        let profile = get_audio_object_type(byte_a, byte_b);
+        let freq_index;
+        let chan_conf;
+        if profile > 31 {
+            freq_index = (byte_b >> 1) & 0x0F;
+            chan_conf = get_chan_conf(reader, byte_b, freq_index, true)?;
+        } else {
+            freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
+            chan_conf = get_chan_conf(reader, byte_b, freq_index, false)?;
+        }
 
         Ok(DecoderSpecificDescriptor {
             profile,

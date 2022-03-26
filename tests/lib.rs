@@ -1,16 +1,11 @@
-use mp4::{AudioObjectType, AvcProfile, ChannelConfig, MediaType, SampleFreqIndex, TrackType};
+use mp4::{AudioObjectType, AvcProfile, ChannelConfig, MediaType, Mp4Reader, SampleFreqIndex, TrackType};
 use std::fs::File;
 use std::io::BufReader;
 use std::time::Duration;
 
 #[test]
 fn test_read_mp4() {
-    let filename = "tests/samples/minimal.mp4";
-    let f = File::open(filename).unwrap();
-    let size = f.metadata().unwrap().len();
-    let reader = BufReader::new(f);
-
-    let mut mp4 = mp4::Mp4Reader::read_header(reader, size).unwrap();
+    let mut mp4 = get_reader("tests/samples/minimal.mp4");
 
     assert_eq!(2591, mp4.size());
 
@@ -118,4 +113,32 @@ fn test_read_mp4() {
     );
     assert_eq!(track2.channel_config().unwrap(), ChannelConfig::Mono);
     assert_eq!(track2.bitrate(), 67695);
+}
+
+#[test]
+fn test_read_extended_audio_object_type() {
+    // Extended audio object type and sample rate index of 15
+    let mp4 = get_reader("tests/samples/extended_audio_object_type.mp4");
+
+    let track = mp4.tracks().get(&1).unwrap();
+    assert_eq!(track.track_type().unwrap(), TrackType::Audio);
+    assert_eq!(track.media_type().unwrap(), MediaType::AAC);
+    assert_eq!(
+        track.audio_profile().unwrap(),
+        AudioObjectType::AudioLosslessCoding
+    );
+    assert_eq!(
+        track.trak.mdia.minf.stbl.stsd.mp4a.as_ref().unwrap().esds.as_ref().unwrap().es_desc.dec_config.dec_specific.freq_index,
+        15
+    );
+    assert_eq!(track.channel_config().unwrap(), ChannelConfig::Stereo);
+    assert_eq!(track.bitrate(), 839250);
+}
+
+fn get_reader(path: &str) -> Mp4Reader<BufReader<File>> {
+    let f = File::open(path).unwrap();
+    let f_size = f.metadata().unwrap().len();
+    let reader = BufReader::new(f);
+
+    mp4::Mp4Reader::read_header(reader, f_size).unwrap()
 }
