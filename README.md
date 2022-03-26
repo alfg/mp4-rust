@@ -11,7 +11,6 @@ https://crates.io/crates/mp4
 [![Crates.io](https://img.shields.io/crates/v/mp4)](https://crates.io/crates/mp4)
 [![Crates.io](https://img.shields.io/crates/d/mp4)](https://crates.io/crates/mp4)
 [![Docs](https://img.shields.io/badge/docs-online-5023dd.svg?style=flat-square)](https://docs.rs/mp4)
-[![Build Status](https://travis-ci.org/alfg/mp4-rust.svg?branch=master)](https://travis-ci.org/alfg/mp4-rust)
 [![Rust](https://github.com/alfg/mp4-rust/workflows/Rust/badge.svg)](https://github.com/alfg/mp4-rust/actions)
 
 #### Example
