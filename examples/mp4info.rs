@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use mp4::{Mp4Track, Result, TrackType, Error};
+use mp4::{Error, Mp4Track, Result, TrackType};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -38,7 +38,10 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
 
     println!("Movie:");
     println!("  version:        {}", mp4.moov.mvhd.version);
-    println!("  creation time:  {}", creation_time(mp4.moov.mvhd.creation_time));
+    println!(
+        "  creation time:  {}",
+        creation_time(mp4.moov.mvhd.creation_time)
+    );
     println!("  duration:       {:?}", mp4.duration());
     println!("  fragments:      {:?}", mp4.is_fragmented());
     println!("  timescale:      {:?}\n", mp4.timescale());
@@ -46,16 +49,17 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     println!("Found {} Tracks", mp4.tracks().len());
     for track in mp4.tracks().values() {
         let media_info = match track.track_type()? {
-            TrackType::Video => video_info(track)?,
-            TrackType::Audio => audio_info(track)?,
-            TrackType::Subtitle => subtitle_info(track)?,
+            TrackType::Video => video_info(track),
+            TrackType::Audio => audio_info(track),
+            TrackType::Subtitle => subtitle_info(track),
         };
+
         println!(
             "  Track: #{}({}) {}: {}",
             track.track_id(),
             track.language(),
             track.track_type()?,
-            media_info
+            media_info.unwrap_or_else(|e| e.to_string())
         );
     }
     Ok(())
@@ -89,7 +93,6 @@ fn video_info(track: &Mp4Track) -> Result<String> {
 fn audio_info(track: &Mp4Track) -> Result<String> {
     if let Some(ref mp4a) = track.trak.mdia.minf.stbl.stsd.mp4a {
         if mp4a.esds.is_some() {
-
             let profile = match track.audio_profile() {
                 Ok(val) => val.to_string(),
                 _ => "-".to_string(),
@@ -124,11 +127,7 @@ fn audio_info(track: &Mp4Track) -> Result<String> {
 
 fn subtitle_info(track: &Mp4Track) -> Result<String> {
     if track.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
-        Ok(format!(
-            "{} ({:?})",
-            track.media_type()?,
-            track.box_type()?,
-        ))
+        Ok(format!("{} ({:?})", track.media_type()?, track.box_type()?,))
     } else {
         Err(Error::InvalidData("tx3g box not found"))
     }
