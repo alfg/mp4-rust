@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -15,6 +15,12 @@ pub struct MvhdBox {
 
     #[serde(with = "value_u32")]
     pub rate: FixedPointU16,
+    #[serde(with = "value_u8")]
+    pub volume: FixedPointU8,
+
+    pub matrix: tkhd::Matrix,
+
+    pub next_track_id: u32,
 }
 
 impl MvhdBox {
@@ -44,6 +50,9 @@ impl Default for MvhdBox {
             timescale: 1000,
             duration: 0,
             rate: FixedPointU16::new(1),
+            matrix: tkhd::Matrix::default(),
+            volume: FixedPointU8::new(1),
+            next_track_id: 1,
         }
     }
 }
@@ -62,8 +71,16 @@ impl Mp4Box for MvhdBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("creation_time={} timescale={} duration={} rate={}",
-            self.creation_time, self.timescale, self.duration, self.rate.value());
+        let s = format!(
+            "creation_time={} timescale={} duration={} rate={} volume={}, matrix={}, next_track_id={}",
+            self.creation_time,
+            self.timescale,
+            self.duration,
+            self.rate.value(),
+            self.volume.value(),
+            self.matrix,
+            self.next_track_id
+        );
         Ok(s)
     }
 }
@@ -93,6 +110,28 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
         };
         let rate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
+        let volume = FixedPointU8::new_raw(reader.read_u16::<BigEndian>()?);
+
+        reader.read_u16::<BigEndian>()?; // reserved = 0
+
+        reader.read_u64::<BigEndian>()?; // reserved = 0
+
+        let matrix = tkhd::Matrix {
+            a: reader.read_i32::<BigEndian>()?,
+            b: reader.read_i32::<BigEndian>()?,
+            u: reader.read_i32::<BigEndian>()?,
+            c: reader.read_i32::<BigEndian>()?,
+            d: reader.read_i32::<BigEndian>()?,
+            v: reader.read_i32::<BigEndian>()?,
+            x: reader.read_i32::<BigEndian>()?,
+            y: reader.read_i32::<BigEndian>()?,
+            w: reader.read_i32::<BigEndian>()?,
+        };
+
+        skip_bytes(reader, 24)?; // pre_defined = 0
+
+        let next_track_id = reader.read_u32::<BigEndian>()?;
+
         skip_bytes_to(reader, start + size)?;
 
         Ok(MvhdBox {
@@ -103,6 +142,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
             timescale,
             duration,
             rate,
+            volume,
+            matrix,
+            next_track_id,
         })
     }
 }
@@ -129,8 +171,25 @@ impl<W: Write> WriteBox<&mut W> for MvhdBox {
         }
         writer.write_u32::<BigEndian>(self.rate.raw_value())?;
 
-        // XXX volume, ...
-        write_zeros(writer, 76)?;
+        writer.write_u16::<BigEndian>(self.volume.raw_value())?;
+
+        writer.write_u16::<BigEndian>(0)?; // reserved = 0
+
+        writer.write_u64::<BigEndian>(0)?; // reserved = 0
+
+        writer.write_i32::<BigEndian>(self.matrix.a)?;
+        writer.write_i32::<BigEndian>(self.matrix.b)?;
+        writer.write_i32::<BigEndian>(self.matrix.u)?;
+        writer.write_i32::<BigEndian>(self.matrix.c)?;
+        writer.write_i32::<BigEndian>(self.matrix.d)?;
+        writer.write_i32::<BigEndian>(self.matrix.v)?;
+        writer.write_i32::<BigEndian>(self.matrix.x)?;
+        writer.write_i32::<BigEndian>(self.matrix.y)?;
+        writer.write_i32::<BigEndian>(self.matrix.w)?;
+
+        write_zeros(writer, 24)?; // pre_defined = 0
+
+        writer.write_u32::<BigEndian>(self.next_track_id)?;
 
         Ok(size)
     }
@@ -152,6 +211,9 @@ mod tests {
             timescale: 1000,
             duration: 634634,
             rate: FixedPointU16::new(1),
+            volume: FixedPointU8::new(1),
+            matrix: tkhd::Matrix::default(),
+            next_track_id: 1,
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -176,6 +238,9 @@ mod tests {
             timescale: 1000,
             duration: 634634,
             rate: FixedPointU16::new(1),
+            volume: FixedPointU8::new(1),
+            matrix: tkhd::Matrix::default(),
+            next_track_id: 1,
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
