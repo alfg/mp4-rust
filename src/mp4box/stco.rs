@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -78,6 +78,24 @@ impl<W: Write> WriteBox<&mut W> for StcoBox {
         }
 
         Ok(size)
+    }
+}
+
+impl std::convert::TryFrom<&co64::Co64Box> for StcoBox {
+    type Error = std::num::TryFromIntError;
+
+    fn try_from(co64: &co64::Co64Box) -> std::result::Result<Self, Self::Error> {
+        let entries = co64
+            .entries
+            .iter()
+            .copied()
+            .map(|x| u32::try_from(x))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(Self {
+            version: 0,
+            flags: 0,
+            entries,
+        })
     }
 }
 

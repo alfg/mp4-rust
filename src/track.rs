@@ -4,22 +4,12 @@ use std::convert::TryFrom;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::time::Duration;
 
-use crate::mp4box::trak::TrakBox;
 use crate::mp4box::traf::TrafBox;
+use crate::mp4box::trak::TrakBox;
 use crate::mp4box::{
-    avc1::Avc1Box,
-    hev1::Hev1Box,
-    vp09::Vp09Box,
-    ctts::CttsBox,
-    ctts::CttsEntry,
-    mp4a::Mp4aBox,
-    smhd::SmhdBox,
-    stco::StcoBox,
-    stsc::StscEntry,
-    stss::StssBox,
-    stts::SttsEntry,
-    tx3g::Tx3gBox,
-    vmhd::VmhdBox,
+    avc1::Avc1Box, co64::Co64Box, ctts::CttsBox, ctts::CttsEntry, hev1::Hev1Box, mp4a::Mp4aBox,
+    smhd::SmhdBox, stco::StcoBox, stsc::StscEntry, stss::StssBox, stts::SttsEntry, tx3g::Tx3gBox,
+    vmhd::VmhdBox, vp09::Vp09Box,
 };
 use crate::*;
 
@@ -110,7 +100,11 @@ pub struct Mp4Track {
 impl Mp4Track {
     pub(crate) fn from(trak: &TrakBox) -> Self {
         let trak = trak.clone();
-        Self { trak, trafs: Vec::new(), default_sample_duration: 0, }
+        Self {
+            trak,
+            trafs: Vec::new(),
+            default_sample_duration: 0,
+        }
     }
 
     pub fn track_id(&self) -> u32 {
@@ -364,7 +358,7 @@ impl Mp4Track {
     }
 
     /// return `(traf_idx, sample_idx_in_trun)`
-    fn find_traf_idx_and_sample_idx(&self, sample_id: u32) -> Option<(usize, usize)>{
+    fn find_traf_idx_and_sample_idx(&self, sample_id: u32) -> Option<(usize, usize)> {
         let global_idx = sample_id - 1;
         let mut offset = 0;
         for traf_idx in 0..self.trafs.len() {
@@ -382,7 +376,13 @@ impl Mp4Track {
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
         if self.trafs.len() > 0 {
             if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
-                if let Some(size) = self.trafs[traf_idx].trun.as_ref().unwrap().sample_sizes.get(sample_idx) {
+                if let Some(size) = self.trafs[traf_idx]
+                    .trun
+                    .as_ref()
+                    .unwrap()
+                    .sample_sizes
+                    .get(sample_idx)
+                {
                     Ok(*size)
                 } else {
                     Err(Error::EntryInTrunNotFound(
@@ -392,10 +392,7 @@ impl Mp4Track {
                     ))
                 }
             } else {
-                Err(Error::BoxInTrafNotFound(
-                    self.track_id(),
-                    BoxType::TrafBox,
-                ))
+                Err(Error::BoxInTrafNotFound(self.track_id(), BoxType::TrafBox))
             }
         } else {
             let stsz = &self.trak.mdia.minf.stbl.stsz;
@@ -432,10 +429,7 @@ impl Mp4Track {
             if let Some((traf_idx, _sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
                 Ok(self.trafs[traf_idx].tfhd.base_data_offset as u64)
             } else {
-                Err(Error::BoxInTrafNotFound(
-                    self.track_id(),
-                    BoxType::TrafBox,
-                ))
+                Err(Error::BoxInTrafNotFound(self.track_id(), BoxType::TrafBox))
             }
         } else {
             let stsc_index = self.stsc_index(sample_id)?;
@@ -469,8 +463,8 @@ impl Mp4Track {
         let mut elapsed = 0;
 
         if self.trafs.len() > 0 {
-            let start_time =  ((sample_id - 1) * self.default_sample_duration) as u64;
-            return Ok((start_time, self.default_sample_duration))
+            let start_time = ((sample_id - 1) * self.default_sample_duration) as u64;
+            return Ok((start_time, self.default_sample_duration));
         } else {
             for entry in stts.entries.iter() {
                 if sample_id <= sample_count + entry.sample_count - 1 {
@@ -504,7 +498,7 @@ impl Mp4Track {
     fn is_sync_sample(&self, sample_id: u32) -> bool {
         if self.trafs.len() > 0 {
             let sample_sizes_count = self.sample_count() / self.trafs.len() as u32;
-            return sample_id == 1 || sample_id % sample_sizes_count == 0
+            return sample_id == 1 || sample_id % sample_sizes_count == 0;
         }
 
         if let Some(ref stss) = self.trak.mdia.minf.stbl.stss {
@@ -570,8 +564,7 @@ impl Mp4TrackWriter {
         trak.mdia.mdhd.timescale = config.timescale;
         trak.mdia.mdhd.language = config.language.to_owned();
         trak.mdia.hdlr.handler_type = config.track_type.into();
-        // XXX largesize
-        trak.mdia.minf.stbl.stco = Some(StcoBox::default());
+        trak.mdia.minf.stbl.co64 = Some(Co64Box::default());
         match config.media_conf {
             MediaConfig::AvcConfig(ref avc_config) => {
                 trak.tkhd.set_width(avc_config.width);
@@ -610,7 +603,6 @@ impl Mp4TrackWriter {
                 let tx3g = Tx3gBox::default();
                 trak.mdia.minf.stbl.stsd.tx3g = Some(tx3g);
             }
-
         }
         Ok(Mp4TrackWriter {
             trak,
@@ -761,10 +753,9 @@ impl Mp4TrackWriter {
         Ok(self.trak.tkhd.duration)
     }
 
-    // XXX largesize
     fn chunk_count(&self) -> u32 {
-        let stco = self.trak.mdia.minf.stbl.stco.as_ref().unwrap();
-        stco.entries.len() as u32
+        let co64 = self.trak.mdia.minf.stbl.co64.as_ref().unwrap();
+        co64.entries.len() as u32
     }
 
     fn update_sample_to_chunk(&mut self, chunk_id: u32) {
@@ -784,8 +775,8 @@ impl Mp4TrackWriter {
     }
 
     fn update_chunk_offsets(&mut self, offset: u64) {
-        let stco = self.trak.mdia.minf.stbl.stco.as_mut().unwrap();
-        stco.entries.push(offset as u32);
+        let co64 = self.trak.mdia.minf.stbl.co64.as_mut().unwrap();
+        co64.entries.push(offset);
     }
 
     fn write_chunk<W: Write + Seek>(&mut self, writer: &mut W) -> Result<()> {
@@ -829,6 +820,10 @@ impl Mp4TrackWriter {
             // TODO
             // mp4a.esds.es_desc.dec_config.max_bitrate
             // mp4a.esds.es_desc.dec_config.avg_bitrate
+        }
+        if let Ok(stco) = StcoBox::try_from(self.trak.mdia.minf.stbl.co64.as_ref().unwrap()) {
+            self.trak.mdia.minf.stbl.stco = Some(stco);
+            self.trak.mdia.minf.stbl.co64 = None;
         }
 
         Ok(self.trak.clone())
