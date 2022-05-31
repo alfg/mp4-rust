@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -9,10 +9,10 @@ pub struct TrexBox {
     pub version: u8,
     pub flags: u32,
     pub track_id: u32,
-    pub default_sample_description_index: u32, 
-    pub default_sample_duration: u32, 
-    pub default_sample_size: u32, 
-    pub default_sample_flags: u32, 
+    pub default_sample_description_index: u32,
+    pub default_sample_duration: u32,
+    pub default_sample_size: u32,
+    pub default_sample_flags: u32,
 }
 
 impl TrexBox {
@@ -39,8 +39,10 @@ impl Mp4Box for TrexBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("track_id={} default_sample_duration={}",
-            self.track_id, self.default_sample_duration);
+        let s = format!(
+            "track_id={} default_sample_duration={}",
+            self.track_id, self.default_sample_duration
+        );
         Ok(s)
     }
 }

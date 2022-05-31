@@ -27,9 +27,9 @@ impl<W> Mp4Writer<W> {
     ///
     /// This can be useful to recover the inner writer after completion in case
     /// it's owned by the [Mp4Writer] instance.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use mp4::{Mp4Writer, Mp4Config};
     /// use std::io::Cursor;

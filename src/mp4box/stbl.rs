@@ -1,16 +1,10 @@
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{
-    co64::Co64Box,
-    ctts::CttsBox,
-    stco::StcoBox,
-    stsc::StscBox,
-    stsd::StsdBox,
-    stss::StssBox,
-    stsz::StszBox,
-    stts::SttsBox,
+    co64::Co64Box, ctts::CttsBox, stco::StcoBox, stsc::StscBox, stsd::StsdBox, stss::StssBox,
+    stsz::StszBox, stts::SttsBox,
 };
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]

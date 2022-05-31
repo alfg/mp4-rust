@@ -1,8 +1,8 @@
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
-use crate::mp4box::{mvhd::MvhdBox, mvex::MvexBox, trak::TrakBox};
+use crate::mp4box::{mvex::MvexBox, mvhd::MvhdBox, trak::TrakBox};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MoovBox {

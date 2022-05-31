@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -20,7 +20,7 @@ pub struct RgbaColor {
     pub red: u8,
     pub green: u8,
     pub blue: u8,
-    pub alpha: u8
+    pub alpha: u8,
 }
 
 impl Default for Tx3gBox {
@@ -30,7 +30,7 @@ impl Default for Tx3gBox {
             display_flags: 0,
             horizontal_justification: 1,
             vertical_justification: -1,
-            bg_color_rgba: RgbaColor{
+            bg_color_rgba: RgbaColor {
                 red: 0,
                 green: 0,
                 blue: 0,
@@ -48,7 +48,7 @@ impl Tx3gBox {
     }
 
     pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + 6 + 32 
+        HEADER_SIZE + 6 + 32
     }
 }
 
@@ -165,7 +165,7 @@ mod tests {
             display_flags: 0,
             horizontal_justification: 1,
             vertical_justification: -1,
-            bg_color_rgba: RgbaColor{
+            bg_color_rgba: RgbaColor {
                 red: 0,
                 green: 0,
                 blue: 0,

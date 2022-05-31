@@ -1,5 +1,5 @@
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{mehd::MehdBox, trex::TrexBox};
@@ -87,7 +87,7 @@ impl<W: Write> WriteBox<&mut W> for MvexBox {
         let size = self.box_size();
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
-        if let Some(mehd) = &self.mehd{
+        if let Some(mehd) = &self.mehd {
             mehd.write_box(writer)?;
         }
         self.trex.write_box(writer)?;

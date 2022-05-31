@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -72,8 +72,10 @@ impl Mp4Box for Hev1Box {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("data_reference_index={} width={} height={} frame_count={}",
-            self.data_reference_index, self.width, self.height, self.frame_count);
+        let s = format!(
+            "data_reference_index={} width={} height={} frame_count={}",
+            self.data_reference_index, self.width, self.height, self.frame_count
+        );
         Ok(s)
     }
 }
@@ -170,7 +172,6 @@ impl Mp4Box for HvcCBox {
     }
 
     fn box_size(&self) -> u64 {
-        
         HEADER_SIZE + 1
     }
 
@@ -179,8 +180,7 @@ impl Mp4Box for HvcCBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("configuration_version={}",
-            self.configuration_version);
+        let s = format!("configuration_version={}", self.configuration_version);
         Ok(s)
     }
 }

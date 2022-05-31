@@ -1,5 +1,5 @@
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{tfhd::TfhdBox, trun::TrunBox};

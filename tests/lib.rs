@@ -1,4 +1,6 @@
-use mp4::{AudioObjectType, AvcProfile, ChannelConfig, MediaType, Mp4Reader, SampleFreqIndex, TrackType};
+use mp4::{
+    AudioObjectType, AvcProfile, ChannelConfig, MediaType, Mp4Reader, SampleFreqIndex, TrackType,
+};
 use std::fs::File;
 use std::io::BufReader;
 use std::time::Duration;
@@ -128,7 +130,22 @@ fn test_read_extended_audio_object_type() {
         AudioObjectType::AudioLosslessCoding
     );
     assert_eq!(
-        track.trak.mdia.minf.stbl.stsd.mp4a.as_ref().unwrap().esds.as_ref().unwrap().es_desc.dec_config.dec_specific.freq_index,
+        track
+            .trak
+            .mdia
+            .minf
+            .stbl
+            .stsd
+            .mp4a
+            .as_ref()
+            .unwrap()
+            .esds
+            .as_ref()
+            .unwrap()
+            .es_desc
+            .dec_config
+            .dec_specific
+            .freq_index,
         15
     );
     assert_eq!(track.channel_config().unwrap(), ChannelConfig::Stereo);

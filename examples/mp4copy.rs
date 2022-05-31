@@ -5,16 +5,9 @@ use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 
 use mp4::{
-    AacConfig,
-    AvcConfig,
-    HevcConfig,
-    Vp9Config,
-    TtxtConfig,
-    MediaConfig,
-    MediaType,
-    Mp4Config,
-    Result,
-    TrackConfig};
+    AacConfig, AvcConfig, HevcConfig, MediaConfig, MediaType, Mp4Config, Result, TrackConfig,
+    TtxtConfig, Vp9Config,
+};
 
 fn main() {
     let args: Vec<String> = env::args().collect();

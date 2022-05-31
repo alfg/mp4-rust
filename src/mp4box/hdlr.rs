@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -59,7 +59,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
         let handler_string = match String::from_utf8(buf) {
             Ok(t) => {
                 if t.len() != buf_size as usize {
-                    return Err(Error::InvalidData("string too small"))
+                    return Err(Error::InvalidData("string too small"));
                 }
                 t
             }

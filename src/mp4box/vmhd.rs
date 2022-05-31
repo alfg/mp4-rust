@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -43,11 +43,9 @@ impl Mp4Box for VmhdBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("graphics_mode={} op_color={}{}{}",
-            self.graphics_mode,
-            self.op_color.red,
-            self.op_color.green,
-            self.op_color.blue
+        let s = format!(
+            "graphics_mode={} op_color={}{}{}",
+            self.graphics_mode, self.op_color.red, self.op_color.green, self.op_color.blue
         );
         Ok(s)
     }

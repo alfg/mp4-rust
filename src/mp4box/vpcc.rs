@@ -1,6 +1,6 @@
-use crate::Mp4Box;
 use crate::mp4box::*;
-use serde::{Serialize};
+use crate::Mp4Box;
+use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct VpccBox {
@@ -82,7 +82,11 @@ impl<W: Write> WriteBox<&mut W> for VpccBox {
 
         writer.write_u8(self.profile)?;
         writer.write_u8(self.level)?;
-        writer.write_u8((self.bit_depth << 4) | (self.chroma_subsampling << 1) | (self.video_full_range_flag as u8))?;
+        writer.write_u8(
+            (self.bit_depth << 4)
+                | (self.chroma_subsampling << 1)
+                | (self.video_full_range_flag as u8),
+        )?;
         writer.write_u8(self.color_primaries)?;
         writer.write_u8(self.transfer_characteristics)?;
         writer.write_u8(self.matrix_coefficients)?;

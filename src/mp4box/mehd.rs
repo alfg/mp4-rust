@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -104,7 +104,6 @@ mod tests {
     use super::*;
     use crate::mp4box::BoxHeader;
     use std::io::Cursor;
-
 
     #[test]
     fn test_mehd32() {

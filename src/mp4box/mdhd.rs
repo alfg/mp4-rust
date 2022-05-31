@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -62,8 +62,10 @@ impl Mp4Box for MdhdBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("creation_time={} timescale={} duration={} language={}",
-            self.creation_time, self.timescale, self.duration, self.language);
+        let s = format!(
+            "creation_time={} timescale={} duration={} language={}",
+            self.creation_time, self.timescale, self.duration, self.language
+        );
         Ok(s)
     }
 }

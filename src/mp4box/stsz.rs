@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -39,8 +39,12 @@ impl Mp4Box for StszBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("sample_size={} sample_count={} sample_sizes={}",
-            self.sample_size, self.sample_count, self.sample_sizes.len());
+        let s = format!(
+            "sample_size={} sample_count={} sample_sizes={}",
+            self.sample_size,
+            self.sample_count,
+            self.sample_sizes.len()
+        );
         Ok(s)
     }
 }
