@@ -230,7 +230,7 @@ impl Mp4Track {
     }
 
     pub fn sample_count(&self) -> u32 {
-        if self.trafs.len() > 0 {
+        if !self.trafs.is_empty() {
             let mut sample_count = 0u32;
             for traf in self.trafs.iter() {
                 if let Some(ref trun) = traf.trun {
@@ -257,7 +257,7 @@ impl Mp4Track {
     pub fn sequence_parameter_set(&self) -> Result<&[u8]> {
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
             match avc1.avcc.sequence_parameter_sets.get(0) {
-                Some(ref nal) => Ok(nal.bytes.as_ref()),
+                Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
                     self.track_id(),
                     BoxType::AvcCBox,
@@ -272,7 +272,7 @@ impl Mp4Track {
     pub fn picture_parameter_set(&self) -> Result<&[u8]> {
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
             match avc1.avcc.picture_parameter_sets.get(0) {
-                Some(ref nal) => Ok(nal.bytes.as_ref()),
+                Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
                     self.track_id(),
                     BoxType::AvcCBox,
@@ -337,24 +337,24 @@ impl Mp4Track {
                 ));
             }
         }
-        return Err(Error::Box2NotFound(BoxType::StcoBox, BoxType::Co64Box));
+        Err(Error::Box2NotFound(BoxType::StcoBox, BoxType::Co64Box))
     }
 
     fn ctts_index(&self, sample_id: u32) -> Result<(usize, u32)> {
         let ctts = self.trak.mdia.minf.stbl.ctts.as_ref().unwrap();
         let mut sample_count = 1;
         for (i, entry) in ctts.entries.iter().enumerate() {
-            if sample_id <= sample_count + entry.sample_count - 1 {
+            if sample_id < sample_count + entry.sample_count {
                 return Ok((i, sample_count));
             }
             sample_count += entry.sample_count;
         }
 
-        return Err(Error::EntryInStblNotFound(
+        Err(Error::EntryInStblNotFound(
             self.track_id(),
             BoxType::CttsBox,
             sample_id,
-        ));
+        ))
     }
 
     /// return `(traf_idx, sample_idx_in_trun)`
@@ -374,7 +374,7 @@ impl Mp4Track {
     }
 
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
-        if self.trafs.len() > 0 {
+        if !self.trafs.is_empty() {
             if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
                 if let Some(size) = self.trafs[traf_idx]
                     .trun
@@ -402,11 +402,11 @@ impl Mp4Track {
             if let Some(size) = stsz.sample_sizes.get(sample_id as usize - 1) {
                 Ok(*size)
             } else {
-                return Err(Error::EntryInStblNotFound(
+                Err(Error::EntryInStblNotFound(
                     self.track_id(),
                     BoxType::StszBox,
                     sample_id,
-                ));
+                ))
             }
         }
     }
@@ -425,7 +425,7 @@ impl Mp4Track {
     }
 
     fn sample_offset(&self, sample_id: u32) -> Result<u64> {
-        if self.trafs.len() > 0 {
+        if !self.trafs.is_empty() {
             if let Some((traf_idx, _sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
                 Ok(self.trafs[traf_idx].tfhd.base_data_offset as u64)
             } else {
@@ -462,12 +462,12 @@ impl Mp4Track {
         let mut sample_count = 1;
         let mut elapsed = 0;
 
-        if self.trafs.len() > 0 {
+        if !self.trafs.is_empty() {
             let start_time = ((sample_id - 1) * self.default_sample_duration) as u64;
-            return Ok((start_time, self.default_sample_duration));
+            Ok((start_time, self.default_sample_duration))
         } else {
             for entry in stts.entries.iter() {
-                if sample_id <= sample_count + entry.sample_count - 1 {
+                if sample_id < sample_count + entry.sample_count {
                     let start_time =
                         (sample_id - sample_count) as u64 * entry.sample_delta as u64 + elapsed;
                     return Ok((start_time, entry.sample_delta));
@@ -477,11 +477,11 @@ impl Mp4Track {
                 elapsed += entry.sample_count as u64 * entry.sample_delta as u64;
             }
 
-            return Err(Error::EntryInStblNotFound(
+            Err(Error::EntryInStblNotFound(
                 self.track_id(),
                 BoxType::SttsBox,
                 sample_id,
-            ));
+            ))
         }
     }
 
@@ -496,7 +496,7 @@ impl Mp4Track {
     }
 
     fn is_sync_sample(&self, sample_id: u32) -> bool {
-        if self.trafs.len() > 0 {
+        if !self.trafs.is_empty() {
             let sample_sizes_count = self.sample_count() / self.trafs.len() as u32;
             return sample_id == 1 || sample_id % sample_sizes_count == 0;
         }
@@ -624,27 +624,25 @@ impl Mp4TrackWriter {
                 self.fixed_sample_size = size;
                 self.is_fixed_sample_size = true;
             }
-        } else {
-            if self.is_fixed_sample_size {
-                if self.fixed_sample_size != size {
-                    self.is_fixed_sample_size = false;
-                    if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
-                        self.trak.mdia.minf.stbl.stsz.sample_size = 0;
-                        for _ in 0..self.trak.mdia.minf.stbl.stsz.sample_count {
-                            self.trak
-                                .mdia
-                                .minf
-                                .stbl
-                                .stsz
-                                .sample_sizes
-                                .push(self.fixed_sample_size);
-                        }
+        } else if self.is_fixed_sample_size {
+            if self.fixed_sample_size != size {
+                self.is_fixed_sample_size = false;
+                if self.trak.mdia.minf.stbl.stsz.sample_size > 0 {
+                    self.trak.mdia.minf.stbl.stsz.sample_size = 0;
+                    for _ in 0..self.trak.mdia.minf.stbl.stsz.sample_count {
+                        self.trak
+                            .mdia
+                            .minf
+                            .stbl
+                            .stsz
+                            .sample_sizes
+                            .push(self.fixed_sample_size);
                     }
-                    self.trak.mdia.minf.stbl.stsz.sample_sizes.push(size);
                 }
-            } else {
                 self.trak.mdia.minf.stbl.stsz.sample_sizes.push(size);
             }
+        } else {
+            self.trak.mdia.minf.stbl.stsz.sample_sizes.push(size);
         }
         self.trak.mdia.minf.stbl.stsz.sample_count += 1;
     }
@@ -759,7 +757,7 @@ impl Mp4TrackWriter {
     }
 
     fn update_sample_to_chunk(&mut self, chunk_id: u32) {
-        if let Some(ref entry) = self.trak.mdia.minf.stbl.stsc.entries.last() {
+        if let Some(entry) = self.trak.mdia.minf.stbl.stsc.entries.last() {
             if entry.samples_per_chunk == self.chunk_samples {
                 return;
             }

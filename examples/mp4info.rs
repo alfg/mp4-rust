@@ -32,7 +32,7 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     let mut compatible_brands = String::new();
     for brand in mp4.compatible_brands().iter() {
         compatible_brands.push_str(&brand.to_string());
-        compatible_brands.push_str(" ");
+        compatible_brands.push(' ');
     }
     println!("  compatible_brands:  {}\n", compatible_brands);
 

@@ -133,11 +133,11 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
     Ok(boxes)
 }
 
-fn build_box<M: Mp4Box + std::fmt::Debug>(ref m: &M) -> Box {
-    return Box{
+fn build_box<M: Mp4Box + std::fmt::Debug>(m: &M) -> Box {
+    Box{
         name: m.box_type().to_string(),
         size: m.box_size(),
         summary: m.summary().unwrap(),
         indent: 0,
-    };
+    }
 }

@@ -62,8 +62,8 @@ impl<W> Mp4Writer<W> {
 impl<W: Write + Seek> Mp4Writer<W> {
     pub fn write_start(mut writer: W, config: &Mp4Config) -> Result<Self> {
         let ftyp = FtypBox {
-            major_brand: config.major_brand.clone(),
-            minor_version: config.minor_version.clone(),
+            major_brand: config.major_brand,
+            minor_version: config.minor_version,
             compatible_brands: config.compatible_brands.clone(),
         };
         ftyp.write_box(&mut writer)?;

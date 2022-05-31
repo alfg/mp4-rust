@@ -73,14 +73,14 @@ impl FixedPointU16 {
 
 impl fmt::Debug for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
+        let fourcc: FourCC = From::from(*self);
         write!(f, "{}", fourcc)
     }
 }
 
 impl fmt::Display for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
+        let fourcc: FourCC = From::from(*self);
         write!(f, "{}", fourcc)
     }
 }

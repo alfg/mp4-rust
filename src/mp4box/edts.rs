@@ -29,11 +29,11 @@ impl EdtsBox {
 
 impl Mp4Box for EdtsBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -41,7 +41,7 @@ impl Mp4Box for EdtsBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("");
+        let s = String::new();
         Ok(s)
     }
 }

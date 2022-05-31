@@ -20,11 +20,11 @@ impl DinfBox {
 
 impl Mp4Box for DinfBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -32,7 +32,7 @@ impl Mp4Box for DinfBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("");
+        let s = String::new();
         Ok(s)
     }
 }
@@ -119,11 +119,11 @@ impl DrefBox {
 
 impl Mp4Box for DrefBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -131,7 +131,7 @@ impl Mp4Box for DrefBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("");
+        let s = String::new();
         Ok(s)
     }
 }
@@ -231,11 +231,11 @@ impl UrlBox {
 
 impl Mp4Box for UrlBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

@@ -41,7 +41,7 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
     let mut mp4_writer = mp4::Mp4Writer::write_start(
         writer,
         &Mp4Config {
-            major_brand: mp4_reader.major_brand().clone(),
+            major_brand: *mp4_reader.major_brand(),
             minor_version: mp4_reader.minor_version(),
             compatible_brands: mp4_reader.compatible_brands().to_vec(),
             timescale: mp4_reader.timescale(),

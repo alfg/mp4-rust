@@ -328,8 +328,8 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 
         Ok(ESDescriptor {
             es_id,
-            dec_config: dec_config.unwrap_or(DecoderConfigDescriptor::default()),
-            sl_config: sl_config.unwrap_or(SLConfigDescriptor::default()),
+            dec_config: dec_config.unwrap_or_default(),
+            sl_config: sl_config.unwrap_or_default(),
         })
     }
 }
@@ -421,7 +421,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             buffer_size_db,
             max_bitrate,
             avg_bitrate,
-            dec_specific: dec_specific.unwrap_or(DecoderSpecificDescriptor::default()),
+            dec_specific: dec_specific.unwrap_or_default(),
         })
     }
 }

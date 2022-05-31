@@ -50,11 +50,11 @@ impl Default for MdhdBox {
 
 impl Mp4Box for MdhdBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -149,7 +149,7 @@ fn language_string(language: u16) -> String {
         .map(|r| r.unwrap_or(REPLACEMENT_CHARACTER))
         .collect::<String>();
 
-    return lang_str;
+    lang_str
 }
 
 fn language_code(language: &str) -> u16 {

@@ -1,13 +1,13 @@
 use criterion::BenchmarkId;
 use criterion::{criterion_group, criterion_main, Criterion};
-use mp4;
+
 use std::fs::File;
 
 fn read_mp4(filename: &str) -> u64 {
     let f = File::open(filename).unwrap();
     let m = mp4::read_mp4(f).unwrap();
-    let size = m.size();
-    size
+    
+    m.size()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

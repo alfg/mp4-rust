@@ -60,11 +60,11 @@ impl Hev1Box {
 
 impl Mp4Box for Hev1Box {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -170,8 +170,8 @@ impl Mp4Box for HvcCBox {
     }
 
     fn box_size(&self) -> u64 {
-        let size = HEADER_SIZE + 1;
-        size
+        
+        HEADER_SIZE + 1
     }
 
     fn to_json(&self) -> Result<String> {
