@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -60,11 +60,11 @@ impl TrunBox {
 
 impl Mp4Box for TrunBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -72,8 +72,7 @@ impl Mp4Box for TrunBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("sample_size={}",
-            self.sample_count);
+        let s = format!("sample_size={}", self.sample_count);
         Ok(s)
     }
 }
@@ -148,7 +147,7 @@ impl<W: Write> WriteBox<&mut W> for TrunBox {
         write_box_header_ext(writer, self.version, self.flags)?;
 
         writer.write_u32::<BigEndian>(self.sample_count)?;
-        if let Some(v) = self.data_offset{
+        if let Some(v) = self.data_offset {
             writer.write_i32::<BigEndian>(v)?;
         }
         if let Some(v) = self.first_sample_flags {
@@ -212,7 +211,10 @@ mod tests {
     fn test_trun_many_sizes() {
         let src_box = TrunBox {
             version: 0,
-            flags: TrunBox::FLAG_SAMPLE_DURATION | TrunBox::FLAG_SAMPLE_SIZE | TrunBox::FLAG_SAMPLE_FLAGS | TrunBox::FLAG_SAMPLE_CTS,
+            flags: TrunBox::FLAG_SAMPLE_DURATION
+                | TrunBox::FLAG_SAMPLE_SIZE
+                | TrunBox::FLAG_SAMPLE_FLAGS
+                | TrunBox::FLAG_SAMPLE_CTS,
             data_offset: None,
             sample_count: 9,
             sample_sizes: vec![1165, 11, 11, 8545, 10126, 10866, 9643, 9351, 7730],

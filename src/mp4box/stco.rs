@@ -25,11 +25,11 @@ impl StcoBox {
 
 impl Mp4Box for StcoBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -89,7 +89,7 @@ impl std::convert::TryFrom<&co64::Co64Box> for StcoBox {
             .entries
             .iter()
             .copied()
-            .map(|x| u32::try_from(x))
+            .map(u32::try_from)
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(Self {
             version: 0,

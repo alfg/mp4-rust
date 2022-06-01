@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use mp4::{Result, Mp4Box};
+use mp4::{Mp4Box, Result};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -25,7 +25,7 @@ fn dump<P: AsRef<Path>>(filename: &P) -> Result<()> {
 
     // print out boxes
     for b in boxes.iter() {
-       println!("[{}] size={} {}", b.name, b.size, b.summary); 
+        println!("[{}] size={} {}", b.name, b.size, b.summary);
     }
 
     Ok(())
@@ -133,11 +133,11 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
     Ok(boxes)
 }
 
-fn build_box<M: Mp4Box + std::fmt::Debug>(ref m: &M) -> Box {
-    return Box{
+fn build_box<M: Mp4Box + std::fmt::Debug>(m: &M) -> Box {
+    Box {
         name: m.box_type().to_string(),
         size: m.box_size(),
         summary: m.summary().unwrap(),
         indent: 0,
-    };
+    }
 }

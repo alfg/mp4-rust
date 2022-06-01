@@ -78,7 +78,8 @@ impl<R: Read + Seek> Mp4Reader<R> {
             if moov.traks.iter().any(|trak| trak.tkhd.track_id == 0) {
                 return Err(Error::InvalidData("illegal track id 0"));
             }
-            moov.traks.iter()
+            moov.traks
+                .iter()
                 .map(|trak| (trak.tkhd.track_id, Mp4Track::from(trak)))
                 .collect()
         } else {
@@ -86,7 +87,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
         };
 
         // Update tracks if any fragmented (moof) boxes are found.
-        if moofs.len() > 0 {
+        if !moofs.is_empty() {
             let mut default_sample_duration = 0;
             if let Some(ref moov) = moov {
                 if let Some(ref mvex) = &moov.mvex {
@@ -143,7 +144,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
     }
 
     pub fn is_fragmented(&self) -> bool {
-        self.moofs.len() != 0
+        !self.moofs.is_empty()
     }
 
     pub fn tracks(&self) -> &HashMap<u32, Mp4Track> {

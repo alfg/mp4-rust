@@ -1,4 +1,3 @@
-use mp4;
 use std::env;
 use std::fs::File;
 
@@ -17,7 +16,8 @@ fn main() {
     println!("Major Brand: {}", mp4.major_brand());
 
     for track in mp4.tracks().values() {
-        println!("Track: #{}({}) {} {}",
+        println!(
+            "Track: #{}({}) {} {}",
             track.track_id(),
             track.language(),
             track.track_type().unwrap(),

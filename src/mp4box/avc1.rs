@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -60,11 +60,11 @@ impl Avc1Box {
 
 impl Mp4Box for Avc1Box {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -72,8 +72,10 @@ impl Mp4Box for Avc1Box {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("data_reference_index={} width={} height={} frame_count={}",
-            self.data_reference_index, self.width, self.height, self.frame_count);
+        let s = format!(
+            "data_reference_index={} width={} height={} frame_count={}",
+            self.data_reference_index, self.width, self.height, self.frame_count
+        );
         Ok(s)
     }
 }
@@ -197,8 +199,7 @@ impl Mp4Box for AvcCBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("avc_profile_indication={}",
-            self.avc_profile_indication);
+        let s = format!("avc_profile_indication={}", self.avc_profile_indication);
         Ok(s)
     }
 }

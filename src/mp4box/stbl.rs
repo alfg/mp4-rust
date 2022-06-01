@@ -1,16 +1,10 @@
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{
-    co64::Co64Box,
-    ctts::CttsBox,
-    stco::StcoBox,
-    stsc::StscBox,
-    stsd::StsdBox,
-    stss::StssBox,
-    stsz::StszBox,
-    stts::SttsBox,
+    co64::Co64Box, ctts::CttsBox, stco::StcoBox, stsc::StscBox, stsd::StsdBox, stss::StssBox,
+    stsz::StszBox, stts::SttsBox,
 };
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
@@ -62,11 +56,11 @@ impl StblBox {
 
 impl Mp4Box for StblBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -74,7 +68,7 @@ impl Mp4Box for StblBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("");
+        let s = String::new();
         Ok(s)
     }
 }
@@ -153,12 +147,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
         Ok(StblBox {
             stsd: stsd.unwrap(),
             stts: stts.unwrap(),
-            ctts: ctts,
-            stss: stss,
+            ctts,
+            stss,
             stsc: stsc.unwrap(),
             stsz: stsz.unwrap(),
-            stco: stco,
-            co64: co64,
+            stco,
+            co64,
         })
     }
 }

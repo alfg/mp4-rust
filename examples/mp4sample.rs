@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use mp4::{Result};
+use mp4::Result;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -34,13 +34,14 @@ fn samples<P: AsRef<Path>>(filename: &P) -> Result<()> {
             let sample = mp4.read_sample(track_id, sample_id);
 
             if let Some(ref samp) = sample.unwrap() {
-                println!("[{}] start_time={} duration={} rendering_offset={} size={} is_sync={}",
-                  sample_id,
-                  samp.start_time,
-                  samp.duration,
-                  samp.rendering_offset,
-                  samp.bytes.len(),
-                  samp.is_sync,
+                println!(
+                    "[{}] start_time={} duration={} rendering_offset={} size={} is_sync={}",
+                    sample_id,
+                    samp.start_time,
+                    samp.duration,
+                    samp.rendering_offset,
+                    samp.bytes.len(),
+                    samp.is_sync,
                 );
             }
         }

@@ -1,5 +1,5 @@
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
@@ -28,11 +28,11 @@ impl MoofBox {
 
 impl Mp4Box for MoofBox {
     fn box_type(&self) -> BoxType {
-        return self.get_type();
+        self.get_type()
     }
 
     fn box_size(&self) -> u64 {
-        return self.get_size();
+        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

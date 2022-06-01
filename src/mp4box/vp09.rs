@@ -1,7 +1,7 @@
-use crate::Mp4Box;
-use crate::mp4box::*;
-use serde::{Serialize};
 use crate::mp4box::vpcc::VpccBox;
+use crate::mp4box::*;
+use crate::Mp4Box;
+use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct Vp09Box {
@@ -97,8 +97,14 @@ impl<R: Read + Seek> ReadBox<&mut R> for Vp09Box {
         };
         let width: u16 = reader.read_u16::<BigEndian>()?;
         let height: u16 = reader.read_u16::<BigEndian>()?;
-        let horizresolution: (u16, u16) = (reader.read_u16::<BigEndian>()?, reader.read_u16::<BigEndian>()?);
-        let vertresolution: (u16, u16) = (reader.read_u16::<BigEndian>()?, reader.read_u16::<BigEndian>()?);
+        let horizresolution: (u16, u16) = (
+            reader.read_u16::<BigEndian>()?,
+            reader.read_u16::<BigEndian>()?,
+        );
+        let vertresolution: (u16, u16) = (
+            reader.read_u16::<BigEndian>()?,
+            reader.read_u16::<BigEndian>()?,
+        );
         let reserved1: [u8; 4] = {
             let mut buf = [0u8; 4];
             reader.read_exact(&mut buf)?;
@@ -175,7 +181,10 @@ mod tests {
 
     #[test]
     fn test_vpcc() {
-        let src_box = Vp09Box::new(&Vp9Config{ width: 1920, height: 1080 });
+        let src_box = Vp09Box::new(&Vp9Config {
+            width: 1920,
+            height: 1080,
+        });
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
         assert_eq!(buf.len(), src_box.box_size() as usize);

@@ -1,6 +1,6 @@
+use serde::Serialize;
 use std::convert::TryFrom;
 use std::fmt;
-use serde::{Serialize};
 
 use crate::mp4box::*;
 use crate::*;
@@ -73,14 +73,14 @@ impl FixedPointU16 {
 
 impl fmt::Debug for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
+        let fourcc: FourCC = From::from(*self);
         write!(f, "{}", fourcc)
     }
 }
 
 impl fmt::Display for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fourcc: FourCC = From::from(self.clone());
+        let fourcc: FourCC = From::from(*self);
         write!(f, "{}", fourcc)
     }
 }
@@ -95,7 +95,9 @@ impl std::str::FromStr for FourCC {
 
     fn from_str(s: &str) -> Result<Self> {
         if let [a, b, c, d] = s.as_bytes() {
-            Ok(Self { value: [*a, *b, *c, *d] })
+            Ok(Self {
+                value: [*a, *b, *c, *d],
+            })
         } else {
             Err(Error::InvalidData("expected exactly four bytes in string"))
         }
@@ -104,7 +106,9 @@ impl std::str::FromStr for FourCC {
 
 impl From<u32> for FourCC {
     fn from(number: u32) -> Self {
-        FourCC { value: number.to_be_bytes() }
+        FourCC {
+            value: number.to_be_bytes(),
+        }
     }
 }
 
@@ -313,48 +317,48 @@ impl fmt::Display for AvcProfile {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AudioObjectType {
-    AacMain = 1,                                        // AAC Main Profile
-    AacLowComplexity = 2,                               // AAC Low Complexity
-    AacScalableSampleRate = 3,                          // AAC Scalable Sample Rate
-    AacLongTermPrediction = 4,                          // AAC Long Term Predictor
-    SpectralBandReplication = 5,                        // Spectral band Replication
-    AACScalable = 6,                                    // AAC Scalable
-    TwinVQ = 7,                                         // Twin VQ
-    CodeExcitedLinearPrediction = 8,                    // CELP
-    HarmonicVectorExcitationCoding = 9,                 // HVXC
-    TextToSpeechtInterface = 12,                        // TTSI
-    MainSynthetic = 13,                                 // Main Synthetic
-    WavetableSynthesis = 14,                            // Wavetable Synthesis
-    GeneralMIDI = 15,                                   // General MIDI
-    AlgorithmicSynthesis = 16,                          // Algorithmic Synthesis
-    ErrorResilientAacLowComplexity = 17,                // ER AAC LC
-    ErrorResilientAacLongTermPrediction = 19,           // ER AAC LTP
-    ErrorResilientAacScalable = 20,                     // ER AAC Scalable
-    ErrorResilientAacTwinVQ = 21,                       // ER AAC TwinVQ
-    ErrorResilientAacBitSlicedArithmeticCoding = 22,    // ER Bit Sliced Arithmetic Coding
-    ErrorResilientAacLowDelay = 23,                     // ER AAC Low Delay
-    ErrorResilientCodeExcitedLinearPrediction = 24,     // ER CELP
-    ErrorResilientHarmonicVectorExcitationCoding = 25,  // ER HVXC
-    ErrorResilientHarmonicIndividualLinesNoise = 26,    // ER HILN
-    ErrorResilientParametric = 27,                      // ER Parametric
-    SinuSoidalCoding = 28,                              // SSC
-    ParametricStereo = 29,                              // PS
-    MpegSurround = 30,                                  // MPEG Surround
-    MpegLayer1 = 32,                                    // MPEG Layer 1
-    MpegLayer2 = 33,                                    // MPEG Layer 2
-    MpegLayer3 = 34,                                    // MPEG Layer 3
-    DirectStreamTransfer = 35,                          // DST Direct Stream Transfer
-    AudioLosslessCoding = 36,                           // ALS Audio Lossless Coding
-    ScalableLosslessCoding = 37,                        // SLC Scalable Lossless Coding
-    ScalableLosslessCodingNoneCore = 38,                // SLC non-core
-    ErrorResilientAacEnhancedLowDelay = 39,             // ER AAC ELD
-    SymbolicMusicRepresentationSimple = 40,             // SMR Simple
-    SymbolicMusicRepresentationMain = 41,               // SMR Main
-    UnifiedSpeechAudioCoding = 42,                      // USAC
-    SpatialAudioObjectCoding = 43,                      // SAOC
-    LowDelayMpegSurround = 44,                          // LD MPEG Surround
-    SpatialAudioObjectCodingDialogueEnhancement = 45,   // SAOC-DE
-    AudioSync = 46,                                     // Audio Sync
+    AacMain = 1,                                       // AAC Main Profile
+    AacLowComplexity = 2,                              // AAC Low Complexity
+    AacScalableSampleRate = 3,                         // AAC Scalable Sample Rate
+    AacLongTermPrediction = 4,                         // AAC Long Term Predictor
+    SpectralBandReplication = 5,                       // Spectral band Replication
+    AACScalable = 6,                                   // AAC Scalable
+    TwinVQ = 7,                                        // Twin VQ
+    CodeExcitedLinearPrediction = 8,                   // CELP
+    HarmonicVectorExcitationCoding = 9,                // HVXC
+    TextToSpeechtInterface = 12,                       // TTSI
+    MainSynthetic = 13,                                // Main Synthetic
+    WavetableSynthesis = 14,                           // Wavetable Synthesis
+    GeneralMIDI = 15,                                  // General MIDI
+    AlgorithmicSynthesis = 16,                         // Algorithmic Synthesis
+    ErrorResilientAacLowComplexity = 17,               // ER AAC LC
+    ErrorResilientAacLongTermPrediction = 19,          // ER AAC LTP
+    ErrorResilientAacScalable = 20,                    // ER AAC Scalable
+    ErrorResilientAacTwinVQ = 21,                      // ER AAC TwinVQ
+    ErrorResilientAacBitSlicedArithmeticCoding = 22,   // ER Bit Sliced Arithmetic Coding
+    ErrorResilientAacLowDelay = 23,                    // ER AAC Low Delay
+    ErrorResilientCodeExcitedLinearPrediction = 24,    // ER CELP
+    ErrorResilientHarmonicVectorExcitationCoding = 25, // ER HVXC
+    ErrorResilientHarmonicIndividualLinesNoise = 26,   // ER HILN
+    ErrorResilientParametric = 27,                     // ER Parametric
+    SinuSoidalCoding = 28,                             // SSC
+    ParametricStereo = 29,                             // PS
+    MpegSurround = 30,                                 // MPEG Surround
+    MpegLayer1 = 32,                                   // MPEG Layer 1
+    MpegLayer2 = 33,                                   // MPEG Layer 2
+    MpegLayer3 = 34,                                   // MPEG Layer 3
+    DirectStreamTransfer = 35,                         // DST Direct Stream Transfer
+    AudioLosslessCoding = 36,                          // ALS Audio Lossless Coding
+    ScalableLosslessCoding = 37,                       // SLC Scalable Lossless Coding
+    ScalableLosslessCodingNoneCore = 38,               // SLC non-core
+    ErrorResilientAacEnhancedLowDelay = 39,            // ER AAC ELD
+    SymbolicMusicRepresentationSimple = 40,            // SMR Simple
+    SymbolicMusicRepresentationMain = 41,              // SMR Main
+    UnifiedSpeechAudioCoding = 42,                     // USAC
+    SpatialAudioObjectCoding = 43,                     // SAOC
+    LowDelayMpegSurround = 44,                         // LD MPEG Surround
+    SpatialAudioObjectCodingDialogueEnhancement = 45,  // SAOC-DE
+    AudioSync = 46,                                    // Audio Sync
 }
 
 impl TryFrom<u8> for AudioObjectType {

@@ -1,14 +1,14 @@
 //! `mp4` is a Rust library to read and write ISO-MP4 files.
-//! 
+//!
 //! This package contains MPEG-4 specifications defined in parts:
 //!    * ISO/IEC 14496-12 - ISO Base Media File Format (QuickTime, MPEG-4, etc)
 //!    * ISO/IEC 14496-14 - MP4 file format
 //!    * ISO/IEC 14496-17 - Streaming text format
-//! 
+//!
 //! See: [mp4box] for supported MP4 atoms.
-//! 
+//!
 //! ### Example
-//! 
+//!
 //! ```
 //! use std::fs::File;
 //! use std::io::{BufReader};
@@ -49,9 +49,9 @@
 //!    Ok(())
 //! }
 //! ```
-//! 
+//!
 //! See [examples] for more examples.
-//! 
+//!
 //! # Installation
 //!
 //! Add the following to your `Cargo.toml` file:
@@ -60,14 +60,13 @@
 //! [dependencies]
 //! mp4 = "0.7.0"
 //! ```
-//! 
+//!
 //! [mp4box]: https://github.com/alfg/mp4-rust/blob/master/src/mp4box/mod.rs
 //! [examples]: https://github.com/alfg/mp4-rust/blob/master/src/examples
 #![doc(html_root_url = "https://docs.rs/mp4/*")]
 
-
-use std::io::{BufReader};
 use std::fs::File;
+use std::io::BufReader;
 
 mod error;
 pub use error::Error;

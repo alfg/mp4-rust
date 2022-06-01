@@ -33,7 +33,7 @@ impl EmsgBox {
         match version {
             0 => 12,
             1 => 16,
-            _ => panic!("version must be 0 or 1")
+            _ => panic!("version must be 0 or 1"),
         }
     }
 }
@@ -44,8 +44,8 @@ impl Mp4Box for EmsgBox {
     }
 
     fn box_size(&self) -> u64 {
-        Self::size_without_message(self.version, &self.scheme_id_uri, &self.value) +
-            self.message_data.len() as u64
+        Self::size_without_message(self.version, &self.scheme_id_uri, &self.value)
+            + self.message_data.len() as u64
     }
 
     fn to_json(&self) -> Result<String> {
@@ -64,10 +64,13 @@ impl<R: Read + Seek> ReadBox<&mut R> for EmsgBox {
         let (version, flags) = read_box_header_ext(reader)?;
 
         let (
-            timescale, presentation_time, presentation_time_delta, event_duration,
+            timescale,
+            presentation_time,
+            presentation_time_delta,
+            event_duration,
             id,
             scheme_id_uri,
-            value
+            value,
         ) = match version {
             0 => {
                 let scheme_id_uri = read_null_terminated_utf8_string(reader)?;
@@ -79,7 +82,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EmsgBox {
                     reader.read_u32::<BigEndian>()?,
                     reader.read_u32::<BigEndian>()?,
                     scheme_id_uri,
-                    value
+                    value,
                 )
             }
             1 => (
@@ -89,9 +92,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for EmsgBox {
                 reader.read_u32::<BigEndian>()?,
                 reader.read_u32::<BigEndian>()?,
                 read_null_terminated_utf8_string(reader)?,
-                read_null_terminated_utf8_string(reader)?
+                read_null_terminated_utf8_string(reader)?,
             ),
-            _ => return Err(Error::InvalidData("version must be 0 or 1"))
+            _ => return Err(Error::InvalidData("version must be 0 or 1")),
         };
 
         let message_size = size - Self::size_without_message(version, &scheme_id_uri, &value);
@@ -140,7 +143,7 @@ impl<W: Write> WriteBox<&mut W> for EmsgBox {
                 write_null_terminated_str(writer, &self.scheme_id_uri)?;
                 write_null_terminated_str(writer, &self.value)?;
             }
-            _ => return Err(Error::InvalidData("version must be 0 or 1"))
+            _ => return Err(Error::InvalidData("version must be 0 or 1")),
         }
 
         for &byte in &self.message_data {
@@ -156,7 +159,9 @@ fn read_null_terminated_utf8_string<R: Read + Seek>(reader: &mut R) -> Result<St
     loop {
         let byte = reader.read_u8()?;
         bytes.push(byte);
-        if byte == 0 { break; }
+        if byte == 0 {
+            break;
+        }
     }
     if let Ok(str) = unsafe { CStr::from_bytes_with_nul_unchecked(&bytes) }.to_str() {
         Ok(str.to_string())

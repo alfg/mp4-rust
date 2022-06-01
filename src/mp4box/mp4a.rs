@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -65,8 +65,12 @@ impl Mp4Box for Mp4aBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("channel_count={} sample_size={} sample_rate={}",
-            self.channelcount, self.samplesize, self.samplerate.value());
+        let s = format!(
+            "channel_count={} sample_size={} sample_rate={}",
+            self.channelcount,
+            self.samplesize,
+            self.samplerate.value()
+        );
         Ok(s)
     }
 }
@@ -150,8 +154,11 @@ impl Mp4Box for EsdsBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE
-            + 1 + size_of_length(ESDescriptor::desc_size()) as u64 + ESDescriptor::desc_size() as u64
+        HEADER_SIZE
+            + HEADER_EXT_SIZE
+            + 1
+            + size_of_length(ESDescriptor::desc_size()) as u64
+            + ESDescriptor::desc_size() as u64
     }
 
     fn to_json(&self) -> Result<String> {
@@ -292,9 +299,12 @@ impl Descriptor for ESDescriptor {
     }
 
     fn desc_size() -> u32 {
-        3
-        + 1 + size_of_length(DecoderConfigDescriptor::desc_size()) + DecoderConfigDescriptor::desc_size()
-        + 1 + size_of_length(SLConfigDescriptor::desc_size()) + SLConfigDescriptor::desc_size()
+        3 + 1
+            + size_of_length(DecoderConfigDescriptor::desc_size())
+            + DecoderConfigDescriptor::desc_size()
+            + 1
+            + size_of_length(SLConfigDescriptor::desc_size())
+            + SLConfigDescriptor::desc_size()
     }
 }
 
@@ -328,8 +338,8 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 
         Ok(ESDescriptor {
             es_id,
-            dec_config: dec_config.unwrap_or(DecoderConfigDescriptor::default()),
-            sl_config: sl_config.unwrap_or(SLConfigDescriptor::default()),
+            dec_config: dec_config.unwrap_or_default(),
+            sl_config: sl_config.unwrap_or_default(),
         })
     }
 }
@@ -381,7 +391,9 @@ impl Descriptor for DecoderConfigDescriptor {
     }
 
     fn desc_size() -> u32 {
-        13 + 1 + size_of_length(DecoderSpecificDescriptor::desc_size()) + DecoderSpecificDescriptor::desc_size()
+        13 + 1
+            + size_of_length(DecoderSpecificDescriptor::desc_size())
+            + DecoderSpecificDescriptor::desc_size()
     }
 }
 
@@ -421,7 +433,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             buffer_size_db,
             max_bitrate,
             avg_bitrate,
-            dec_specific: dec_specific.unwrap_or(DecoderSpecificDescriptor::default()),
+            dec_specific: dec_specific.unwrap_or_default(),
         })
     }
 }
@@ -479,7 +491,12 @@ fn get_audio_object_type(byte_a: u8, byte_b: u8) -> u8 {
     profile
 }
 
-fn get_chan_conf<R: Read + Seek>(reader: &mut R, byte_b: u8, freq_index: u8, extended_profile: bool) -> Result<u8> {
+fn get_chan_conf<R: Read + Seek>(
+    reader: &mut R,
+    byte_b: u8,
+    freq_index: u8,
+    extended_profile: bool,
+) -> Result<u8> {
     let chan_conf;
     if freq_index == 15 {
         // Skip the 24 bit sample rate
