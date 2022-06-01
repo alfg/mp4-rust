@@ -76,6 +76,12 @@ mp4 = "0.10.0"
 cargo build
 ```
 
+#### Lint and Format
+```
+cargo clippy --fix
+cargo fmt --all
+```
+
 #### Run Examples
 * `mp4info`
 ```
