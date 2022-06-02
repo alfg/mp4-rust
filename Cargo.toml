@@ -1,6 +1,6 @@
 [package]
 name = "mp4"
-version = "0.10.0"
+version = "0.10.1"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
 description = "MP4 reader and writer library in Rust."
