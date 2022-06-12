@@ -724,8 +724,14 @@ impl Mp4TrackWriter {
 
     fn update_durations(&mut self, dur: u32, movie_timescale: u32) {
         self.trak.mdia.mdhd.duration += dur as u64;
+        if self.trak.mdia.mdhd.duration > (u32::MAX as u64) {
+            self.trak.mdia.mdhd.version = 1
+        }
         self.trak.tkhd.duration +=
             dur as u64 * movie_timescale as u64 / self.trak.mdia.mdhd.timescale as u64;
+        if self.trak.tkhd.duration > (u32::MAX as u64) {
+            self.trak.tkhd.version = 1
+        }
     }
 
     pub(crate) fn write_sample<W: Write + Seek>(
