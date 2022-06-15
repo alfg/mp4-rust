@@ -135,6 +135,9 @@ impl<W: Write + Seek> Mp4Writer<W> {
 
         moov.mvhd.timescale = self.timescale;
         moov.mvhd.duration = self.duration;
+        if moov.mvhd.duration > (u32::MAX as u64) {
+            moov.mvhd.version = 1
+        }
         moov.write_box(&mut self.writer)?;
         Ok(())
     }
