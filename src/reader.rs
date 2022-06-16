@@ -167,3 +167,12 @@ impl<R: Read + Seek> Mp4Reader<R> {
         }
     }
 }
+
+impl<R> Mp4Reader<R> {
+    pub fn metadata(&self) -> impl Metadata<'_> {
+        self.moov
+            .udta
+            .as_ref()
+            .and_then(|udta| udta.meta.as_ref().and_then(|meta| meta.ilst.as_ref()))
+    }
+}
