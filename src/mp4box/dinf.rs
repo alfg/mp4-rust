@@ -289,7 +289,7 @@ impl<W: Write> WriteBox<&mut W> for UrlBox {
         write_box_header_ext(writer, self.version, self.flags)?;
 
         if !self.location.is_empty() {
-            writer.write(self.location.as_bytes())?;
+            writer.write_all(self.location.as_bytes())?;
             writer.write_u8(0)?;
         }
 
