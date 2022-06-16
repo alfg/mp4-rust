@@ -122,9 +122,9 @@ macro_rules! boxtype {
             }
         }
 
-        impl Into<u32> for BoxType {
-            fn into(self) -> u32 {
-                match self {
+        impl From<BoxType> for u32 {
+            fn from(b: BoxType) -> u32 {
+                match b {
                     $( BoxType::$name => $value, )*
                     BoxType::UnknownBox(t) => t,
                 }
@@ -225,8 +225,7 @@ impl BoxHeader {
         // Get largesize if size is 1
         if size == 1 {
             reader.read_exact(&mut buf)?;
-            let s = buf.try_into().unwrap();
-            let largesize = u64::from_be_bytes(s);
+            let largesize = u64::from_be_bytes(buf);
 
             Ok(BoxHeader {
                 name: BoxType::from(typ),

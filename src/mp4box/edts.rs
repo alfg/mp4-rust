@@ -55,12 +55,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
         let header = BoxHeader::read(reader)?;
         let BoxHeader { name, size: s } = header;
 
-        match name {
-            BoxType::ElstBox => {
-                let elst = ElstBox::read_box(reader, s)?;
-                edts.elst = Some(elst);
-            }
-            _ => {}
+        if let BoxType::ElstBox = name {
+            let elst = ElstBox::read_box(reader, s)?;
+            edts.elst = Some(elst);
         }
 
         skip_bytes_to(reader, start + size)?;

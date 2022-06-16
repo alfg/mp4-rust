@@ -502,10 +502,7 @@ impl Mp4Track {
         }
 
         if let Some(ref stss) = self.trak.mdia.minf.stbl.stss {
-            match stss.entries.binary_search(&sample_id) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
+            stss.entries.binary_search(&sample_id).is_ok()
         } else {
             true
         }

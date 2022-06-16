@@ -24,7 +24,7 @@ fn test_read_mp4() {
 
     for b in brands {
         let t = mp4.compatible_brands().iter().any(|x| x.to_string() == b);
-        assert_eq!(t, true);
+        assert!(t);
     }
 
     assert_eq!(mp4.duration(), Duration::from_millis(62));

@@ -4,7 +4,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
 pub struct MehdBox {
     pub version: u8,
     pub flags: u32,
@@ -25,16 +25,6 @@ impl MehdBox {
             size += 4;
         }
         size
-    }
-}
-
-impl Default for MehdBox {
-    fn default() -> Self {
-        MehdBox {
-            version: 0,
-            flags: 0,
-            fragment_duration: 0,
-        }
     }
 }
 
