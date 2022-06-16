@@ -290,7 +290,7 @@ impl TryFrom<(u8, u8)> for AvcProfile {
     type Error = Error;
     fn try_from(value: (u8, u8)) -> Result<AvcProfile> {
         let profile = value.0;
-        let constraint_set1_flag = value.1 & 0x40 >> 7;
+        let constraint_set1_flag = (value.1 & 0x40) >> 7;
         match (profile, constraint_set1_flag) {
             (66, 1) => Ok(AvcProfile::AvcConstrainedBaseline),
             (66, 0) => Ok(AvcProfile::AvcBaseline),
