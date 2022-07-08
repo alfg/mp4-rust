@@ -92,7 +92,7 @@ impl<W: Write> WriteBox<&mut W> for HdlrBox {
             writer.write_u32::<BigEndian>(0)?;
         }
 
-        writer.write(self.name.as_bytes())?;
+        writer.write_all(self.name.as_bytes())?;
         writer.write_u8(0)?;
 
         Ok(size)

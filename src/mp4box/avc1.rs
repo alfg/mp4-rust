@@ -283,13 +283,13 @@ impl NalUnit {
     fn read<R: Read + Seek>(reader: &mut R) -> Result<Self> {
         let length = reader.read_u16::<BigEndian>()? as usize;
         let mut bytes = vec![0u8; length];
-        reader.read(&mut bytes)?;
+        reader.read_exact(&mut bytes)?;
         Ok(NalUnit { bytes })
     }
 
     fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         writer.write_u16::<BigEndian>(self.bytes.len() as u16)?;
-        writer.write(&self.bytes)?;
+        writer.write_all(&self.bytes)?;
         Ok(self.size() as u64)
     }
 }

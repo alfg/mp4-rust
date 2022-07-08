@@ -206,9 +206,9 @@ impl TryFrom<&FourCC> for TrackType {
     }
 }
 
-impl Into<FourCC> for TrackType {
-    fn into(self) -> FourCC {
-        match self {
+impl From<TrackType> for FourCC {
+    fn from(t: TrackType) -> FourCC {
+        match t {
             TrackType::Video => HANDLER_TYPE_VIDEO_FOURCC.into(),
             TrackType::Audio => HANDLER_TYPE_AUDIO_FOURCC.into(),
             TrackType::Subtitle => HANDLER_TYPE_SUBTITLE_FOURCC.into(),
@@ -252,9 +252,9 @@ impl TryFrom<&str> for MediaType {
     }
 }
 
-impl Into<&str> for MediaType {
-    fn into(self) -> &'static str {
-        match self {
+impl From<MediaType> for &str {
+    fn from(t: MediaType) -> &'static str {
+        match t {
             MediaType::H264 => MEDIA_TYPE_H264,
             MediaType::H265 => MEDIA_TYPE_H265,
             MediaType::VP9 => MEDIA_TYPE_VP9,
@@ -264,9 +264,9 @@ impl Into<&str> for MediaType {
     }
 }
 
-impl Into<&str> for &MediaType {
-    fn into(self) -> &'static str {
-        match self {
+impl From<&MediaType> for &str {
+    fn from(t: &MediaType) -> &'static str {
+        match t {
             MediaType::H264 => MEDIA_TYPE_H264,
             MediaType::H265 => MEDIA_TYPE_H265,
             MediaType::VP9 => MEDIA_TYPE_VP9,
@@ -290,7 +290,7 @@ impl TryFrom<(u8, u8)> for AvcProfile {
     type Error = Error;
     fn try_from(value: (u8, u8)) -> Result<AvcProfile> {
         let profile = value.0;
-        let constraint_set1_flag = value.1 & 0x40 >> 7;
+        let constraint_set1_flag = (value.1 & 0x40) >> 7;
         match (profile, constraint_set1_flag) {
             (66, 1) => Ok(AvcProfile::AvcConstrainedBaseline),
             (66, 0) => Ok(AvcProfile::AvcBaseline),
@@ -503,20 +503,20 @@ impl TryFrom<u8> for SampleFreqIndex {
 
 impl SampleFreqIndex {
     pub fn freq(&self) -> u32 {
-        match self {
-            &SampleFreqIndex::Freq96000 => 96000,
-            &SampleFreqIndex::Freq88200 => 88200,
-            &SampleFreqIndex::Freq64000 => 64000,
-            &SampleFreqIndex::Freq48000 => 48000,
-            &SampleFreqIndex::Freq44100 => 44100,
-            &SampleFreqIndex::Freq32000 => 32000,
-            &SampleFreqIndex::Freq24000 => 24000,
-            &SampleFreqIndex::Freq22050 => 22050,
-            &SampleFreqIndex::Freq16000 => 16000,
-            &SampleFreqIndex::Freq12000 => 12000,
-            &SampleFreqIndex::Freq11025 => 11025,
-            &SampleFreqIndex::Freq8000 => 8000,
-            &SampleFreqIndex::Freq7350 => 7350,
+        match *self {
+            SampleFreqIndex::Freq96000 => 96000,
+            SampleFreqIndex::Freq88200 => 88200,
+            SampleFreqIndex::Freq64000 => 64000,
+            SampleFreqIndex::Freq48000 => 48000,
+            SampleFreqIndex::Freq44100 => 44100,
+            SampleFreqIndex::Freq32000 => 32000,
+            SampleFreqIndex::Freq24000 => 24000,
+            SampleFreqIndex::Freq22050 => 22050,
+            SampleFreqIndex::Freq16000 => 16000,
+            SampleFreqIndex::Freq12000 => 12000,
+            SampleFreqIndex::Freq11025 => 11025,
+            SampleFreqIndex::Freq8000 => 8000,
+            SampleFreqIndex::Freq7350 => 7350,
         }
     }
 }

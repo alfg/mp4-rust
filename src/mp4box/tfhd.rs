@@ -4,23 +4,12 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
 pub struct TfhdBox {
     pub version: u8,
     pub flags: u32,
     pub track_id: u32,
     pub base_data_offset: u64,
-}
-
-impl Default for TfhdBox {
-    fn default() -> Self {
-        TfhdBox {
-            version: 0,
-            flags: 0,
-            track_id: 0,
-            base_data_offset: 0,
-        }
-    }
 }
 
 impl TfhdBox {

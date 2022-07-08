@@ -89,14 +89,17 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
         let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
-        let header = BoxHeader::read(reader)?;
-        let BoxHeader { name, size: s } = header;
-
         let mut esds = None;
-        if name == BoxType::EsdsBox {
-            esds = Some(EsdsBox::read_box(reader, s)?);
+        let current = reader.seek(SeekFrom::Current(0))?;
+        if current < start + size {
+            let header = BoxHeader::read(reader)?;
+            let BoxHeader { name, size: s } = header;
+
+            if name == BoxType::EsdsBox {
+                esds = Some(EsdsBox::read_box(reader, s)?);
+            }
+            skip_bytes_to(reader, start + size)?;
         }
-        skip_bytes_to(reader, start + size)?;
 
         Ok(Mp4aBox {
             data_reference_index,

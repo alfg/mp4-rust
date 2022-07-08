@@ -45,12 +45,11 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
     let mp4 = mp4::Mp4Reader::read_header(reader, size)?;
 
     // collect known boxes
-    let mut boxes = Vec::new();
-
-    // ftyp, moov, mvhd
-    boxes.push(build_box(&mp4.ftyp));
-    boxes.push(build_box(&mp4.moov));
-    boxes.push(build_box(&mp4.moov.mvhd));
+    let mut boxes = vec![
+        build_box(&mp4.ftyp),
+        build_box(&mp4.moov),
+        build_box(&mp4.moov.mvhd),
+    ];
 
     if let Some(ref mvex) = &mp4.moov.mvex {
         boxes.push(build_box(mvex));
