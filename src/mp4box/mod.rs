@@ -13,6 +13,10 @@
 //! ftyp
 //! moov
 //!     mvhd
+//!     udta
+//!         meta
+//!             ilst
+//!                 data
 //!     trak
 //!         tkhd
 //!         mdia
@@ -60,6 +64,7 @@ use crate::*;
 pub(crate) mod avc1;
 pub(crate) mod co64;
 pub(crate) mod ctts;
+pub(crate) mod data;
 pub(crate) mod dinf;
 pub(crate) mod edts;
 pub(crate) mod elst;
@@ -67,9 +72,11 @@ pub(crate) mod emsg;
 pub(crate) mod ftyp;
 pub(crate) mod hdlr;
 pub(crate) mod hev1;
+pub(crate) mod ilst;
 pub(crate) mod mdhd;
 pub(crate) mod mdia;
 pub(crate) mod mehd;
+pub(crate) mod meta;
 pub(crate) mod mfhd;
 pub(crate) mod minf;
 pub(crate) mod moof;
@@ -92,6 +99,7 @@ pub(crate) mod trak;
 pub(crate) mod trex;
 pub(crate) mod trun;
 pub(crate) mod tx3g;
+pub(crate) mod udta;
 pub(crate) mod vmhd;
 pub(crate) mod vp09;
 pub(crate) mod vpcc;
@@ -167,6 +175,7 @@ boxtype! {
     TrafBox => 0x74726166,
     TrunBox => 0x7472756E,
     UdtaBox => 0x75647461,
+    MetaBox => 0x6d657461,
     DinfBox => 0x64696e66,
     DrefBox => 0x64726566,
     UrlBox  => 0x75726C20,
@@ -179,7 +188,13 @@ boxtype! {
     EsdsBox => 0x65736473,
     Tx3gBox => 0x74783367,
     VpccBox => 0x76706343,
-    Vp09Box => 0x76703039
+    Vp09Box => 0x76703039,
+    DataBox => 0x64617461,
+    IlstBox => 0x696c7374,
+    NameBox => 0xa96e616d,
+    DayBox => 0xa9646179,
+    CovrBox => 0x636f7672,
+    DescBox => 0x64657363
 }
 
 pub trait Mp4Box: Sized {

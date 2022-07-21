@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -653,5 +654,87 @@ pub fn creation_time(creation_time: u64) -> u64 {
         creation_time - 2082844800
     } else {
         creation_time
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum DataType {
+    Binary = 0x000000,
+    Text = 0x000001,
+    Image = 0x00000D,
+    TempoCpil = 0x000015,
+}
+
+impl std::default::Default for DataType {
+    fn default() -> Self {
+        DataType::Binary
+    }
+}
+
+impl TryFrom<u32> for DataType {
+    type Error = Error;
+    fn try_from(value: u32) -> Result<DataType> {
+        match value {
+            0x000000 => Ok(DataType::Binary),
+            0x000001 => Ok(DataType::Text),
+            0x00000D => Ok(DataType::Image),
+            0x000015 => Ok(DataType::TempoCpil),
+            _ => Err(Error::InvalidData("invalid data type")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum MetadataKey {
+    Title,
+    Year,
+    Poster,
+    Summary,
+}
+
+pub trait Metadata<'a> {
+    /// The video's title
+    fn title(&self) -> Option<Cow<str>>;
+    /// The video's release year
+    fn year(&self) -> Option<u32>;
+    /// The video's poster (cover art)
+    fn poster(&self) -> Option<&[u8]>;
+    /// The video's summary
+    fn summary(&self) -> Option<Cow<str>>;
+}
+
+impl<'a, T: Metadata<'a>> Metadata<'a> for &'a T {
+    fn title(&self) -> Option<Cow<str>> {
+        (**self).title()
+    }
+
+    fn year(&self) -> Option<u32> {
+        (**self).year()
+    }
+
+    fn poster(&self) -> Option<&[u8]> {
+        (**self).poster()
+    }
+
+    fn summary(&self) -> Option<Cow<str>> {
+        (**self).summary()
+    }
+}
+
+impl<'a, T: Metadata<'a>> Metadata<'a> for Option<T> {
+    fn title(&self) -> Option<Cow<str>> {
+        self.as_ref().and_then(|t| t.title())
+    }
+
+    fn year(&self) -> Option<u32> {
+        self.as_ref().and_then(|t| t.year())
+    }
+
+    fn poster(&self) -> Option<&[u8]> {
+        self.as_ref().and_then(|t| t.poster())
+    }
+
+    fn summary(&self) -> Option<Cow<str>> {
+        self.as_ref().and_then(|t| t.summary())
     }
 }

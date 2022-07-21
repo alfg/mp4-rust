@@ -24,4 +24,6 @@ pub enum Error {
     EntryInStblNotFound(u32, BoxType, u32),
     #[error("traf[{0}].trun.{1}.entry[{2}] not found")]
     EntryInTrunNotFound(u32, BoxType, u32),
+    #[error("{0} version {1} is not supported")]
+    UnsupportedBoxVersion(BoxType, u8),
 }
