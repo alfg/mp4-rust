@@ -119,7 +119,7 @@ impl<W: Write + Seek> Mp4Writer<W> {
         let mdat_size = mdat_end - self.mdat_pos;
         if mdat_size > std::u32::MAX as u64 {
             self.writer.seek(SeekFrom::Start(self.mdat_pos))?;
-            self.writer.write_u32::<BigEndian>(1 as u32)?;
+            self.writer.write_u32::<BigEndian>(1)?;
             self.writer.seek(SeekFrom::Start(self.mdat_pos + 8))?;
             self.writer.write_u64::<BigEndian>(mdat_size)?;
         } else {
