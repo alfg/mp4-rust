@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::mp4box::ilst::IlstBox;
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct MetaBox {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ilst: Option<IlstBox>,

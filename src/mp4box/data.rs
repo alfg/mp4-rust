@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct DataBox {
     pub data: Vec<u8>,
     pub data_type: DataType,

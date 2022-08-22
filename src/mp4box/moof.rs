@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use crate::mp4box::*;
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct MoofBox {
     pub mfhd: MfhdBox,
 

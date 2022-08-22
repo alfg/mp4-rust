@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::mp4box::meta::MetaBox;
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct UdtaBox {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<MetaBox>,

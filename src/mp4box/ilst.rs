@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::mp4box::data::DataBox;
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct IlstBox {
     pub items: HashMap<MetadataKey, IlstItemBox>,
 }
@@ -54,7 +54,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct IlstItemBox {
     pub data: DataBox,
 }

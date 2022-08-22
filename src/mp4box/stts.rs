@@ -4,7 +4,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct SttsBox {
     pub version: u8,
     pub flags: u32,
@@ -23,7 +23,7 @@ impl SttsBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct SttsEntry {
     pub sample_count: u32,
     pub sample_delta: u32,

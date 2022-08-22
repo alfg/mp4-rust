@@ -115,7 +115,7 @@ pub const HEADER_EXT_SIZE: u64 = 4;
 
 macro_rules! boxtype {
     ($( $name:ident => $value:expr ),*) => {
-        #[derive(Clone, Copy, PartialEq)]
+        #[derive(Clone, Copy, PartialEq, Eq)]
         pub enum BoxType {
             $( $name, )*
             UnknownBox(u32),

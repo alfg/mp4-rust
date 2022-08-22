@@ -5,7 +5,7 @@ use crate::mp4box::*;
 use crate::track::Mp4TrackWriter;
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mp4Config {
     pub major_brand: FourCC,
     pub minor_version: u32,

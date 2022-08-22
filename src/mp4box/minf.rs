@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use crate::mp4box::*;
 use crate::mp4box::{dinf::DinfBox, smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct MinfBox {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vmhd: Option<VmhdBox>,

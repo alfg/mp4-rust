@@ -7,7 +7,7 @@ use crate::mp4box::{
     stsz::StszBox, stts::SttsBox,
 };
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct StblBox {
     pub stsd: StsdBox,
     pub stts: SttsBox,

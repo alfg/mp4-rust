@@ -4,7 +4,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Avc1Box {
     pub data_reference_index: u16,
     pub width: u16,
@@ -153,7 +153,7 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct AvcCBox {
     pub configuration_version: u8,
     pub avc_profile_indication: u8,
@@ -262,7 +262,7 @@ impl<W: Write> WriteBox<&mut W> for AvcCBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct NalUnit {
     pub bytes: Vec<u8>,
 }

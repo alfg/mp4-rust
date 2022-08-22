@@ -9,7 +9,7 @@ use crate::*;
 pub use bytes::Bytes;
 pub use num_rational::Ratio;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FixedPointU8(Ratio<u16>);
 
 impl FixedPointU8 {
@@ -30,7 +30,7 @@ impl FixedPointU8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FixedPointI8(Ratio<i16>);
 
 impl FixedPointI8 {
@@ -51,7 +51,7 @@ impl FixedPointI8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FixedPointU16(Ratio<u32>);
 
 impl FixedPointU16 {
@@ -86,7 +86,7 @@ impl fmt::Display for BoxType {
     }
 }
 
-#[derive(Default, PartialEq, Clone, Copy, Serialize)]
+#[derive(Default, PartialEq, Eq, Clone, Copy, Serialize)]
 pub struct FourCC {
     pub value: [u8; 4],
 }
@@ -165,7 +165,7 @@ const HANDLER_TYPE_AUDIO_FOURCC: [u8; 4] = [b's', b'o', b'u', b'n'];
 const HANDLER_TYPE_SUBTITLE: &str = "sbtl";
 const HANDLER_TYPE_SUBTITLE_FOURCC: [u8; 4] = [b's', b'b', b't', b'l'];
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrackType {
     Video,
     Audio,
@@ -223,7 +223,7 @@ const MEDIA_TYPE_VP9: &str = "vp9";
 const MEDIA_TYPE_AAC: &str = "aac";
 const MEDIA_TYPE_TTXT: &str = "ttxt";
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaType {
     H264,
     H265,
@@ -277,7 +277,7 @@ impl From<&MediaType> for &str {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AvcProfile {
     AvcConstrainedBaseline, // 66 with constraint set 1
     AvcBaseline,            // 66,
@@ -316,7 +316,7 @@ impl fmt::Display for AvcProfile {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AudioObjectType {
     AacMain = 1,                                       // AAC Main Profile
     AacLowComplexity = 2,                              // AAC Low Complexity
@@ -463,7 +463,7 @@ impl fmt::Display for AudioObjectType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SampleFreqIndex {
     Freq96000 = 0x0,
     Freq88200 = 0x1,
@@ -522,7 +522,7 @@ impl SampleFreqIndex {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ChannelConfig {
     Mono = 0x1,
     Stereo = 0x2,
@@ -564,7 +564,7 @@ impl fmt::Display for ChannelConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct AvcConfig {
     pub width: u16,
     pub height: u16,
@@ -572,19 +572,19 @@ pub struct AvcConfig {
     pub pic_param_set: Vec<u8>,
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct HevcConfig {
     pub width: u16,
     pub height: u16,
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Vp9Config {
     pub width: u16,
     pub height: u16,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AacConfig {
     pub bitrate: u32,
     pub profile: AudioObjectType,
@@ -603,10 +603,10 @@ impl Default for AacConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct TtxtConfig {}
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum MediaConfig {
     AvcConfig(AvcConfig),
     HevcConfig(HevcConfig),
