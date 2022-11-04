@@ -110,7 +110,7 @@ pub use moof::MoofBox;
 pub use moov::MoovBox;
 
 pub const HEADER_SIZE: u64 = 8;
-// const HEADER_LARGE_SIZE: u64 = 16;
+pub const HEADER_LARGE_SIZE: u64 = 16;
 pub const HEADER_EXT_SIZE: u64 = 4;
 
 macro_rules! boxtype {
@@ -265,6 +265,13 @@ impl BoxHeader {
             writer.write_u32::<BigEndian>(self.name.into())?;
             Ok(8)
         }
+    }
+
+    pub fn write_large<W: Write>(&self, writer: &mut W) -> Result<u64> {
+        writer.write_u32::<BigEndian>(1)?;
+        writer.write_u32::<BigEndian>(self.name.into())?;
+        writer.write_u64::<BigEndian>(self.size)?;
+        Ok(16)
     }
 }
 

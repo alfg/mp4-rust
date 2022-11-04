@@ -68,9 +68,8 @@ impl<W: Write + Seek> Mp4Writer<W> {
         };
         ftyp.write_box(&mut writer)?;
 
-        // TODO largesize
         let mdat_pos = writer.seek(SeekFrom::Current(0))?;
-        BoxHeader::new(BoxType::MdatBox, HEADER_SIZE).write(&mut writer)?;
+        BoxHeader::new(BoxType::MdatBox, HEADER_LARGE_SIZE).write_large(&mut writer)?;
 
         let tracks = Vec::new();
         let timescale = config.timescale;
@@ -116,11 +115,8 @@ impl<W: Write + Seek> Mp4Writer<W> {
     fn update_mdat_size(&mut self) -> Result<()> {
         let mdat_end = self.writer.seek(SeekFrom::Current(0))?;
         let mdat_size = mdat_end - self.mdat_pos;
-        if mdat_size > std::u32::MAX as u64 {
-            return Err(Error::InvalidData("mdat size too large"));
-        }
-        self.writer.seek(SeekFrom::Start(self.mdat_pos))?;
-        self.writer.write_u32::<BigEndian>(mdat_size as u32)?;
+        self.writer.seek(SeekFrom::Start(self.mdat_pos + 8))?;
+        self.writer.write_u64::<BigEndian>(mdat_size)?;
         self.writer.seek(SeekFrom::Start(mdat_end))?;
         Ok(())
     }
