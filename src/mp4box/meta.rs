@@ -19,7 +19,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
         if version != 0 {
             return Err(Error::UnsupportedBoxVersion(
                 BoxType::UdtaBox,
-                version as u8,
+                version,
             ));
         }
 
