@@ -4,7 +4,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Tx3gBox {
     pub data_reference_index: u16,
     pub display_flags: u32,
@@ -15,7 +15,7 @@ pub struct Tx3gBox {
     pub style_record: [u8; 12],
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct RgbaColor {
     pub red: u8,
     pub green: u8,

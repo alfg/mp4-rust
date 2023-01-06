@@ -10,7 +10,7 @@ pub enum TrackFlag {
     // TrackInPreview = 0x000004,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TkhdBox {
     pub version: u8,
     pub flags: u32,
@@ -51,7 +51,7 @@ impl Default for TkhdBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Matrix {
     pub a: i32,
     pub b: i32,

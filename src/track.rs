@@ -13,7 +13,7 @@ use crate::mp4box::{
 };
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrackConfig {
     pub track_type: TrackType,
     pub timescale: u32,

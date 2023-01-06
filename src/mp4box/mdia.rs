@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use crate::mp4box::*;
 use crate::mp4box::{hdlr::HdlrBox, mdhd::MdhdBox, minf::MinfBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct MdiaBox {
     pub mdhd: MdhdBox,
     pub hdlr: HdlrBox,

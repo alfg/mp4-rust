@@ -2,7 +2,7 @@ use crate::mp4box::*;
 use crate::Mp4Box;
 use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct VpccBox {
     pub version: u8,
     pub flags: u32,

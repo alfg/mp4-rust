@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct EmsgBox {
     pub version: u8,
     pub flags: u32,
