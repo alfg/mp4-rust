@@ -17,10 +17,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
 
         let (version, _) = read_box_header_ext(reader)?;
         if version != 0 {
-            return Err(Error::UnsupportedBoxVersion(
-                BoxType::UdtaBox,
-                version as u8,
-            ));
+            return Err(Error::UnsupportedBoxVersion(BoxType::UdtaBox, version));
         }
 
         let mut ilst = None;
