@@ -115,7 +115,7 @@ pub const HEADER_EXT_SIZE: u64 = 4;
 
 macro_rules! boxtype {
     ($( $name:ident => $value:expr ),*) => {
-        #[derive(Clone, Copy, PartialEq)]
+        #[derive(Clone, Copy, PartialEq, Eq)]
         pub enum BoxType {
             $( $name, )*
             UnknownBox(u32),
@@ -194,7 +194,8 @@ boxtype! {
     NameBox => 0xa96e616d,
     DayBox => 0xa9646179,
     CovrBox => 0x636f7672,
-    DescBox => 0x64657363
+    DescBox => 0x64657363,
+    WideBox => 0x77696465
 }
 
 pub trait Mp4Box: Sized {

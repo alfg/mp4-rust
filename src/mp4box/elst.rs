@@ -4,7 +4,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct ElstBox {
     pub version: u8,
     pub flags: u32,
@@ -13,7 +13,7 @@ pub struct ElstBox {
     pub entries: Vec<ElstEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct ElstEntry {
     pub segment_duration: u64,
     pub media_time: u64,

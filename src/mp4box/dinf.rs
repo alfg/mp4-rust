@@ -3,7 +3,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct DinfBox {
     dref: DrefBox,
 }
@@ -84,7 +84,7 @@ impl<W: Write> WriteBox<&mut W> for DinfBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DrefBox {
     pub version: u8,
     pub flags: u32,
@@ -196,7 +196,7 @@ impl<W: Write> WriteBox<&mut W> for DrefBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UrlBox {
     pub version: u8,
     pub flags: u32,

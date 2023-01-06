@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use crate::mp4box::*;
 use crate::mp4box::{mehd::MehdBox, trex::TrexBox};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct MvexBox {
     pub mehd: Option<MehdBox>,
     pub trex: TrexBox,
