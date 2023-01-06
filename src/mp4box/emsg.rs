@@ -26,7 +26,7 @@ impl EmsgBox {
             4 + // id
             Self::time_size(version) +
             (scheme_id_uri.len() + 1) as u64 +
-            (value.len() as u64 + 1) as u64
+            (value.len() as u64 + 1)
     }
 
     fn time_size(version: u8) -> u64 {
