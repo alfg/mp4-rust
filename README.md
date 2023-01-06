@@ -103,6 +103,14 @@ With print statement output.
 cargo test -- --nocapture
 ```
 
+#### Run Cargo fmt
+Run fmt to catch formatting errors.
+
+```
+rustup component add rustfmt
+cargo fmt --all -- --check
+```
+
 #### Run Clippy
 Run Clippy tests to catch common lints and mistakes.
 
