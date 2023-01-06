@@ -103,6 +103,14 @@ With print statement output.
 cargo test -- --nocapture
 ```
 
+#### Run Clippy
+Run Clippy tests to catch common lints and mistakes.
+
+```
+rustup component add clippy
+cargo clippy --no-deps -- -D warnings
+```
+
 #### Run Benchmark Tests
 ```
 cargo bench
