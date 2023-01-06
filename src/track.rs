@@ -427,7 +427,7 @@ impl Mp4Track {
     fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if !self.trafs.is_empty() {
             if let Some((traf_idx, _sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
-                Ok(self.trafs[traf_idx].tfhd.base_data_offset)
+                Ok(self.trafs[traf_idx].tfhd.base_data_offset.unwrap_or(0))
             } else {
                 Err(Error::BoxInTrafNotFound(self.track_id(), BoxType::TrafBox))
             }
