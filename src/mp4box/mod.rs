@@ -245,7 +245,9 @@ impl BoxHeader {
 
             Ok(BoxHeader {
                 name: BoxType::from(typ),
-                size: largesize - HEADER_SIZE,
+                size: largesize
+                    .checked_sub(HEADER_SIZE)
+                    .ok_or(Error::InvalidData("64-bit box size too small"))?,
             })
         } else {
             Ok(BoxHeader {
@@ -355,5 +357,23 @@ mod tests {
         assert_eq!(&ftyp_value.value[..], b"ftyp");
         let ftyp_fcc2: u32 = ftyp_value.into();
         assert_eq!(ftyp_fcc, ftyp_fcc2);
+    }
+
+    #[test]
+    fn test_largesize_too_small() {
+        let error = BoxHeader::read(&mut &[0, 0, 0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 7][..]);
+        assert!(matches!(error, Err(Error::InvalidData(_))));
+    }
+
+    #[test]
+    fn test_zero_largesize() {
+        let header = BoxHeader::read(&mut &[0, 0, 0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 8][..]);
+        assert!(matches!(header, Ok(BoxHeader { size: 0, .. })));
+    }
+
+    #[test]
+    fn test_nonzero_largesize() {
+        let header = BoxHeader::read(&mut &[0, 0, 0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 9][..]);
+        assert!(matches!(header, Ok(BoxHeader { size: 1, .. })));
     }
 }
