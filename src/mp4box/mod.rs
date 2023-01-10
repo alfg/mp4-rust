@@ -245,7 +245,15 @@ impl BoxHeader {
 
             Ok(BoxHeader {
                 name: BoxType::from(typ),
-                size: largesize - HEADER_SIZE,
+
+                // Subtract the length of the serialized largesize, as callers assume `size - HEADER_SIZE` is the length
+                // of the box data. Disallow `largesize < 16`, or else a largesize of 8 will result in a BoxHeader::size
+                // of 0, incorrectly indicating that the box data extends to the end of the stream.
+                size: match largesize {
+                    0 => 0,
+                    1..=15 => return Err(Error::InvalidData("64-bit box size too small")),
+                    16..=u64::MAX => largesize - 8,
+                },
             })
         } else {
             Ok(BoxHeader {
@@ -355,5 +363,29 @@ mod tests {
         assert_eq!(&ftyp_value.value[..], b"ftyp");
         let ftyp_fcc2: u32 = ftyp_value.into();
         assert_eq!(ftyp_fcc, ftyp_fcc2);
+    }
+
+    #[test]
+    fn test_largesize_too_small() {
+        let error = BoxHeader::read(&mut &[0, 0, 0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 7][..]);
+        assert!(matches!(error, Err(Error::InvalidData(_))));
+    }
+
+    #[test]
+    fn test_zero_largesize() {
+        let error = BoxHeader::read(&mut &[0, 0, 0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 8][..]);
+        assert!(matches!(error, Err(Error::InvalidData(_))));
+    }
+
+    #[test]
+    fn test_nonzero_largesize_too_small() {
+        let error = BoxHeader::read(&mut &[0, 0, 0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 15][..]);
+        assert!(matches!(error, Err(Error::InvalidData(_))));
+    }
+
+    #[test]
+    fn test_valid_largesize() {
+        let header = BoxHeader::read(&mut &[0, 0, 0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 16][..]);
+        assert!(matches!(header, Ok(BoxHeader { size: 8, .. })));
     }
 }
