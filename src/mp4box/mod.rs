@@ -50,6 +50,7 @@
 //!     mfhd
 //!     traf
 //!         tfhd
+//!         tfdt
 //!         trun
 //! mdat
 //! free
@@ -92,6 +93,7 @@ pub(crate) mod stsd;
 pub(crate) mod stss;
 pub(crate) mod stsz;
 pub(crate) mod stts;
+pub(crate) mod tfdt;
 pub(crate) mod tfhd;
 pub(crate) mod tkhd;
 pub(crate) mod traf;
@@ -155,6 +157,7 @@ boxtype! {
     MoofBox => 0x6d6f6f66,
     TkhdBox => 0x746b6864,
     TfhdBox => 0x74666864,
+    TfdtBox => 0x74666474,
     EdtsBox => 0x65647473,
     MdiaBox => 0x6d646961,
     ElstBox => 0x656c7374,
