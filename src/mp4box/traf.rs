@@ -2,11 +2,12 @@ use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::mp4box::*;
-use crate::mp4box::{tfhd::TfhdBox, trun::TrunBox};
+use crate::mp4box::{tfdt::TfdtBox, tfhd::TfhdBox, trun::TrunBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct TrafBox {
     pub tfhd: TfhdBox,
+    pub tfdt: Option<TfdtBox>,
     pub trun: Option<TrunBox>,
 }
 
@@ -49,6 +50,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
         let start = box_start(reader)?;
 
         let mut tfhd = None;
+        let mut tfdt = None;
         let mut trun = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
@@ -61,6 +63,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
             match name {
                 BoxType::TfhdBox => {
                     tfhd = Some(TfhdBox::read_box(reader, s)?);
+                }
+                BoxType::TfdtBox => {
+                    tfdt = Some(TfdtBox::read_box(reader, s)?);
                 }
                 BoxType::TrunBox => {
                     trun = Some(TrunBox::read_box(reader, s)?);
@@ -82,6 +87,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
 
         Ok(TrafBox {
             tfhd: tfhd.unwrap(),
+            tfdt,
             trun,
         })
     }
