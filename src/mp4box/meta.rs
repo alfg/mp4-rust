@@ -27,6 +27,50 @@ pub enum MetaBox {
 
 const MDIR: FourCC = FourCC { value: *b"mdir" };
 
+impl MetaBox {
+    pub fn get_type(&self) -> BoxType {
+        BoxType::MetaBox
+    }
+
+    pub fn get_size(&self) -> u64 {
+        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
+        match self {
+            Self::Mdir { ilst } => {
+                size += HdlrBox::default().box_size();
+                if let Some(ilst) = ilst {
+                    size += ilst.box_size();
+                }
+            }
+            Self::Unknown { hdlr, data } => size += hdlr.box_size() + data.len() as u64,
+        }
+        size
+    }
+}
+
+impl Mp4Box for MetaBox {
+    fn box_type(&self) -> BoxType {
+        self.get_type()
+    }
+
+    fn box_size(&self) -> u64 {
+        self.get_size()
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = match self {
+            Self::Mdir { .. } => format!("hdlr=ilst"),
+            Self::Unknown { hdlr, data } => {
+                format!("hdlr={} data_len={}", hdlr.handler_type, data.len())
+            }
+        };
+        Ok(s)
+    }
+}
+
 impl Default for MetaBox {
     fn default() -> Self {
         Self::Unknown {
@@ -88,6 +132,34 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
     }
 }
 
+impl<W: Write> WriteBox<&mut W> for MetaBox {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write(writer)?;
+
+        write_box_header_ext(writer, 0, 0)?;
+
+        let hdlr = match self {
+            Self::Mdir { .. } => HdlrBox {
+                handler_type: MDIR,
+                ..Default::default()
+            },
+            Self::Unknown { hdlr, .. } => hdlr.clone(),
+        };
+        hdlr.write_box(writer)?;
+
+        match self {
+            Self::Mdir { ilst } => {
+                if let Some(ilst) = ilst {
+                    ilst.write_box(writer)?;
+                }
+            }
+            Self::Unknown { data, .. } => writer.write_all(data)?,
+        }
+        Ok(size)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,29 +167,39 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn test_meta_mdir() {
-        let src_hdlr = HdlrBox {
-            handler_type: MDIR,
-            ..Default::default()
-        };
-        let src_header = BoxHeader::new(
-            BoxType::MetaBox,
-            HEADER_SIZE + HEADER_EXT_SIZE + src_hdlr.box_size(),
-        );
+    fn test_meta_mdir_empty() {
+        let src_box = MetaBox::Mdir { ilst: None };
 
         let mut buf = Vec::new();
-        src_header.write(&mut buf).unwrap();
-        write_box_header_ext(&mut buf, 0, 0).unwrap();
-        src_hdlr.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_header.size as usize);
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
 
         let mut reader = Cursor::new(&buf);
         let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, src_header.name);
-        assert_eq!(header.size, src_header.size);
+        assert_eq!(header.name, BoxType::MetaBox);
+        assert_eq!(header.size, src_box.box_size());
 
         let dst_box = MetaBox::read_box(&mut reader, header.size).unwrap();
-        assert!(matches!(dst_box, MetaBox::Mdir { ilst: None }));
+        assert_eq!(dst_box, src_box);
+    }
+
+    #[test]
+    fn test_meta_mdir() {
+        let src_box = MetaBox::Mdir {
+            ilst: Some(IlstBox::default()),
+        };
+
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::MetaBox);
+        assert_eq!(header.size, src_box.box_size());
+
+        let dst_box = MetaBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(dst_box, src_box);
     }
 
     #[test]
@@ -127,28 +209,21 @@ mod tests {
             ..Default::default()
         };
         let src_data = b"123";
-        let src_header = BoxHeader::new(
-            BoxType::MetaBox,
-            HEADER_SIZE + HEADER_EXT_SIZE + src_hdlr.box_size() + src_data.len() as u64,
-        );
+        let src_box = MetaBox::Unknown {
+            hdlr: src_hdlr,
+            data: src_data.to_vec(),
+        };
 
         let mut buf = Vec::new();
-        src_header.write(&mut buf).unwrap();
-        write_box_header_ext(&mut buf, 0, 0).unwrap();
-        src_hdlr.write_box(&mut buf).unwrap();
-
-        buf.extend(src_data);
-
-        assert_eq!(buf.len(), src_header.size as usize);
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
 
         let mut reader = Cursor::new(&buf);
         let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, src_header.name);
-        assert_eq!(header.size, src_header.size);
+        assert_eq!(header.name, BoxType::MetaBox);
+        assert_eq!(header.size, src_box.box_size());
 
         let dst_box = MetaBox::read_box(&mut reader, header.size).unwrap();
-        assert!(
-            matches!(dst_box, MetaBox::Unknown { hdlr, data } if data == src_data && hdlr == src_hdlr)
-        );
+        assert_eq!(dst_box, src_box);
     }
 }
