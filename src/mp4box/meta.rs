@@ -62,7 +62,7 @@ impl Mp4Box for MetaBox {
 
     fn summary(&self) -> Result<String> {
         let s = match self {
-            Self::Mdir { .. } => format!("hdlr=ilst"),
+            Self::Mdir { .. } => "hdlr=ilst".to_string(),
             Self::Unknown { hdlr, data } => {
                 format!("hdlr={} data_len={}", hdlr.handler_type, data.len())
             }
