@@ -55,6 +55,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for CttsBox {
         let (version, flags) = read_box_header_ext(reader)?;
 
         let entry_count = reader.read_u32::<BigEndian>()?;
+        if u64::from(entry_count) > size.saturating_sub(4) / 8 {
+            return Err(Error::InvalidData(
+                "ctts entry_count indicates more entries than could fit in the box",
+            ));
+        }
         let mut entries = Vec::with_capacity(entry_count as usize);
         for _ in 0..entry_count {
             let entry = CttsEntry {

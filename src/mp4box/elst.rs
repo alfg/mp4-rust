@@ -63,6 +63,13 @@ impl<R: Read + Seek> ReadBox<&mut R> for ElstBox {
         let (version, flags) = read_box_header_ext(reader)?;
 
         let entry_count = reader.read_u32::<BigEndian>()?;
+        let header_size = 4;
+        let entry_size = if version == 1 { 20 } else { 12 };
+        if u64::from(entry_count) > size.saturating_sub(header_size) / entry_size {
+            return Err(Error::InvalidData(
+                "elst entry_count indicates more entries than could fit in the box",
+            ));
+        }
         let mut entries = Vec::with_capacity(entry_count as usize);
         for _ in 0..entry_count {
             let (segment_duration, media_time) = if version == 1 {

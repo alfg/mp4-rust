@@ -97,10 +97,31 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
             None
         };
 
-        let mut sample_durations = Vec::with_capacity(sample_count as usize);
-        let mut sample_sizes = Vec::with_capacity(sample_count as usize);
-        let mut sample_flags = Vec::with_capacity(sample_count as usize);
-        let mut sample_cts = Vec::with_capacity(sample_count as usize);
+        let mut sample_durations = Vec::new();
+        let mut sample_sizes = Vec::new();
+        let mut sample_flags = Vec::new();
+        let mut sample_cts = Vec::new();
+        let header_size = ((0x0000ff & flags).count_ones() + 1) * 4;
+        let entry_size = (0x00ff00 & flags).count_ones() * 4;
+        if u64::from(sample_count) * u64::from(entry_size)
+            > size.saturating_sub(u64::from(header_size))
+        {
+            return Err(Error::InvalidData(
+                "trun sample_count indicates more values than could fit in the box",
+            ));
+        }
+        if TrunBox::FLAG_SAMPLE_DURATION & flags > 0 {
+            sample_durations.reserve(sample_count as usize);
+        }
+        if TrunBox::FLAG_SAMPLE_SIZE & flags > 0 {
+            sample_sizes.reserve(sample_count as usize);
+        }
+        if TrunBox::FLAG_SAMPLE_FLAGS & flags > 0 {
+            sample_flags.reserve(sample_count as usize);
+        }
+        if TrunBox::FLAG_SAMPLE_CTS & flags > 0 {
+            sample_cts.reserve(sample_count as usize);
+        }
         for _ in 0..sample_count {
             if TrunBox::FLAG_SAMPLE_DURATION & flags > 0 {
                 let duration = reader.read_u32::<BigEndian>()?;

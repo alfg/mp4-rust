@@ -234,7 +234,9 @@ impl Mp4Track {
             let mut sample_count = 0u32;
             for traf in self.trafs.iter() {
                 if let Some(ref trun) = traf.trun {
-                    sample_count += trun.sample_count;
+                    sample_count = sample_count
+                        .checked_add(trun.sample_count)
+                        .expect("attempt to sum trun sample_count with overflow");
                 }
             }
             sample_count
@@ -342,12 +344,18 @@ impl Mp4Track {
 
     fn ctts_index(&self, sample_id: u32) -> Result<(usize, u32)> {
         let ctts = self.trak.mdia.minf.stbl.ctts.as_ref().unwrap();
-        let mut sample_count = 1;
+        let mut sample_count: u32 = 1;
         for (i, entry) in ctts.entries.iter().enumerate() {
-            if sample_id < sample_count + entry.sample_count {
+            let next_sample_count =
+                sample_count
+                    .checked_add(entry.sample_count)
+                    .ok_or(Error::InvalidData(
+                        "attempt to sum ctts entries sample_count with overflow",
+                    ))?;
+            if sample_id < next_sample_count {
                 return Ok((i, sample_count));
             }
-            sample_count += entry.sample_count;
+            sample_count = next_sample_count;
         }
 
         Err(Error::EntryInStblNotFound(
@@ -367,7 +375,9 @@ impl Mp4Track {
                 if sample_count > (global_idx - offset) {
                     return Some((traf_idx, (global_idx - offset) as _));
                 }
-                offset += sample_count;
+                offset = offset
+                    .checked_add(sample_count)
+                    .expect("attempt to sum trun sample_count with overflow");
             }
         }
         None
@@ -441,7 +451,13 @@ impl Mp4Track {
             let first_sample = stsc_entry.first_sample;
             let samples_per_chunk = stsc_entry.samples_per_chunk;
 
-            let chunk_id = first_chunk + (sample_id - first_sample) / samples_per_chunk;
+            let chunk_id = sample_id
+                .checked_sub(first_sample)
+                .and_then(|n| n.checked_add(first_chunk))
+                .map(|n| n / samples_per_chunk)
+                .ok_or(Error::InvalidData(
+                    "attempt to calculate stsc chunk_id with overflow",
+                ))?;
 
             let chunk_offset = self.chunk_offset(chunk_id)?;
 
@@ -459,7 +475,7 @@ impl Mp4Track {
     fn sample_time(&self, sample_id: u32) -> Result<(u64, u32)> {
         let stts = &self.trak.mdia.minf.stbl.stts;
 
-        let mut sample_count = 1;
+        let mut sample_count: u32 = 1;
         let mut elapsed = 0;
 
         if !self.trafs.is_empty() {
@@ -467,13 +483,19 @@ impl Mp4Track {
             Ok((start_time, self.default_sample_duration))
         } else {
             for entry in stts.entries.iter() {
-                if sample_id < sample_count + entry.sample_count {
+                let new_sample_count =
+                    sample_count
+                        .checked_add(entry.sample_count)
+                        .ok_or(Error::InvalidData(
+                            "attempt to sum stts entries sample_count with overflow",
+                        ))?;
+                if sample_id < new_sample_count {
                     let start_time =
                         (sample_id - sample_count) as u64 * entry.sample_delta as u64 + elapsed;
                     return Ok((start_time, entry.sample_delta));
                 }
 
-                sample_count += entry.sample_count;
+                sample_count = new_sample_count;
                 elapsed += entry.sample_count as u64 * entry.sample_delta as u64;
             }
 

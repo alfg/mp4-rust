@@ -53,12 +53,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
-        let major = reader.read_u32::<BigEndian>()?;
-        let minor = reader.read_u32::<BigEndian>()?;
-        if size % 4 != 0 {
-            return Err(Error::InvalidData("invalid ftyp size"));
+        if size < 16 || size % 4 != 0 {
+            return Err(Error::InvalidData("ftyp size too small or not aligned"));
         }
         let brand_count = (size - 16) / 4; // header + major + minor
+        let major = reader.read_u32::<BigEndian>()?;
+        let minor = reader.read_u32::<BigEndian>()?;
 
         let mut brands = Vec::new();
         for _ in 0..brand_count {
