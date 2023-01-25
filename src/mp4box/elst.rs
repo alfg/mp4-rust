@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek, Write};
+use std::mem::size_of;
 
 use crate::mp4box::*;
 
@@ -63,9 +64,18 @@ impl<R: Read + Seek> ReadBox<&mut R> for ElstBox {
         let (version, flags) = read_box_header_ext(reader)?;
 
         let entry_count = reader.read_u32::<BigEndian>()?;
-        let header_size = 4;
-        let entry_size = if version == 1 { 20 } else { 12 };
-        if u64::from(entry_count) > size.saturating_sub(header_size) / entry_size {
+        let other_size = size_of::<i32>(); // entry_count
+        let entry_size = {
+            let mut entry_size = 0;
+            entry_size += if version == 1 {
+                size_of::<u64>() + size_of::<i64>() // segment_duration + media_time
+            } else {
+                size_of::<u32>() + size_of::<i32>() // segment_duration + media_time
+            };
+            entry_size += size_of::<i16>() + size_of::<i16>(); // media_rate_integer + media_rate_fraction
+            entry_size
+        };
+        if u64::from(entry_count) > size.saturating_sub(other_size as u64) / entry_size as u64 {
             return Err(Error::InvalidData(
                 "elst entry_count indicates more entries than could fit in the box",
             ));

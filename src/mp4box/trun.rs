@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek, Write};
+use std::mem::size_of;
 
 use crate::mp4box::*;
 
@@ -83,6 +84,14 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
+        let other_size = size_of::<u32>() // sample_count
+            + if TrunBox::FLAG_DATA_OFFSET & flags > 0 { size_of::<i32>() } else { 0 } // data_offset
+            + if TrunBox::FLAG_FIRST_SAMPLE_FLAGS & flags > 0 { size_of::<u32>() } else { 0 }; // first_sample_flags
+        let sample_size = if TrunBox::FLAG_SAMPLE_DURATION & flags > 0 { size_of::<u32>() } else { 0 } // sample_duration
+            + if TrunBox::FLAG_SAMPLE_SIZE & flags > 0 { size_of::<u32>() } else { 0 } // sample_size
+            + if TrunBox::FLAG_SAMPLE_FLAGS & flags > 0 { size_of::<u32>() } else { 0 } // sample_flags
+            + if TrunBox::FLAG_SAMPLE_CTS & flags > 0 { size_of::<u32>() } else { 0 }; // sample_composition_time_offset
+
         let sample_count = reader.read_u32::<BigEndian>()?;
 
         let data_offset = if TrunBox::FLAG_DATA_OFFSET & flags > 0 {
@@ -101,10 +110,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
         let mut sample_sizes = Vec::new();
         let mut sample_flags = Vec::new();
         let mut sample_cts = Vec::new();
-        let header_size = ((0x0000ff & flags).count_ones() + 1) * 4;
-        let entry_size = (0x00ff00 & flags).count_ones() * 4;
-        if u64::from(sample_count) * u64::from(entry_size)
-            > size.saturating_sub(u64::from(header_size))
+        if u64::from(sample_count) * sample_size as u64
+            > size.saturating_sub(other_size as u64)
         {
             return Err(Error::InvalidData(
                 "trun sample_count indicates more values than could fit in the box",
@@ -122,6 +129,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
         if TrunBox::FLAG_SAMPLE_CTS & flags > 0 {
             sample_cts.reserve(sample_count as usize);
         }
+
         for _ in 0..sample_count {
             if TrunBox::FLAG_SAMPLE_DURATION & flags > 0 {
                 let duration = reader.read_u32::<BigEndian>()?;
