@@ -540,7 +540,11 @@ impl Mp4Track {
             Err(Error::EntryInStblNotFound(_, _, _)) => return Ok(None),
             Err(err) => return Err(err),
         };
-        let sample_size = self.sample_size(sample_id).unwrap();
+        let sample_size = match self.sample_size(sample_id) {
+            Ok(size) => size,
+            Err(Error::EntryInStblNotFound(_, _, _)) => return Ok(None),
+            Err(err) => return Err(err),
+        };
 
         let mut buffer = vec![0x0u8; sample_size as usize];
         reader.seek(SeekFrom::Start(sample_offset))?;
