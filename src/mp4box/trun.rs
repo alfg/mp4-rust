@@ -84,6 +84,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
+        let header_size = HEADER_SIZE + HEADER_EXT_SIZE;
         let other_size = size_of::<u32>() // sample_count
             + if TrunBox::FLAG_DATA_OFFSET & flags > 0 { size_of::<i32>() } else { 0 } // data_offset
             + if TrunBox::FLAG_FIRST_SAMPLE_FLAGS & flags > 0 { size_of::<u32>() } else { 0 }; // first_sample_flags
@@ -111,7 +112,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
         let mut sample_flags = Vec::new();
         let mut sample_cts = Vec::new();
         if u64::from(sample_count) * sample_size as u64
-            > size.saturating_sub(other_size as u64)
+            > size
+                .saturating_sub(header_size)
+                .saturating_sub(other_size as u64)
         {
             return Err(Error::InvalidData(
                 "trun sample_count indicates more values than could fit in the box",

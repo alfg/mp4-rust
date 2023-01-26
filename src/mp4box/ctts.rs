@@ -55,11 +55,17 @@ impl<R: Read + Seek> ReadBox<&mut R> for CttsBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
+        let header_size = HEADER_SIZE + HEADER_EXT_SIZE;
         let entry_count = reader.read_u32::<BigEndian>()?;
         let entry_size = size_of::<u32>() + size_of::<i32>(); // sample_count + sample_offset
                                                               // (sample_offset might be a u32, but the size is the same.)
         let other_size = size_of::<i32>(); // entry_count
-        if u64::from(entry_count) > size.saturating_sub(other_size as u64) / entry_size as u64 {
+        if u64::from(entry_count)
+            > size
+                .saturating_sub(header_size)
+                .saturating_sub(other_size as u64)
+                / entry_size as u64
+        {
             return Err(Error::InvalidData(
                 "ctts entry_count indicates more entries than could fit in the box",
             ));

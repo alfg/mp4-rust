@@ -63,6 +63,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for ElstBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
+        let header_size = HEADER_SIZE + HEADER_EXT_SIZE;
         let entry_count = reader.read_u32::<BigEndian>()?;
         let other_size = size_of::<i32>(); // entry_count
         let entry_size = {
@@ -75,7 +76,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for ElstBox {
             entry_size += size_of::<i16>() + size_of::<i16>(); // media_rate_integer + media_rate_fraction
             entry_size
         };
-        if u64::from(entry_count) > size.saturating_sub(other_size as u64) / entry_size as u64 {
+        if u64::from(entry_count)
+            > size
+                .saturating_sub(header_size)
+                .saturating_sub(other_size as u64)
+                / entry_size as u64
+        {
             return Err(Error::InvalidData(
                 "elst entry_count indicates more entries than could fit in the box",
             ));
