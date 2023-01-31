@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
 
+use crate::meta::MetaBox;
 use crate::mp4box::*;
 use crate::mp4box::{edts::EdtsBox, mdia::MdiaBox, tkhd::TkhdBox};
 
@@ -10,6 +11,9 @@ pub struct TrakBox {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edts: Option<EdtsBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<MetaBox>,
 
     pub mdia: MdiaBox,
 }
@@ -55,6 +59,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
 
         let mut tkhd = None;
         let mut edts = None;
+        let mut meta = None;
         let mut mdia = None;
 
         let mut current = reader.seek(SeekFrom::Current(0))?;
@@ -70,6 +75,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
                 }
                 BoxType::EdtsBox => {
                     edts = Some(EdtsBox::read_box(reader, s)?);
+                }
+                BoxType::MetaBox => {
+                    meta = Some(MetaBox::read_box(reader, s)?);
                 }
                 BoxType::MdiaBox => {
                     mdia = Some(MdiaBox::read_box(reader, s)?);
@@ -95,6 +103,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
         Ok(TrakBox {
             tkhd: tkhd.unwrap(),
             edts,
+            meta,
             mdia: mdia.unwrap(),
         })
     }

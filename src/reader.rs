@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::time::Duration;
 
+use crate::meta::MetaBox;
 use crate::*;
 
 #[derive(Debug)]
@@ -170,9 +171,11 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
 impl<R> Mp4Reader<R> {
     pub fn metadata(&self) -> impl Metadata<'_> {
-        self.moov
-            .udta
-            .as_ref()
-            .and_then(|udta| udta.meta.as_ref().and_then(|meta| meta.ilst.as_ref()))
+        self.moov.udta.as_ref().and_then(|udta| {
+            udta.meta.as_ref().and_then(|meta| match meta {
+                MetaBox::Mdir { ilst } => ilst.as_ref(),
+                _ => None,
+            })
+        })
     }
 }
