@@ -49,7 +49,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for UdtaBox {
 
         let mut meta = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size;
         while current < end {
             // Get box header.
@@ -66,7 +66,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for UdtaBox {
                 }
             }
 
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         skip_bytes_to(reader, start + size)?;

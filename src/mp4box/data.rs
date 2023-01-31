@@ -54,7 +54,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DataBox {
 
         reader.read_u32::<BigEndian>()?; // reserved = 0
 
-        let current = reader.seek(SeekFrom::Current(0))?;
+        let current = reader.stream_position()?;
         let mut data = vec![0u8; (start + size - current) as usize];
         reader.read_exact(&mut data)?;
 

@@ -43,7 +43,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DinfBox {
 
         let mut dref = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size;
         while current < end {
             // Get box header.
@@ -60,7 +60,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DinfBox {
                 }
             }
 
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         if dref.is_none() {
@@ -140,7 +140,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
 
         let (version, flags) = read_box_header_ext(reader)?;
         let end = start + size;
@@ -166,7 +166,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
                 }
             }
 
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         skip_bytes_to(reader, start + size)?;

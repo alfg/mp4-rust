@@ -79,7 +79,7 @@ impl Mp4Box for Vp09Box {
     }
 
     fn summary(&self) -> Result<String> {
-        Ok(format!("{:?}", self))
+        Ok(format!("{self:?}"))
     }
 }
 

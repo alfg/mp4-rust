@@ -36,7 +36,7 @@ impl Mp4Box for VpccBox {
     }
 
     fn summary(&self) -> Result<String> {
-        Ok(format!("{:?}", self))
+        Ok(format!("{self:?}"))
     }
 }
 

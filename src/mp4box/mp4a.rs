@@ -90,7 +90,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
         let mut esds = None;
-        let current = reader.seek(SeekFrom::Current(0))?;
+        let current = reader.stream_position()?;
         if current < start + size {
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
@@ -181,7 +181,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
 
         let mut es_desc = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size;
         while current < end {
             let (desc_tag, desc_size) = read_desc(reader)?;
@@ -191,7 +191,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
                 }
                 _ => break,
             }
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         if es_desc.is_none() {
@@ -313,7 +313,7 @@ impl Descriptor for ESDescriptor {
 
 impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
     fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
-        let start = reader.seek(SeekFrom::Current(0))?;
+        let start = reader.stream_position()?;
 
         let es_id = reader.read_u16::<BigEndian>()?;
         reader.read_u8()?; // XXX flags must be 0
@@ -321,7 +321,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
         let mut dec_config = None;
         let mut sl_config = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size as u64;
         while current < end {
             let (desc_tag, desc_size) = read_desc(reader)?;
@@ -336,7 +336,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
                     skip_bytes(reader, desc_size as u64)?;
                 }
             }
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         Ok(ESDescriptor {
@@ -402,7 +402,7 @@ impl Descriptor for DecoderConfigDescriptor {
 
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
     fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
-        let start = reader.seek(SeekFrom::Current(0))?;
+        let start = reader.stream_position()?;
 
         let object_type_indication = reader.read_u8()?;
         let byte_a = reader.read_u8()?;
@@ -414,7 +414,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 
         let mut dec_specific = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size as u64;
         while current < end {
             let (desc_tag, desc_size) = read_desc(reader)?;
@@ -426,7 +426,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
                     skip_bytes(reader, desc_size as u64)?;
                 }
             }
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         Ok(DecoderConfigDescriptor {

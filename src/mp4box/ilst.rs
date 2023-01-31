@@ -52,7 +52,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
 
         let mut items = HashMap::new();
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size;
         while current < end {
             // Get box header.
@@ -78,7 +78,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
                 }
             }
 
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         skip_bytes_to(reader, start + size)?;
@@ -123,7 +123,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
 
         let mut data = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size;
         while current < end {
             // Get box header.
@@ -140,7 +140,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
                 }
             }
 
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         if data.is_none() {
