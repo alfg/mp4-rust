@@ -784,7 +784,7 @@ impl Mp4TrackWriter {
         if self.chunk_buffer.is_empty() {
             return Ok(());
         }
-        let chunk_offset = writer.seek(SeekFrom::Current(0))?;
+        let chunk_offset = writer.stream_position()?;
 
         writer.write_all(&self.chunk_buffer)?;
 

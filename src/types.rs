@@ -75,14 +75,14 @@ impl FixedPointU16 {
 impl fmt::Debug for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let fourcc: FourCC = From::from(*self);
-        write!(f, "{}", fourcc)
+        write!(f, "{fourcc}")
     }
 }
 
 impl fmt::Display for BoxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let fourcc: FourCC = From::from(*self);
-        write!(f, "{}", fourcc)
+        write!(f, "{fourcc}")
     }
 }
 
@@ -142,7 +142,7 @@ impl fmt::Debug for FourCC {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let code: u32 = self.into();
         let string = String::from_utf8_lossy(&self.value[..]);
-        write!(f, "{} / {:#010X}", string, code)
+        write!(f, "{string} / {code:#010X}")
     }
 }
 
@@ -179,7 +179,7 @@ impl fmt::Display for TrackType {
             TrackType::Audio => DISPLAY_TYPE_AUDIO,
             TrackType::Subtitle => DISPLAY_TYPE_SUBTITLE,
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -235,7 +235,7 @@ pub enum MediaType {
 impl fmt::Display for MediaType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s: &str = self.into();
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -312,7 +312,7 @@ impl fmt::Display for AvcProfile {
             AvcProfile::AvcExtended => "Extended",
             AvcProfile::AvcHigh => "High",
         };
-        write!(f, "{}", profile)
+        write!(f, "{profile}")
     }
 }
 
@@ -459,7 +459,7 @@ impl fmt::Display for AudioObjectType {
             AudioObjectType::SpatialAudioObjectCodingDialogueEnhancement => "SAOC-DE",
             AudioObjectType::AudioSync => "Audio Sync",
         };
-        write!(f, "{}", type_str)
+        write!(f, "{type_str}")
     }
 }
 
@@ -560,7 +560,7 @@ impl fmt::Display for ChannelConfig {
             ChannelConfig::FiveOne => "five.one",
             ChannelConfig::SevenOne => "seven.one",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

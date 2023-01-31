@@ -69,7 +69,7 @@ impl<W: Write + Seek> Mp4Writer<W> {
         ftyp.write_box(&mut writer)?;
 
         // TODO largesize
-        let mdat_pos = writer.seek(SeekFrom::Current(0))?;
+        let mdat_pos = writer.stream_position()?;
         BoxHeader::new(BoxType::MdatBox, HEADER_SIZE).write(&mut writer)?;
         BoxHeader::new(BoxType::WideBox, HEADER_SIZE).write(&mut writer)?;
 
@@ -115,7 +115,7 @@ impl<W: Write + Seek> Mp4Writer<W> {
     }
 
     fn update_mdat_size(&mut self) -> Result<()> {
-        let mdat_end = self.writer.seek(SeekFrom::Current(0))?;
+        let mdat_end = self.writer.stream_position()?;
         let mdat_size = mdat_end - self.mdat_pos;
         if mdat_size > std::u32::MAX as u64 {
             self.writer.seek(SeekFrom::Start(self.mdat_pos))?;

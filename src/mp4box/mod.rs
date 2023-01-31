@@ -293,7 +293,7 @@ pub fn write_box_header_ext<W: Write>(w: &mut W, v: u8, f: u32) -> Result<u64> {
 }
 
 pub fn box_start<R: Seek>(seeker: &mut R) -> Result<u64> {
-    Ok(seeker.seek(SeekFrom::Current(0))? - HEADER_SIZE)
+    Ok(seeker.stream_position()? - HEADER_SIZE)
 }
 
 pub fn skip_bytes<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {

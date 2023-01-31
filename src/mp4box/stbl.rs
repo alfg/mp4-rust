@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 use crate::mp4box::{
@@ -86,7 +86,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
         let mut stco = None;
         let mut co64 = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size;
         while current < end {
             // Get box header.
@@ -123,7 +123,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
                     skip_box(reader, s)?;
                 }
             }
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         if stsd.is_none() {

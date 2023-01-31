@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 use std::time::Duration;
 
 use crate::meta::MetaBox;
@@ -19,7 +19,7 @@ pub struct Mp4Reader<R> {
 
 impl<R: Read + Seek> Mp4Reader<R> {
     pub fn read_header(mut reader: R, size: u64) -> Result<Self> {
-        let start = reader.seek(SeekFrom::Current(0))?;
+        let start = reader.stream_position()?;
 
         let mut ftyp = None;
         let mut moov = None;
@@ -64,7 +64,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
                     skip_box(&mut reader, s)?;
                 }
             }
-            current = reader.seek(SeekFrom::Current(0))?;
+            current = reader.stream_position()?;
         }
 
         if ftyp.is_none() {

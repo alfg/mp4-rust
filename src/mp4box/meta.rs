@@ -97,7 +97,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
 
         let mut ilst = None;
 
-        let mut current = reader.seek(SeekFrom::Current(0))?;
+        let mut current = reader.stream_position()?;
         let end = start + size;
 
         match hdlr.handler_type {
@@ -117,7 +117,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
                         }
                     }
 
-                    current = reader.seek(SeekFrom::Current(0))?;
+                    current = reader.stream_position()?;
                 }
 
                 Ok(MetaBox::Mdir { ilst })
