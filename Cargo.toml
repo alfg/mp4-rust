@@ -10,7 +10,7 @@ homepage = "https://github.com/alfg/mp4-rust"
 repository = "https://github.com/alfg/mp4-rust"
 keywords = ["mp4", "iso-mp4", "isobmff", "video", "multimedia"]
 license = "MIT"
-include = ["src", "Cargo.toml", "README", "LICENSE"]
+include = ["src", "benches", "Cargo.toml", "README", "LICENSE"]
 
 [dependencies]
 thiserror = "^1.0"
