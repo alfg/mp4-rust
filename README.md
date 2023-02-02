@@ -58,9 +58,12 @@ fn main() -> Result<()> {
 See [examples/](examples/) for more examples.
 
 #### Install
-Add to your `Cargo.toml`:
+```
+cargo add mp4
+```
+or add to your `Cargo.toml`:
 ```toml
-mp4 = "0.12.0"
+mp4 = "0.13.0"
 ```
 
 #### Documentation

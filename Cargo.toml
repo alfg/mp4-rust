@@ -1,6 +1,6 @@
 [package]
 name = "mp4"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["Alf <alf.g.jr@gmail.com>"]
 edition = "2018"
 description = "MP4 reader and writer library in Rust."
@@ -10,6 +10,7 @@ homepage = "https://github.com/alfg/mp4-rust"
 repository = "https://github.com/alfg/mp4-rust"
 keywords = ["mp4", "iso-mp4", "isobmff", "video", "multimedia"]
 license = "MIT"
+include = ["src", "Cargo.toml", "README", "LICENSE"]
 
 [dependencies]
 thiserror = "^1.0"
