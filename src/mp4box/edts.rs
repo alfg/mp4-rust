@@ -54,6 +54,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
 
         let header = BoxHeader::read(reader)?;
         let BoxHeader { name, size: s } = header;
+        if s > size {
+            return Err(Error::InvalidData(
+                "edts box contains a box with a larger size than it",
+            ));
+        }
 
         if let BoxType::ElstBox = name {
             let elst = ElstBox::read_box(reader, s)?;

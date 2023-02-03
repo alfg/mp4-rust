@@ -94,6 +94,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         if current < start + size {
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "mp4a box contains a box with a larger size than it",
+                ));
+            }
 
             if name == BoxType::EsdsBox {
                 esds = Some(EsdsBox::read_box(reader, s)?);

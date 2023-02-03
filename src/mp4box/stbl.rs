@@ -92,6 +92,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
             // Get box header.
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "stbl box contains a box with a larger size than it",
+                ));
+            }
 
             match name {
                 BoxType::StsdBox => {

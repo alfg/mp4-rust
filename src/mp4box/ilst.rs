@@ -58,6 +58,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
             // Get box header.
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "ilst box contains a box with a larger size than it",
+                ));
+            }
 
             match name {
                 BoxType::NameBox => {
@@ -129,6 +134,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
             // Get box header.
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "ilst item box contains a box with a larger size than it",
+                ));
+            }
 
             match name {
                 BoxType::DataBox => {

@@ -121,6 +121,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for Vp09Box {
 
         let vpcc = {
             let header = BoxHeader::read(reader)?;
+            if header.size > size {
+                return Err(Error::InvalidData(
+                    "vp09 box contains a box with a larger size than it",
+                ));
+            }
             VpccBox::read_box(reader, header.size)?
         };
 
