@@ -453,8 +453,8 @@ impl Mp4Track {
 
             let chunk_id = sample_id
                 .checked_sub(first_sample)
-                .and_then(|n| n.checked_add(first_chunk))
                 .map(|n| n / samples_per_chunk)
+                .and_then(|n| n.checked_add(first_chunk))
                 .ok_or(Error::InvalidData(
                     "attempt to calculate stsc chunk_id with overflow",
                 ))?;
