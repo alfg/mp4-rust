@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek, Write};
+use std::mem::size_of;
 
 use crate::mp4box::*;
 
@@ -55,10 +56,28 @@ impl<R: Read + Seek> ReadBox<&mut R> for StszBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
+        let header_size = HEADER_SIZE + HEADER_EXT_SIZE;
+        let other_size = size_of::<u32>() + size_of::<u32>(); // sample_size + sample_count
         let sample_size = reader.read_u32::<BigEndian>()?;
+        let stsz_item_size = if sample_size == 0 {
+            size_of::<u32>() // entry_size
+        } else {
+            0
+        };
         let sample_count = reader.read_u32::<BigEndian>()?;
-        let mut sample_sizes = Vec::with_capacity(sample_count as usize);
+        let mut sample_sizes = Vec::new();
         if sample_size == 0 {
+            if u64::from(sample_count)
+                > size
+                    .saturating_sub(header_size)
+                    .saturating_sub(other_size as u64)
+                    / stsz_item_size as u64
+            {
+                return Err(Error::InvalidData(
+                    "stsz sample_count indicates more values than could fit in the box",
+                ));
+            }
+            sample_sizes.reserve(sample_count as usize);
             for _ in 0..sample_count {
                 let sample_number = reader.read_u32::<BigEndian>()?;
                 sample_sizes.push(sample_number);

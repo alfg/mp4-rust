@@ -55,6 +55,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for UdtaBox {
             // Get box header.
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "udta box contains a box with a larger size than it",
+                ));
+            }
 
             match name {
                 BoxType::MetaBox => {

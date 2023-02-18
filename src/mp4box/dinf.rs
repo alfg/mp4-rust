@@ -49,6 +49,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for DinfBox {
             // Get box header.
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "dinf box contains a box with a larger size than it",
+                ));
+            }
 
             match name {
                 BoxType::DrefBox => {
@@ -156,6 +161,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
             // Get box header.
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "dinf box contains a box with a larger size than it",
+                ));
+            }
 
             match name {
                 BoxType::UrlBox => {
@@ -254,7 +264,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for UrlBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let location = if size - HEADER_SIZE - HEADER_EXT_SIZE > 0 {
+        let location = if size.saturating_sub(HEADER_SIZE + HEADER_EXT_SIZE) > 0 {
             let buf_size = size - HEADER_SIZE - HEADER_EXT_SIZE - 1;
             let mut buf = vec![0u8; buf_size as usize];
             reader.read_exact(&mut buf)?;

@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek, Write};
+use std::mem::size_of;
 
 use crate::mp4box::*;
 
@@ -54,7 +55,21 @@ impl<R: Read + Seek> ReadBox<&mut R> for CttsBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
+        let header_size = HEADER_SIZE + HEADER_EXT_SIZE;
         let entry_count = reader.read_u32::<BigEndian>()?;
+        let entry_size = size_of::<u32>() + size_of::<i32>(); // sample_count + sample_offset
+                                                              // (sample_offset might be a u32, but the size is the same.)
+        let other_size = size_of::<i32>(); // entry_count
+        if u64::from(entry_count)
+            > size
+                .saturating_sub(header_size)
+                .saturating_sub(other_size as u64)
+                / entry_size as u64
+        {
+            return Err(Error::InvalidData(
+                "ctts entry_count indicates more entries than could fit in the box",
+            ));
+        }
         let mut entries = Vec::with_capacity(entry_count as usize);
         for _ in 0..entry_count {
             let entry = CttsEntry {

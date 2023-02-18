@@ -52,7 +52,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
 
         skip_bytes(reader, 12)?; // reserved
 
-        let buf_size = size - HEADER_SIZE - HEADER_EXT_SIZE - 20 - 1;
+        let buf_size = size
+            .checked_sub(HEADER_SIZE + HEADER_EXT_SIZE + 20 + 1)
+            .ok_or(Error::InvalidData("hdlr size too small"))?;
         let mut buf = vec![0u8; buf_size as usize];
         reader.read_exact(&mut buf)?;
 

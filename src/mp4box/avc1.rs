@@ -103,6 +103,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
 
         let header = BoxHeader::read(reader)?;
         let BoxHeader { name, size: s } = header;
+        if s > size {
+            return Err(Error::InvalidData(
+                "avc1 box contains a box with a larger size than it",
+            ));
+        }
         if name == BoxType::AvcCBox {
             let avcc = AvcCBox::read_box(reader, s)?;
 
