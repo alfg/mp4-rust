@@ -219,12 +219,12 @@ impl Mp4Track {
             }
             // mp4a.esds.es_desc.dec_config.avg_bitrate
         } else {
-            let dur_sec = self.duration().as_secs();
-            if dur_sec > 0 {
-                let bitrate = self.total_sample_size() * 8 / dur_sec;
-                bitrate as u32
-            } else {
+            let dur = self.duration();
+            if dur.is_zero() {
                 0
+            } else {
+                let bitrate = self.total_sample_size() as f64 * 8.0 / dur.as_secs_f64();
+                bitrate as u32
             }
         }
     }
