@@ -164,11 +164,11 @@ impl Mp4Track {
     }
 
     pub fn frame_rate(&self) -> f64 {
-        let dur_msec = self.duration().as_millis() as u64;
-        if dur_msec > 0 {
-            ((self.sample_count() as u64 * 1000) / dur_msec) as f64
-        } else {
+        let dur = self.duration();
+        if dur.is_zero() {
             0.0
+        } else {
+            self.sample_count() as f64 / dur.as_secs_f64()
         }
     }
 
