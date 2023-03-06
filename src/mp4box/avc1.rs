@@ -128,7 +128,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
                     frame_count,
                     depth,
                     avcc,
-                })
+                });
             } else {
                 skip_bytes_to(reader, current + s)?;
             }
