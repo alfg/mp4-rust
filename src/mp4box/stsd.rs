@@ -107,6 +107,10 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Tx3gBox => {
                 tx3g = Some(Tx3gBox::read_box(reader, s)?);
             }
+            // aavd
+            BoxType::UnknownBox(0x61617664) => {
+                mp4a = Some(Mp4aBox::read_box(reader, s)?);
+            }
             _ => {}
         }
 
