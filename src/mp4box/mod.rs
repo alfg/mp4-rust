@@ -62,6 +62,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::*;
 
+pub(crate) mod adrm;
 pub(crate) mod avc1;
 pub(crate) mod co64;
 pub(crate) mod ctts;
@@ -198,6 +199,7 @@ boxtype! {
     DayBox => 0xa9646179,
     CovrBox => 0x636f7672,
     DescBox => 0x64657363,
+    AdrmBox => 0x6164726d,
     WideBox => 0x77696465
 }
 

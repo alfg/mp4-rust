@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek, Write};
 
-use crate::mp4box::*;
+use crate::{adrm::AdrmBox, mp4box::*};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Mp4aBox {
@@ -12,6 +12,7 @@ pub struct Mp4aBox {
 
     #[serde(with = "value_u32")]
     pub samplerate: FixedPointU16,
+    pub adrm: Option<AdrmBox>,
     pub esds: Option<EsdsBox>,
 }
 
@@ -22,6 +23,7 @@ impl Default for Mp4aBox {
             channelcount: 2,
             samplesize: 16,
             samplerate: FixedPointU16::new(48000),
+            adrm: None,
             esds: Some(EsdsBox::default()),
         }
     }
@@ -34,6 +36,7 @@ impl Mp4aBox {
             channelcount: config.chan_conf as u16,
             samplesize: 16,
             samplerate: FixedPointU16::new(config.freq_index.freq() as u16),
+            adrm: None,
             esds: Some(EsdsBox::new(config)),
         }
     }
@@ -89,9 +92,10 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
         let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
+        let mut adrm = None;
         let mut esds = None;
-        let current = reader.stream_position()?;
-        if current < start + size {
+        let mut current = reader.stream_position()?;
+        while current < start + size {
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
             if s > size {
@@ -100,10 +104,19 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
                 ));
             }
 
-            if name == BoxType::EsdsBox {
-                esds = Some(EsdsBox::read_box(reader, s)?);
+            match name {
+                BoxType::AdrmBox => {
+                    adrm = Some(AdrmBox::read_box(reader, s)?);
+                }
+                BoxType::EsdsBox => {
+                    esds = Some(EsdsBox::read_box(reader, s)?);
+                }
+                _ => {
+                    skip_box(reader, s)?;
+                }
             }
-            skip_bytes_to(reader, start + size)?;
+
+            current = reader.stream_position()?;
         }
 
         Ok(Mp4aBox {
@@ -111,6 +124,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
             channelcount,
             samplesize,
             samplerate,
+            adrm,
             esds,
         })
     }
@@ -605,6 +619,7 @@ mod tests {
             channelcount: 2,
             samplesize: 16,
             samplerate: FixedPointU16::new(48000),
+            adrm: None,
             esds: Some(EsdsBox {
                 version: 0,
                 flags: 0,
@@ -647,6 +662,7 @@ mod tests {
             channelcount: 2,
             samplesize: 16,
             samplerate: FixedPointU16::new(48000),
+            adrm: None,
             esds: None,
         };
         let mut buf = Vec::new();
