@@ -94,16 +94,20 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
         // Update tracks if any fragmented (moof) boxes are found.
         if !moofs.is_empty() {
-            let mut default_sample_duration = 0;
-            if let Some(ref moov) = moov {
-                if let Some(ref mvex) = &moov.mvex {
-                    default_sample_duration = mvex.trex.default_sample_duration
-                }
-            }
+            // Grab the mvex box if it exists.
+            let mvex = moov.as_ref().and_then(|moov| moov.mvex.as_ref());
 
             for moof in moofs.iter() {
                 for traf in moof.trafs.iter() {
                     let track_id = traf.tfhd.track_id;
+
+                    // Get the default sample duration for the indicated track.
+                    // This is buried in the optional mvex box, in a trex box per track.
+                    let default_sample_duration = mvex.and_then(|mvex|
+                        mvex.trexs.iter().find(|trex| trex.track_id == track_id)
+                            .and_then(|trex| Some(trex.default_sample_duration))
+                    ).unwrap_or(0);
+
                     if let Some(track) = tracks.get_mut(&track_id) {
                         track.default_sample_duration = default_sample_duration;
                         track.trafs.push(traf.clone())
