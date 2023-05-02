@@ -103,10 +103,14 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
                     // Get the default sample duration for the indicated track.
                     // This is buried in the optional mvex box, in a trex box per track.
-                    let default_sample_duration = mvex.and_then(|mvex|
-                        mvex.trexs.iter().find(|trex| trex.track_id == track_id)
-                            .and_then(|trex| Some(trex.default_sample_duration))
-                    ).unwrap_or(0);
+                    let default_sample_duration = mvex
+                        .and_then(|mvex| {
+                            mvex.trexs
+                                .iter()
+                                .find(|trex| trex.track_id == track_id)
+                                .and_then(|trex| Some(trex.default_sample_duration))
+                        })
+                        .unwrap_or(0);
 
                     if let Some(track) = tracks.get_mut(&track_id) {
                         track.default_sample_duration = default_sample_duration;

@@ -20,7 +20,7 @@ impl MvexBox {
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
 
-        size += self.mehd.as_ref().map_or(0,|x| x.box_size());
+        size += self.mehd.as_ref().map_or(0, |x| x.box_size());
 
         for trex in self.trexs.iter() {
             size += trex.box_size();
@@ -90,10 +90,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvexBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MvexBox {
-            mehd,
-            trexs,
-        })
+        Ok(MvexBox { mehd, trexs })
     }
 }
 
