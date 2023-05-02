@@ -657,18 +657,13 @@ pub fn creation_time(creation_time: u64) -> u64 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 pub enum DataType {
+    #[default]
     Binary = 0x000000,
     Text = 0x000001,
     Image = 0x00000D,
     TempoCpil = 0x000015,
-}
-
-impl std::default::Default for DataType {
-    fn default() -> Self {
-        DataType::Binary
-    }
 }
 
 impl TryFrom<u32> for DataType {

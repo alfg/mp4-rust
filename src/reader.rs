@@ -108,7 +108,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
                             mvex.trexs
                                 .iter()
                                 .find(|trex| trex.track_id == track_id)
-                                .and_then(|trex| Some(trex.default_sample_duration))
+                                .map(|trex| trex.default_sample_duration)
                         })
                         .unwrap_or(0);
 
