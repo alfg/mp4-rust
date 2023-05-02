@@ -38,6 +38,9 @@ impl MoovBox {
         if let Some(udta) = &self.udta {
             size += udta.box_size();
         }
+        if let Some(mvex) = &self.mvex {
+            size += mvex.box_size();
+        }
         size
     }
 }
