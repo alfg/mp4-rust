@@ -24,6 +24,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
         let mut ftyp = None;
         let mut moov = None;
         let mut moofs = Vec::new();
+        let mut moof_offsets = Vec::new();
         let mut emsgs = Vec::new();
 
         let mut current = start;
@@ -57,8 +58,10 @@ impl<R: Read + Seek> Mp4Reader<R> {
                     moov = Some(MoovBox::read_box(&mut reader, s)?);
                 }
                 BoxType::MoofBox => {
+                    let moof_offset = reader.stream_position()? - 8;
                     let moof = MoofBox::read_box(&mut reader, s)?;
                     moofs.push(moof);
+                    moof_offsets.push(moof_offset);
                 }
                 BoxType::EmsgBox => {
                     let emsg = EmsgBox::read_box(&mut reader, s)?;
@@ -101,11 +104,12 @@ impl<R: Read + Seek> Mp4Reader<R> {
                 }
             }
 
-            for moof in moofs.iter() {
+            for (moof, moof_offset) in moofs.iter().zip(moof_offsets) {
                 for traf in moof.trafs.iter() {
                     let track_id = traf.tfhd.track_id;
                     if let Some(track) = tracks.get_mut(&track_id) {
                         track.default_sample_duration = default_sample_duration;
+                        track.moof_offsets.push(moof_offset);
                         track.trafs.push(traf.clone())
                     } else {
                         return Err(Error::TrakNotFound(track_id));
