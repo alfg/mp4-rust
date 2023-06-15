@@ -585,9 +585,9 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size)?;
 
-        writer.write_u8(0)?; // pre-defined
+        writer.write_u8(2)?; // pre-defined
         Ok(size)
     }
 }
