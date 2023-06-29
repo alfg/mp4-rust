@@ -84,9 +84,19 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
-        let (version, _) = read_box_header_ext(reader)?;
-        if version != 0 {
-            return Err(Error::UnsupportedBoxVersion(BoxType::UdtaBox, version));
+        let extended_header = reader.read_u32::<BigEndian>()?;
+        if extended_header != 0 {
+            // ISO mp4 requires this header (version & flags) to be 0. Some
+            // files skip the extended header and directly start the hdlr box.
+            let possible_hdlr = BoxType::from(reader.read_u32::<BigEndian>()?);
+            if possible_hdlr == BoxType::HdlrBox {
+                // This file skipped the extended header! Go back to start.
+                reader.seek(SeekFrom::Current(-8))?;
+            } else {
+                // Looks like we actually have a bad version number or flags.
+                let v = (extended_header >> 24) as u8;
+                return Err(Error::UnsupportedBoxVersion(BoxType::MetaBox, v));
+            }
         }
 
         let hdlr_header = BoxHeader::read(reader)?;
