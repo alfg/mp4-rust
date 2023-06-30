@@ -83,11 +83,21 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         reader.read_u16::<BigEndian>()?; // reserved
         let data_reference_index = reader.read_u16::<BigEndian>()?;
 
-        reader.read_u64::<BigEndian>()?; // reserved
+        // Next 8 bytes should be all 0 in ISO MP4
+        let qt_version = reader.read_u16::<BigEndian>()?; // QT: 0, 1 or 2
+        reader.read_u16::<BigEndian>()?; // QT: revision level, should be 0
+        reader.read_u32::<BigEndian>()?; // QT: vendor, should be 0
+
         let channelcount = reader.read_u16::<BigEndian>()?;
         let samplesize = reader.read_u16::<BigEndian>()?;
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
         let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+
+        if qt_version == 1 {
+            // Samples per packet, bytes per packet,
+            // bytes per frame, bytes per sample
+            skip_bytes(reader, 4 * 4)?;
+        }
 
         let mut esds = None;
         let current = reader.stream_position()?;
