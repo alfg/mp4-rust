@@ -116,8 +116,8 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
         Ok(Mp4Reader {
             reader,
-            ftyp: ftyp.unwrap(),
-            moov: moov.unwrap(),
+            ftyp: ftyp.ok_or(crate::error::Error::BoxNotFound(BoxType::FtypBox))?,
+            moov: moov.ok_or(crate::error::Error::BoxNotFound(BoxType::MoovBox))?,
             moofs,
             emsgs,
             size,
