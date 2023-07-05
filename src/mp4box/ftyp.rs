@@ -30,10 +30,6 @@ impl Mp4Box for FtypBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let mut compatible_brands = Vec::new();
         for brand in self.compatible_brands.iter() {

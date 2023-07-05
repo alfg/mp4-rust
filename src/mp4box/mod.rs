@@ -57,6 +57,7 @@
 //!
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -206,7 +207,12 @@ boxtype! {
 pub trait Mp4Box: Sized {
     fn box_type(&self) -> BoxType;
     fn box_size(&self) -> u64;
-    fn to_json(&self) -> Result<String>;
+    fn to_json(&self) -> Result<String>
+    where
+        Self: Serialize,
+    {
+        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
+    }
     fn summary(&self) -> Result<String>;
 }
 

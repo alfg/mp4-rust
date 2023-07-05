@@ -38,10 +38,6 @@ impl Mp4Box for VmhdBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!(
             "graphics_mode={} op_color={}{}{}",

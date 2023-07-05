@@ -36,10 +36,6 @@ impl Mp4Box for IlstBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("item_count={}", self.items.len());
         Ok(s)

@@ -39,10 +39,6 @@ impl Mp4Box for CttsBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("entries_count={}", self.entries.len());
         Ok(s)

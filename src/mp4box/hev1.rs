@@ -67,10 +67,6 @@ impl Mp4Box for Hev1Box {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!(
             "data_reference_index={} width={} height={} frame_count={}",
@@ -178,10 +174,6 @@ impl Mp4Box for HvcCBox {
 
     fn box_size(&self) -> u64 {
         HEADER_SIZE + 1
-    }
-
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
     }
 
     fn summary(&self) -> Result<String> {

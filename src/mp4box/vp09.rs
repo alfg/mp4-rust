@@ -74,10 +74,6 @@ impl Mp4Box for Vp09Box {
         0x6A
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         Ok(format!("{self:?}"))
     }

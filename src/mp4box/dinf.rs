@@ -27,10 +27,6 @@ impl Mp4Box for DinfBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let s = String::new();
         Ok(s)
@@ -129,10 +125,6 @@ impl Mp4Box for DrefBox {
 
     fn box_size(&self) -> u64 {
         self.get_size()
-    }
-
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
     }
 
     fn summary(&self) -> Result<String> {
@@ -246,10 +238,6 @@ impl Mp4Box for UrlBox {
 
     fn box_size(&self) -> u64 {
         self.get_size()
-    }
-
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
     }
 
     fn summary(&self) -> Result<String> {

@@ -48,10 +48,6 @@ impl Mp4Box for EmsgBox {
             + self.message_data.len() as u64
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("id={} value={}", self.id, self.value);
         Ok(s)

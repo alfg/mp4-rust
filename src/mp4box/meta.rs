@@ -56,10 +56,6 @@ impl Mp4Box for MetaBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
-    }
-
     fn summary(&self) -> Result<String> {
         let s = match self {
             Self::Mdir { .. } => "hdlr=ilst".to_string(),
