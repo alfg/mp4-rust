@@ -32,7 +32,7 @@ impl Mp4Box for HdlrBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
     }
 
     fn summary(&self) -> Result<String> {
