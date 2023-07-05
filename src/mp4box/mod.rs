@@ -242,11 +242,15 @@ impl BoxHeader {
         reader.read_exact(&mut buf)?;
 
         // Get size.
-        let s = buf[0..4].try_into().unwrap();
+        let s = buf[0..4]
+            .try_into()
+            .map_err(|_e| crate::error::Error::InvalidData("could not get slice"))?;
         let size = u32::from_be_bytes(s);
 
         // Get box type string.
-        let t = buf[4..8].try_into().unwrap();
+        let t = buf[4..8]
+            .try_into()
+            .map_err(|_e| crate::error::Error::InvalidData("could not get slice"))?;
         let typ = u32::from_be_bytes(t);
 
         // Get largesize if size is 1

@@ -149,15 +149,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
             current = reader.stream_position()?;
         }
 
-        if data.is_none() {
-            return Err(Error::BoxNotFound(BoxType::DataBox));
-        }
-
+        let data = data.ok_or(Error::BoxNotFound(BoxType::DataBox))?;
         skip_bytes_to(reader, start + size)?;
-
-        Ok(IlstItemBox {
-            data: data.unwrap(),
-        })
+        Ok(IlstItemBox { data })
     }
 }
 

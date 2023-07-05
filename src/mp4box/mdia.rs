@@ -75,23 +75,13 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdiaBox {
             current = reader.stream_position()?;
         }
 
-        if mdhd.is_none() {
-            return Err(Error::BoxNotFound(BoxType::MdhdBox));
-        }
-        if hdlr.is_none() {
-            return Err(Error::BoxNotFound(BoxType::HdlrBox));
-        }
-        if minf.is_none() {
-            return Err(Error::BoxNotFound(BoxType::MinfBox));
-        }
+        let mdhd = mdhd.ok_or(Error::BoxNotFound(BoxType::MdhdBox))?;
+        let hdlr = hdlr.ok_or(Error::BoxNotFound(BoxType::HdlrBox))?;
+        let minf = minf.ok_or(Error::BoxNotFound(BoxType::MinfBox))?;
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MdiaBox {
-            mdhd: mdhd.unwrap(),
-            hdlr: hdlr.unwrap(),
-            minf: minf.unwrap(),
-        })
+        Ok(MdiaBox { mdhd, hdlr, minf })
     }
 }
 

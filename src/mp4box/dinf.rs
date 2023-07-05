@@ -64,15 +64,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for DinfBox {
             current = reader.stream_position()?;
         }
 
-        if dref.is_none() {
-            return Err(Error::BoxNotFound(BoxType::DrefBox));
-        }
-
+        let dref = dref.ok_or(Error::BoxNotFound(BoxType::DrefBox))?;
         skip_bytes_to(reader, start + size)?;
-
-        Ok(DinfBox {
-            dref: dref.unwrap(),
-        })
+        Ok(DinfBox { dref })
     }
 }
 

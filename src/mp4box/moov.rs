@@ -105,14 +105,10 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
             current = reader.stream_position()?;
         }
 
-        if mvhd.is_none() {
-            return Err(Error::BoxNotFound(BoxType::MvhdBox));
-        }
-
+        let mvhd = mvhd.ok_or(Error::BoxNotFound(BoxType::MvhdBox))?;
         skip_bytes_to(reader, start + size)?;
-
         Ok(MoovBox {
-            mvhd: mvhd.unwrap(),
+            mvhd,
             meta,
             udta,
             mvex,
