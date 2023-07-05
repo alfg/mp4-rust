@@ -87,7 +87,6 @@ pub(crate) mod mp4a;
 pub(crate) mod mvex;
 pub(crate) mod mvhd;
 pub(crate) mod smhd;
-//pub(crate) mod soun;
 pub(crate) mod stbl;
 pub(crate) mod stco;
 pub(crate) mod stsc;
@@ -200,8 +199,7 @@ boxtype! {
     DayBox => 0xa9646179,
     CovrBox => 0x636f7672,
     DescBox => 0x64657363,
-    WideBox => 0x77696465,
-    SounBox => 0x736F756E
+    WideBox => 0x77696465
 }
 
 pub trait Mp4Box: Sized {
