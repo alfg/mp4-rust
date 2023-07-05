@@ -87,7 +87,7 @@ pub(crate) mod mp4a;
 pub(crate) mod mvex;
 pub(crate) mod mvhd;
 pub(crate) mod smhd;
-pub(crate) mod soun;
+//pub(crate) mod soun;
 pub(crate) mod stbl;
 pub(crate) mod stco;
 pub(crate) mod stsc;
