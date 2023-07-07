@@ -110,6 +110,7 @@ pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
 pub use moof::MoofBox;
 pub use moov::MoovBox;
+pub use trak::TrakBox;
 
 pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;
