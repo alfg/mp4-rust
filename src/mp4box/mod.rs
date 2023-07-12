@@ -108,9 +108,16 @@ pub(crate) mod vpcc;
 
 pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
+pub use mdia::MdiaBox;
 pub use moof::MoofBox;
 pub use moov::MoovBox;
+pub use mvex::MvexBox;
+pub use tfdt::TfdtBox;
+pub use tfhd::TfhdBox;
+pub use traf::TrafBox;
 pub use trak::TrakBox;
+pub use trex::TrexBox;
+pub use trun::TrunBox;
 
 pub const HEADER_SIZE: u64 = 8;
 // const HEADER_LARGE_SIZE: u64 = 16;
