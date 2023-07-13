@@ -25,7 +25,20 @@ pub struct StsdBox {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tx3g: Option<Tx3gBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub opus: Option<OpusBox>,
 }
+
+// todo: all the Options in StsdBox may be better as an enumeration
+// pub enum StsdChildBox {
+//     Avc1(Avc1Box),
+//     Hev1(Hev1Box),
+//     Vp09(Vp09Box),
+//     Mp4a(Mp4aBox),
+//     Tx3g(Tx3gBox),
+//     Opus(OpusBox),
+// }
 
 impl StsdBox {
     pub fn get_type(&self) -> BoxType {
@@ -44,6 +57,8 @@ impl StsdBox {
             size += mp4a.box_size();
         } else if let Some(ref tx3g) = self.tx3g {
             size += tx3g.box_size();
+        } else if let Some(ref opus) = self.opus {
+            size += opus.box_size();
         }
         size
     }
@@ -81,6 +96,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         let mut vp09 = None;
         let mut mp4a = None;
         let mut tx3g = None;
+        let mut opus = None;
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
@@ -107,6 +123,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Tx3gBox => {
                 tx3g = Some(Tx3gBox::read_box(reader, s)?);
             }
+            BoxType::OpusBox => {
+                opus = Some(OpusBox::read_box(reader, s)?);
+            }
             _ => {}
         }
 
@@ -120,6 +139,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             vp09,
             mp4a,
             tx3g,
+            opus,
         })
     }
 }
@@ -143,6 +163,8 @@ impl<W: Write> WriteBox<&mut W> for StsdBox {
             mp4a.write_box(writer)?;
         } else if let Some(ref tx3g) = self.tx3g {
             tx3g.write_box(writer)?;
+        } else if let Some(ref opus) = self.opus {
+            opus.write_box(writer)?;
         }
 
         Ok(size)

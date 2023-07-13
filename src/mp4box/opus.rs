@@ -38,6 +38,38 @@ impl Mp4Box for OpusBox {
     }
 }
 
+impl<R: Read + Seek> ReadBox<&mut R> for OpusBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        box_start(reader)?;
+        reader.read_u32::<BigEndian>()?; // reserved
+        reader.read_u16::<BigEndian>()?; // reserved
+        let data_reference_index = reader.read_u16::<BigEndian>()?;
+        reader.read_u64::<BigEndian>()?; // reserved
+        let channelcount = reader.read_u16::<BigEndian>()?;
+        let samplesize = reader.read_u16::<BigEndian>()?;
+        reader.read_u32::<BigEndian>()?; // reserved
+        let samplerate = reader.read_u32::<BigEndian>()?;
+
+        let num_read = 36;
+        if num_read > size {
+            return Err(Error::InvalidData("opus box is too small"));
+        }
+        let remaining = num_read.saturating_sub(size);
+
+        // todo: if the size of DopsBox becomes variable, then the size of
+        // OpusBox will be needed to determine what size to pass to DopsBox::read_box()
+        let dops = DopsBox::read_box(reader, remaining)?;
+
+        Ok(Self {
+            data_reference_index,
+            channelcount,
+            samplesize,
+            samplerate: FixedPointU16::new_raw(samplerate),
+            dops,
+        })
+    }
+}
+
 impl<W: Write> WriteBox<&mut W> for OpusBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let mut written = 0;
@@ -50,12 +82,8 @@ impl<W: Write> WriteBox<&mut W> for OpusBox {
         writer.write_u16::<BigEndian>(self.data_reference_index)?;
         written += 2;
 
-        writer.write_u16::<BigEndian>(0)?; // reserved
-        written += 2;
-        writer.write_u16::<BigEndian>(0)?; // reserved
-        written += 2;
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        written += 4;
+        writer.write_u64::<BigEndian>(0)?; // reserved
+        written += 8;
         writer.write_u16::<BigEndian>(self.channelcount)?;
         written += 2;
         writer.write_u16::<BigEndian>(self.samplesize)?;
@@ -99,6 +127,33 @@ impl Mp4Box for DopsBox {
 
     fn summary(&self) -> Result<String> {
         Ok(format!("{self:?}"))
+    }
+}
+
+impl<R: Read + Seek> ReadBox<&mut R> for DopsBox {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        if size < 19 {
+            return Err(Error::InvalidData("Dops box size too small"));
+        }
+        box_start(reader)?;
+        let version = reader.read_u8()?;
+        let num_channels = reader.read_u8()?;
+        let pre_skip = reader.read_u16::<BigEndian>()?;
+        let input_sample_rate = reader.read_u32::<BigEndian>()?;
+        let output_gain = reader.read_i16::<BigEndian>()?;
+
+        // todo: should this be used?
+        let _channel_mapping_family = reader.read_u8()?;
+
+        Ok(DopsBox {
+            version,
+            pre_skip,
+            input_sample_rate,
+            output_gain,
+            channel_mapping_family: ChannelMappingFamily::Family0 {
+                stereo: num_channels == 2,
+            },
+        })
     }
 }
 
