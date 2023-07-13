@@ -7,6 +7,7 @@ use crate::mp4box::{mehd::MehdBox, trex::TrexBox};
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct MvexBox {
     pub mehd: Option<MehdBox>,
+    // todo: this should be a vec
     pub trex: TrexBox,
 }
 

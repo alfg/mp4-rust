@@ -110,6 +110,7 @@ pub(crate) mod vpcc;
 pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
 pub use mdia::MdiaBox;
+pub use mfhd::MfhdBox;
 pub use moof::MoofBox;
 pub use moov::MoovBox;
 pub use mvex::MvexBox;
