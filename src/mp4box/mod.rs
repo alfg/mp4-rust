@@ -113,6 +113,7 @@ pub use mdia::MdiaBox;
 pub use moof::MoofBox;
 pub use moov::MoovBox;
 pub use mvex::MvexBox;
+pub use opus::*;
 pub use tfdt::TfdtBox;
 pub use tfhd::TfhdBox;
 pub use traf::TrafBox;
