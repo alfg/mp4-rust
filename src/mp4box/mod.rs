@@ -111,6 +111,7 @@ pub use dinf::*;
 pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
 pub use hdlr::HdlrBox;
+pub use mdhd::MdhdBox;
 pub use mdia::MdiaBox;
 pub use mfhd::MfhdBox;
 pub use minf::MinfBox;
