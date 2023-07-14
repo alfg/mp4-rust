@@ -55,6 +55,11 @@ impl TrunBox {
         if TrunBox::FLAG_SAMPLE_CTS & self.flags > 0 {
             sum += 4 * self.sample_count as u64;
         }
+
+        sum += (4 * self.sample_durations.len()) as u64;
+        sum += (4 * self.sample_sizes.len()) as u64;
+        sum += (4 * self.sample_flags.len()) as u64;
+        sum += (4 * self.sample_cts.len()) as u64;
         sum
     }
 }
