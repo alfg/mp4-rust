@@ -131,16 +131,20 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.mvhd.write_box(writer)?;
-        for trak in self.traks.iter() {
-            trak.write_box(writer)?;
-        }
         if let Some(meta) = &self.meta {
             meta.write_box(writer)?;
         }
+        if let Some(mvex) = &self.mvex {
+            mvex.write_box(writer)?;
+        }
+        for trak in self.traks.iter() {
+            trak.write_box(writer)?;
+        }
+
         if let Some(udta) = &self.udta {
             udta.write_box(writer)?;
         }
-        Ok(0)
+        Ok(size)
     }
 }
 
