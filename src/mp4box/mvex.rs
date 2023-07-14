@@ -93,7 +93,7 @@ impl<W: Write> WriteBox<&mut W> for MvexBox {
         if let Some(mehd) = &self.mehd {
             mehd.write_box(writer)?;
         }
-        for trex in self.trex {
+        for trex in &self.trex {
             trex.write_box(writer)?;
         }
 
