@@ -19,9 +19,8 @@ impl TrafBox {
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
         size += self.tfhd.box_size();
-        if let Some(ref trun) = self.trun {
-            size += trun.box_size();
-        }
+        size += self.tfdt.as_ref().map(|x| x.box_size()).unwrap_or(0);
+        size += self.trun.as_ref().map(|x| x.box_size()).unwrap_or(0);
         size
     }
 }
