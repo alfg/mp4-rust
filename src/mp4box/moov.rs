@@ -140,7 +140,6 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         for trak in self.traks.iter() {
             trak.write_box(writer)?;
         }
-
         if let Some(udta) = &self.udta {
             udta.write_box(writer)?;
         }
