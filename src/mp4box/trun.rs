@@ -44,22 +44,18 @@ impl TrunBox {
             sum += 4;
         }
         if TrunBox::FLAG_SAMPLE_DURATION & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
+            sum += (4 * self.sample_durations.len()) as u64;
         }
         if TrunBox::FLAG_SAMPLE_SIZE & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
+            sum += (4 * self.sample_sizes.len()) as u64;
         }
         if TrunBox::FLAG_SAMPLE_FLAGS & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
+            sum += (4 * self.sample_flags.len()) as u64;
         }
         if TrunBox::FLAG_SAMPLE_CTS & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
+            sum += (4 * self.sample_cts.len()) as u64;
         }
 
-        sum += (4 * self.sample_durations.len()) as u64;
-        sum += (4 * self.sample_sizes.len()) as u64;
-        sum += (4 * self.sample_flags.len()) as u64;
-        sum += (4 * self.sample_cts.len()) as u64;
         sum
     }
 }
@@ -190,9 +186,7 @@ impl<W: Write> WriteBox<&mut W> for TrunBox {
         if let Some(v) = self.first_sample_flags {
             writer.write_u32::<BigEndian>(v)?;
         }
-        if self.sample_count != self.sample_sizes.len() as u32 {
-            return Err(Error::InvalidData("sample count out of sync"));
-        }
+
         for i in 0..self.sample_count as usize {
             if TrunBox::FLAG_SAMPLE_DURATION & self.flags > 0 {
                 writer.write_u32::<BigEndian>(self.sample_durations[i])?;
