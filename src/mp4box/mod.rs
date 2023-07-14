@@ -122,6 +122,7 @@ pub use mvhd::MvhdBox;
 pub use opus::*;
 pub use smhd::SmhdBox;
 pub use stbl::StblBox;
+pub use stco::StcoBox;
 pub use stsc::StscBox;
 pub use stsd::StsdBox;
 pub use stsz::StszBox;
