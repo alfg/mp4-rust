@@ -97,7 +97,12 @@ impl<R: Read + Seek> Mp4Reader<R> {
             let mut default_sample_duration = 0;
             if let Some(ref moov) = moov {
                 if let Some(ref mvex) = &moov.mvex {
-                    default_sample_duration = mvex.trex.default_sample_duration
+                    // todo: do this better. matches the original behavior before mvex.trex was changed to an array.
+                    default_sample_duration = mvex
+                        .trex
+                        .first()
+                        .map(|x| x.default_sample_duration)
+                        .unwrap_or(0)
                 }
             }
 
