@@ -102,6 +102,6 @@ impl<W: Write> WriteBox<&mut W> for MoofBox {
         for traf in self.trafs.iter() {
             traf.write_box(writer)?;
         }
-        Ok(0)
+        Ok(size)
     }
 }
