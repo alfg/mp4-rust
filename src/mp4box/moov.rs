@@ -29,15 +29,14 @@ impl MoovBox {
 
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + self.mvhd.box_size();
+        size += self.meta.as_ref().map(|x| x.box_size()).unwrap_or(0);
+        size += self.mvex.as_ref().map(|x| x.box_size()).unwrap_or(0);
+
         for trak in self.traks.iter() {
             size += trak.box_size();
         }
-        if let Some(meta) = &self.meta {
-            size += meta.box_size();
-        }
-        if let Some(udta) = &self.udta {
-            size += udta.box_size();
-        }
+
+        size += self.udta.as_ref().map(|x| x.box_size()).unwrap_or(0);
         size
     }
 }
