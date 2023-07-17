@@ -95,8 +95,11 @@ impl<W: Write> WriteBox<&mut W> for OpusBox {
 
         written += self.dops.write_box(writer)?;
 
-        assert_eq!(written, self.box_size());
-        Ok(written)
+        if written != self.box_size() {
+            Err(Error::InvalidData("written != box_size for OpusBox"))
+        } else {
+            Ok(written)
+        }
     }
 }
 
