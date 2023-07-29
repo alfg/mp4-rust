@@ -21,7 +21,7 @@ pub enum MetaBox {
         hdlr: HdlrBox,
 
         #[serde(skip)]
-        data: Vec<u8>,
+        data: Vec<(BoxType, Vec<u8>)>,
     },
 }
 
@@ -41,7 +41,13 @@ impl MetaBox {
                     size += ilst.box_size();
                 }
             }
-            Self::Unknown { hdlr, data } => size += hdlr.box_size() + data.len() as u64,
+            Self::Unknown { hdlr, data } => {
+                size += hdlr.box_size()
+                    + data
+                        .iter()
+                        .map(|(_, data)| data.len() as u64 + HEADER_SIZE)
+                        .sum::<u64>()
+            }
         }
         size
     }
@@ -99,16 +105,40 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
             }
         }
 
-        let hdlr_header = BoxHeader::read(reader)?;
-        if hdlr_header.name != BoxType::HdlrBox {
-            return Err(Error::BoxNotFound(BoxType::HdlrBox));
-        }
-        let hdlr = HdlrBox::read_box(reader, hdlr_header.size)?;
-
-        let mut ilst = None;
-
         let mut current = reader.stream_position()?;
         let end = start + size;
+
+        let content_start = current;
+
+        // find the hdlr box
+        let mut hdlr = None;
+        while current < end {
+            // Get box header.
+            let header = BoxHeader::read(reader)?;
+            let BoxHeader { name, size: s } = header;
+
+            match name {
+                BoxType::HdlrBox => {
+                    hdlr = Some(HdlrBox::read_box(reader, s)?);
+                }
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
+            }
+
+            current = reader.stream_position()?;
+        }
+
+        let Some(hdlr) = hdlr else {
+            return Err(Error::BoxNotFound(BoxType::HdlrBox));
+        };
+
+        // rewind and handle the other boxes
+        reader.seek(SeekFrom::Start(content_start))?;
+        current = reader.stream_position()?;
+
+        let mut ilst = None;
 
         match hdlr.handler_type {
             MDIR => {
@@ -133,8 +163,27 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
                 Ok(MetaBox::Mdir { ilst })
             }
             _ => {
-                let mut data = vec![0u8; (end - current) as usize];
-                reader.read_exact(&mut data)?;
+                let mut data = Vec::new();
+
+                while current < end {
+                    // Get box header.
+                    let header = BoxHeader::read(reader)?;
+                    let BoxHeader { name, size: s } = header;
+
+                    match name {
+                        BoxType::HdlrBox => {
+                            skip_box(reader, s)?;
+                        }
+                        _ => {
+                            let mut box_data = vec![0; (s - HEADER_SIZE) as usize];
+                            reader.read_exact(&mut box_data)?;
+
+                            data.push((name, box_data));
+                        }
+                    }
+
+                    current = reader.stream_position()?;
+                }
 
                 Ok(MetaBox::Unknown { hdlr, data })
             }
@@ -164,7 +213,12 @@ impl<W: Write> WriteBox<&mut W> for MetaBox {
                     ilst.write_box(writer)?;
                 }
             }
-            Self::Unknown { data, .. } => writer.write_all(data)?,
+            Self::Unknown { data, .. } => {
+                for (box_type, data) in data {
+                    BoxHeader::new(*box_type, data.len() as u64 + HEADER_SIZE).write(writer)?;
+                    writer.write_all(data)?;
+                }
+            }
         }
         Ok(size)
     }
@@ -213,15 +267,34 @@ mod tests {
     }
 
     #[test]
+    fn test_meta_hdrl_non_first() {
+        let data = b"\x00\x00\x00\x7fmeta\x00\x00\x00\x00\x00\x00\x00Qilst\x00\x00\x00I\xa9too\x00\x00\x00Adata\x00\x00\x00\x01\x00\x00\x00\x00TMPGEnc Video Mastering Works 7 Version 7.0.15.17\x00\x00\x00\"hdlr\x00\x00\x00\x00\x00\x00\x00\x00mdirappl\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+        let mut reader = Cursor::new(data);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::MetaBox);
+
+        let meta_box = MetaBox::read_box(&mut reader, header.size).unwrap();
+
+        // this contains \xa9too box in the ilst
+        // it designates the tool that created the file, but is not yet supported by this crate
+        assert_eq!(
+            meta_box,
+            MetaBox::Mdir {
+                ilst: Some(IlstBox::default())
+            }
+        );
+    }
+
+    #[test]
     fn test_meta_unknown() {
         let src_hdlr = HdlrBox {
             handler_type: FourCC::from(*b"test"),
             ..Default::default()
         };
-        let src_data = b"123";
+        let src_data = (BoxType::UnknownBox(0x42494241), b"123".to_vec());
         let src_box = MetaBox::Unknown {
             hdlr: src_hdlr,
-            data: src_data.to_vec(),
+            data: vec![src_data],
         };
 
         let mut buf = Vec::new();
