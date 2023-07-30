@@ -3,6 +3,7 @@ use std::io::{Read, Seek};
 use std::time::Duration;
 
 use crate::meta::MetaBox;
+use crate::gps::GpsBox;
 use crate::*;
 
 #[derive(Debug)]
@@ -170,6 +171,18 @@ impl<R: Read + Seek> Mp4Reader<R> {
             track.read_sample(&mut self.reader, sample_id)
         } else {
             Err(Error::TrakNotFound(track_id))
+        }
+    }
+
+    pub fn into_inner(self) -> R {
+        self.reader
+    }
+
+    pub fn gps_box(&mut self) -> Option<GpsBox> {
+        if self.moov.gps.is_some() {
+            self.moov.gps.clone()
+        } else {
+            None
         }
     }
 }

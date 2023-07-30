@@ -71,6 +71,7 @@ pub(crate) mod edts;
 pub(crate) mod elst;
 pub(crate) mod emsg;
 pub(crate) mod ftyp;
+pub(crate) mod gps;
 pub(crate) mod hdlr;
 pub(crate) mod hev1;
 pub(crate) mod ilst;
@@ -198,6 +199,7 @@ boxtype! {
     DayBox => 0xa9646179,
     CovrBox => 0x636f7672,
     DescBox => 0x64657363,
+    GpsBox => 0x67707320,
     WideBox => 0x77696465
 }
 
