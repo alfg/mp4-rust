@@ -78,6 +78,11 @@ pub use types::*;
 
 mod mp4box;
 pub use mp4box::*;
+pub use mp4box::{
+    gps::{GpsBox, GpsDataBlockInfo},
+    Mp4Box,
+};
+
 
 mod track;
 pub use track::{Mp4Track, TrackConfig};
