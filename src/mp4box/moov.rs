@@ -153,7 +153,7 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         }
         if let Some(gps) = &self.gps {
             gps.write_box(writer)?;
-        } 
+        }
         Ok(0)
     }
 }

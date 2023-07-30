@@ -83,7 +83,6 @@ pub use mp4box::{
     Mp4Box,
 };
 
-
 mod track;
 pub use track::{Mp4Track, TrackConfig};
 
