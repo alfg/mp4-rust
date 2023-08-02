@@ -101,18 +101,35 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         let depth = reader.read_u16::<BigEndian>()?;
         reader.read_i16::<BigEndian>()?; // pre-defined
 
-        let header = BoxHeader::read(reader)?;
-        let BoxHeader { name, size: s } = header;
-        if s > size {
-            return Err(Error::InvalidData(
-                "avc1 box contains a box with a larger size than it",
-            ));
+        let mut current = reader.stream_position()?;
+        let end = start + size;
+
+        let mut avcc = None;
+
+        while current < end {
+            // Get box header.
+            let header = BoxHeader::read(reader)?;
+            let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "avc1 box contains a box with a larger size than it",
+                ));
+            }
+
+            match name {
+                BoxType::AvcCBox => {
+                    avcc = Some(AvcCBox::read_box(reader, s)?);
+                }
+                _ => {
+                    // XXX warn!()
+                    skip_box(reader, s)?;
+                }
+            }
+
+            current = reader.stream_position()?;
         }
-        if name == BoxType::AvcCBox {
-            let avcc = AvcCBox::read_box(reader, s)?;
 
-            skip_bytes_to(reader, start + size)?;
-
+        if let Some(avcc) = avcc {
             Ok(Avc1Box {
                 data_reference_index,
                 width,
