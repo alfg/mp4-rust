@@ -237,7 +237,8 @@ boxtype! {
     DayBox => 0xa9646179,
     CovrBox => 0x636f7672,
     DescBox => 0x64657363,
-    WideBox => 0x77696465
+    WideBox => 0x77696465,
+    WaveBox => 0x77617665
 }
 
 pub trait Mp4Box: Sized {

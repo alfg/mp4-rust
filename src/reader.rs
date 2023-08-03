@@ -262,6 +262,14 @@ impl<R: Read + Seek> Mp4Reader<R> {
             Err(Error::TrakNotFound(track_id))
         }
     }
+
+    pub fn sample_offset(&mut self, track_id: u32, sample_id: u32) -> Result<u64> {
+        if let Some(track) = self.tracks.get(&track_id) {
+            track.sample_offset(sample_id)
+        } else {
+            Err(Error::TrakNotFound(track_id))
+        }
+    }
 }
 
 impl<R> Mp4Reader<R> {

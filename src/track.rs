@@ -167,11 +167,11 @@ impl Mp4Track {
     }
 
     pub fn frame_rate(&self) -> f64 {
-        let dur_msec = self.duration().as_millis() as u64;
-        if dur_msec > 0 {
-            ((self.sample_count() as u64 * 1000) / dur_msec) as f64
-        } else {
+        let dur = self.duration();
+        if dur.is_zero() {
             0.0
+        } else {
+            self.sample_count() as f64 / dur.as_secs_f64()
         }
     }
 
@@ -222,12 +222,12 @@ impl Mp4Track {
             }
             // mp4a.esds.es_desc.dec_config.avg_bitrate
         } else {
-            let dur_sec = self.duration().as_secs();
-            if dur_sec > 0 {
-                let bitrate = self.total_sample_size() * 8 / dur_sec;
-                bitrate as u32
-            } else {
+            let dur = self.duration();
+            if dur.is_zero() {
                 0
+            } else {
+                let bitrate = self.total_sample_size() as f64 * 8.0 / dur.as_secs_f64();
+                bitrate as u32
             }
         }
     }
@@ -437,7 +437,7 @@ impl Mp4Track {
         }
     }
 
-    fn sample_offset(&self, sample_id: u32) -> Result<u64> {
+    pub fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if !self.trafs.is_empty() {
             if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
                 let mut sample_offset = self.trafs[traf_idx]
