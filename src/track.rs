@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use crate::mp4box::traf::TrafBox;
 use crate::mp4box::trak::TrakBox;
+use crate::mp4box::trun::TrunBox;
 use crate::mp4box::{
     avc1::Avc1Box, co64::Co64Box, ctts::CttsBox, ctts::CttsEntry, hev1::Hev1Box, mp4a::Mp4aBox,
     smhd::SmhdBox, stco::StcoBox, stsc::StscEntry, stss::StssBox, stts::SttsEntry, tx3g::Tx3gBox,
@@ -92,6 +93,7 @@ impl From<Vp9Config> for TrackConfig {
 pub struct Mp4Track {
     pub trak: TrakBox,
     pub trafs: Vec<TrafBox>,
+    pub moof_offsets: Vec<u64>,
 
     // Fragmented Tracks Defaults.
     pub default_sample_duration: u32,
@@ -103,6 +105,7 @@ impl Mp4Track {
         Self {
             trak,
             trafs: Vec::new(),
+            moof_offsets: Vec::new(),
             default_sample_duration: 0,
         }
     }
@@ -436,8 +439,32 @@ impl Mp4Track {
 
     pub fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if !self.trafs.is_empty() {
-            if let Some((traf_idx, _sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
-                Ok(self.trafs[traf_idx].tfhd.base_data_offset.unwrap_or(0))
+            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+                let mut sample_offset = self.trafs[traf_idx]
+                    .tfhd
+                    .base_data_offset
+                    .unwrap_or(self.moof_offsets[traf_idx]);
+
+                if let Some(data_offset) = self.trafs[traf_idx]
+                    .trun
+                    .as_ref()
+                    .and_then(|trun| trun.data_offset)
+                {
+                    sample_offset = sample_offset.checked_add_signed(data_offset as i64).ok_or(
+                        Error::InvalidData("attempt to calculate trun sample offset with overflow"),
+                    )?;
+                }
+
+                let first_sample_in_trun = sample_id - sample_idx as u32;
+                for i in first_sample_in_trun..sample_id {
+                    sample_offset = sample_offset
+                        .checked_add(self.sample_size(i)? as u64)
+                        .ok_or(Error::InvalidData(
+                            "attempt to calculate trun entry sample offset with overflow",
+                        ))?;
+                }
+
+                Ok(sample_offset)
             } else {
                 Err(Error::BoxInTrafNotFound(self.track_id(), BoxType::TrafBox))
             }
@@ -473,15 +500,38 @@ impl Mp4Track {
     }
 
     fn sample_time(&self, sample_id: u32) -> Result<(u64, u32)> {
-        let stts = &self.trak.mdia.minf.stbl.stts;
-
-        let mut sample_count: u32 = 1;
-        let mut elapsed = 0;
-
         if !self.trafs.is_empty() {
-            let start_time = ((sample_id - 1) * self.default_sample_duration) as u64;
-            Ok((start_time, self.default_sample_duration))
+            let mut base_start_time = 0;
+            let mut default_sample_duration = self.default_sample_duration;
+            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+                let traf = &self.trafs[traf_idx];
+                if let Some(tfdt) = &traf.tfdt {
+                    base_start_time = tfdt.base_media_decode_time;
+                }
+                if let Some(duration) = traf.tfhd.default_sample_duration {
+                    default_sample_duration = duration;
+                }
+                if let Some(trun) = &traf.trun {
+                    if TrunBox::FLAG_SAMPLE_DURATION & trun.flags != 0 {
+                        let mut start_offset = 0u64;
+                        for duration in &trun.sample_durations[..sample_idx] {
+                            start_offset = start_offset.checked_add(*duration as u64).ok_or(
+                                Error::InvalidData("attempt to sum sample durations with overflow"),
+                            )?;
+                        }
+                        let duration = trun.sample_durations[sample_idx];
+                        return Ok((base_start_time + start_offset, duration));
+                    }
+                }
+            }
+            let start_offset = ((sample_id - 1) * default_sample_duration) as u64;
+            Ok((base_start_time + start_offset, default_sample_duration))
         } else {
+            let stts = &self.trak.mdia.minf.stbl.stts;
+
+            let mut sample_count: u32 = 1;
+            let mut elapsed = 0;
+
             for entry in stts.entries.iter() {
                 let new_sample_count =
                     sample_count
@@ -508,7 +558,17 @@ impl Mp4Track {
     }
 
     fn sample_rendering_offset(&self, sample_id: u32) -> i32 {
-        if let Some(ref ctts) = self.trak.mdia.minf.stbl.ctts {
+        if !self.trafs.is_empty() {
+            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+                if let Some(cts) = self.trafs[traf_idx]
+                    .trun
+                    .as_ref()
+                    .and_then(|trun| trun.sample_cts.get(sample_idx))
+                {
+                    return *cts as i32;
+                }
+            }
+        } else if let Some(ref ctts) = self.trak.mdia.minf.stbl.ctts {
             if let Ok((ctts_index, _)) = self.ctts_index(sample_id) {
                 let ctts_entry = ctts.entries.get(ctts_index).unwrap();
                 return ctts_entry.sample_offset;
