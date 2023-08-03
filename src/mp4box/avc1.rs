@@ -101,30 +101,37 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
         let depth = reader.read_u16::<BigEndian>()?;
         reader.read_i16::<BigEndian>()?; // pre-defined
 
-        let header = BoxHeader::read(reader)?;
-        let BoxHeader { name, size: s } = header;
-        if s > size {
-            return Err(Error::InvalidData(
-                "avc1 box contains a box with a larger size than it",
-            ));
-        }
-        if name == BoxType::AvcCBox {
-            let avcc = AvcCBox::read_box(reader, s)?;
+        let end = start + size;
+        loop {
+            let current = reader.stream_position()?;
+            if current >= end {
+                return Err(Error::InvalidData("avcc not found"));
+            }
+            let header = BoxHeader::read(reader)?;
+            let BoxHeader { name, size: s } = header;
+            if s > size {
+                return Err(Error::InvalidData(
+                    "avc1 box contains a box with a larger size than it",
+                ));
+            }
+            if name == BoxType::AvcCBox {
+                let avcc = AvcCBox::read_box(reader, s)?;
 
-            skip_bytes_to(reader, start + size)?;
+                skip_bytes_to(reader, start + size)?;
 
-            Ok(Avc1Box {
-                data_reference_index,
-                width,
-                height,
-                horizresolution,
-                vertresolution,
-                frame_count,
-                depth,
-                avcc,
-            })
-        } else {
-            Err(Error::InvalidData("avcc not found"))
+                return Ok(Avc1Box {
+                    data_reference_index,
+                    width,
+                    height,
+                    horizresolution,
+                    vertresolution,
+                    frame_count,
+                    depth,
+                    avcc,
+                });
+            } else {
+                skip_bytes_to(reader, current + s)?;
+            }
         }
     }
 }
