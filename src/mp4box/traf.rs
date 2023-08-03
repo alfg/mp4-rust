@@ -19,6 +19,9 @@ impl TrafBox {
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE;
         size += self.tfhd.box_size();
+        if let Some(ref tfdt) = self.tfdt {
+            size += tfdt.box_size();
+        }
         if let Some(ref trun) = self.trun {
             size += trun.box_size();
         }
@@ -100,6 +103,12 @@ impl<W: Write> WriteBox<&mut W> for TrafBox {
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
         self.tfhd.write_box(writer)?;
+        if let Some(ref tfdt) = self.tfdt {
+            tfdt.write_box(writer)?;
+        }
+        if let Some(ref trun) = self.trun {
+            trun.write_box(writer)?;
+        }
 
         Ok(size)
     }

@@ -22,6 +22,8 @@ impl TfhdBox {
     pub const FLAG_DEFAULT_SAMPLE_DURATION: u32 = 0x08;
     pub const FLAG_DEFAULT_SAMPLE_SIZE: u32 = 0x10;
     pub const FLAG_DEFAULT_SAMPLE_FLAGS: u32 = 0x20;
+    pub const FLAG_DURATION_IS_EMPTY: u32 = 0x10000;
+    pub const FLAG_DEFAULT_BASE_IS_MOOF: u32 = 0x20000;
 
     pub fn get_type(&self) -> BoxType {
         BoxType::TfhdBox

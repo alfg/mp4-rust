@@ -246,22 +246,16 @@ impl<R: Read + Seek> ReadBox<&mut R> for UrlBox {
 
         let (version, flags) = read_box_header_ext(reader)?;
 
-        let location = if size.saturating_sub(HEADER_SIZE + HEADER_EXT_SIZE) > 0 {
-            let buf_size = size - HEADER_SIZE - HEADER_EXT_SIZE - 1;
-            let mut buf = vec![0u8; buf_size as usize];
-            reader.read_exact(&mut buf)?;
-            match String::from_utf8(buf) {
-                Ok(t) => {
-                    if t.len() != buf_size as usize {
-                        return Err(Error::InvalidData("string too small"));
-                    }
-                    t
-                }
-                _ => String::default(),
-            }
-        } else {
-            String::default()
-        };
+        let buf_size = size
+            .checked_sub(HEADER_SIZE + HEADER_EXT_SIZE)
+            .ok_or(Error::InvalidData("url size too small"))?;
+
+        let mut buf = vec![0u8; buf_size as usize];
+        reader.read_exact(&mut buf)?;
+        if let Some(end) = buf.iter().position(|&b| b == b'\0') {
+            buf.truncate(end);
+        }
+        let location = String::from_utf8(buf).unwrap_or_default();
 
         skip_bytes_to(reader, start + size)?;
 

@@ -49,20 +49,15 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
         skip_bytes(reader, 12)?; // reserved
 
         let buf_size = size
-            .checked_sub(HEADER_SIZE + HEADER_EXT_SIZE + 20 + 1)
+            .checked_sub(HEADER_SIZE + HEADER_EXT_SIZE + 20)
             .ok_or(Error::InvalidData("hdlr size too small"))?;
+
         let mut buf = vec![0u8; buf_size as usize];
         reader.read_exact(&mut buf)?;
-
-        let handler_string = match String::from_utf8(buf) {
-            Ok(t) => {
-                if t.len() != buf_size as usize {
-                    return Err(Error::InvalidData("string too small"));
-                }
-                t
-            }
-            _ => String::from("null"),
-        };
+        if let Some(end) = buf.iter().position(|&b| b == b'\0') {
+            buf.truncate(end);
+        }
+        let handler_string = String::from_utf8(buf).unwrap_or_default();
 
         skip_bytes_to(reader, start + size)?;
 
@@ -122,5 +117,53 @@ mod tests {
 
         let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
         assert_eq!(src_box, dst_box);
+    }
+
+    #[test]
+    fn test_hdlr_empty() {
+        let src_box = HdlrBox {
+            version: 0,
+            flags: 0,
+            handler_type: str::parse::<FourCC>("vide").unwrap(),
+            name: String::new(),
+        };
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::HdlrBox);
+        assert_eq!(src_box.box_size(), header.size);
+
+        let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
+    }
+
+    #[test]
+    fn test_hdlr_extra() {
+        let real_src_box = HdlrBox {
+            version: 0,
+            flags: 0,
+            handler_type: str::parse::<FourCC>("vide").unwrap(),
+            name: String::from("Good"),
+        };
+        let src_box = HdlrBox {
+            version: 0,
+            flags: 0,
+            handler_type: str::parse::<FourCC>("vide").unwrap(),
+            name: String::from_utf8(b"Good\0Bad".to_vec()).unwrap(),
+        };
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::HdlrBox);
+        assert_eq!(src_box.box_size(), header.size);
+
+        let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(real_src_box, dst_box);
     }
 }
