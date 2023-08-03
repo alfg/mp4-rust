@@ -82,16 +82,28 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
         let data_reference_index = reader.read_u16::<BigEndian>()?;
-
-        reader.read_u64::<BigEndian>()?; // reserved
+        let version = reader.read_u16::<BigEndian>()?;
+        reader.read_u16::<BigEndian>()?; // reserved
+        reader.read_u32::<BigEndian>()?; // reserved
         let channelcount = reader.read_u16::<BigEndian>()?;
         let samplesize = reader.read_u16::<BigEndian>()?;
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
         let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
+        if version == 1 {
+            // Skip QTFF
+            reader.read_u64::<BigEndian>()?;
+            reader.read_u64::<BigEndian>()?;
+        }
+
+        // Find esds in mp4a or wave
         let mut esds = None;
-        let current = reader.stream_position()?;
-        if current < start + size {
+        let end = start + size;
+        loop {
+            let current = reader.stream_position()?;
+            if current >= end {
+                break;
+            }
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
             if s > size {
@@ -99,12 +111,19 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
                     "mp4a box contains a box with a larger size than it",
                 ));
             }
-
             if name == BoxType::EsdsBox {
                 esds = Some(EsdsBox::read_box(reader, s)?);
+                break;
+            } else if name == BoxType::WaveBox {
+                // Typically contains frma, mp4a, esds, and a terminator atom
+            } else {
+                // Skip boxes
+                let skip_to = current + s;
+                skip_bytes_to(reader, skip_to)?;
             }
-            skip_bytes_to(reader, start + size)?;
         }
+
+        skip_bytes_to(reader, end)?;
 
         Ok(Mp4aBox {
             data_reference_index,
@@ -585,9 +604,9 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
 impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
         let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size - 1)?;
+        write_desc(writer, Self::desc_tag(), size)?;
 
-        writer.write_u8(0)?; // pre-defined
+        writer.write_u8(2)?; // pre-defined
         Ok(size)
     }
 }

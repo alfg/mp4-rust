@@ -63,7 +63,7 @@ cargo add mp4
 ```
 or add to your `Cargo.toml`:
 ```toml
-mp4 = "0.13.0"
+mp4 = "0.14.0"
 ```
 
 #### Documentation
