@@ -85,7 +85,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StscBox {
         let mut sample_id = 1;
         for i in 0..entry_count {
             let (first_chunk, samples_per_chunk) = {
-                let mut entry = entries.get_mut(i as usize).unwrap();
+                let entry = entries.get_mut(i as usize).unwrap();
                 entry.first_sample = sample_id;
                 (entry.first_chunk, entry.samples_per_chunk)
             };

@@ -176,3 +176,36 @@ fn test_read_metadata() {
     assert_eq!(poster.len(), want_poster.len());
     assert_eq!(poster, want_poster.as_slice());
 }
+
+#[test]
+fn test_read_fragments() {
+    let mp4 = get_reader("tests/samples/minimal_init.mp4");
+
+    assert_eq!(692, mp4.size());
+    assert_eq!(5, mp4.compatible_brands().len());
+
+    let sample_count = mp4.sample_count(1).unwrap();
+    assert_eq!(sample_count, 0);
+
+    let f = File::open("tests/samples/minimal_fragment.m4s").unwrap();
+    let f_size = f.metadata().unwrap().len();
+    let frag_reader = BufReader::new(f);
+
+    let mut mp4_fragment = mp4.read_fragment_header(frag_reader, f_size).unwrap();
+    let sample_count = mp4_fragment.sample_count(1).unwrap();
+    assert_eq!(sample_count, 1);
+    let sample_1_1 = mp4_fragment.read_sample(1, 1).unwrap().unwrap();
+    assert_eq!(sample_1_1.bytes.len(), 751);
+    assert_eq!(
+        sample_1_1,
+        mp4::Mp4Sample {
+            start_time: 0,
+            duration: 512,
+            rendering_offset: 0,
+            is_sync: true,
+            bytes: mp4::Bytes::from(vec![0x0u8; 751]),
+        }
+    );
+    let eos = mp4_fragment.read_sample(1, 2);
+    assert!(eos.is_err());
+}
