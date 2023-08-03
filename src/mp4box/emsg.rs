@@ -48,10 +48,6 @@ impl Mp4Box for EmsgBox {
             + self.message_data.len() as u64
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("id={} value={}", self.id, self.value);
         Ok(s)
@@ -131,13 +127,17 @@ impl<W: Write> WriteBox<&mut W> for EmsgBox {
                 write_null_terminated_str(writer, &self.scheme_id_uri)?;
                 write_null_terminated_str(writer, &self.value)?;
                 writer.write_u32::<BigEndian>(self.timescale)?;
-                writer.write_u32::<BigEndian>(self.presentation_time_delta.unwrap())?;
+                writer.write_u32::<BigEndian>(self.presentation_time_delta.ok_or(
+                    crate::error::Error::InvalidData("presentation_time_delta not found"),
+                )?)?;
                 writer.write_u32::<BigEndian>(self.event_duration)?;
                 writer.write_u32::<BigEndian>(self.id)?;
             }
             1 => {
                 writer.write_u32::<BigEndian>(self.timescale)?;
-                writer.write_u64::<BigEndian>(self.presentation_time.unwrap())?;
+                writer.write_u64::<BigEndian>(self.presentation_time.ok_or(
+                    crate::error::Error::InvalidData("presentation_time not found"),
+                )?)?;
                 writer.write_u32::<BigEndian>(self.event_duration)?;
                 writer.write_u32::<BigEndian>(self.id)?;
                 write_null_terminated_str(writer, &self.scheme_id_uri)?;

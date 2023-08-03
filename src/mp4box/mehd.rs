@@ -37,10 +37,6 @@ impl Mp4Box for MehdBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("fragment_duration={}", self.fragment_duration);
         Ok(s)

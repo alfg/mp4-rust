@@ -67,10 +67,6 @@ impl Mp4Box for Hev1Box {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!(
             "data_reference_index={} width={} height={} frame_count={}",
@@ -202,10 +198,6 @@ impl Mp4Box for HvcCBox {
                 .iter()
                 .map(|a| 3 + a.nalus.iter().map(|x| 2 + x.data.len() as u64).sum::<u64>())
                 .sum::<u64>()
-    }
-
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {

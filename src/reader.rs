@@ -75,33 +75,24 @@ impl<R: Read + Seek> Mp4Reader<R> {
             current = reader.stream_position()?;
         }
 
-        if ftyp.is_none() {
-            return Err(Error::BoxNotFound(BoxType::FtypBox));
-        }
-        if moov.is_none() {
-            return Err(Error::BoxNotFound(BoxType::MoovBox));
-        }
+        let ftyp = ftyp.ok_or(Error::BoxNotFound(BoxType::FtypBox))?;
+        let moov = moov.ok_or(Error::BoxNotFound(BoxType::MoovBox))?;
 
         let size = current - start;
-        let mut tracks = if let Some(ref moov) = moov {
-            if moov.traks.iter().any(|trak| trak.tkhd.track_id == 0) {
-                return Err(Error::InvalidData("illegal track id 0"));
-            }
-            moov.traks
-                .iter()
-                .map(|trak| (trak.tkhd.track_id, Mp4Track::from(trak)))
-                .collect()
-        } else {
-            HashMap::new()
-        };
+        if moov.traks.iter().any(|trak| trak.tkhd.track_id == 0) {
+            return Err(Error::InvalidData("illegal track id 0"));
+        }
+        let mut tracks: HashMap<u32, Mp4Track> = moov
+            .traks
+            .iter()
+            .map(|trak| (trak.tkhd.track_id, Mp4Track::from(trak)))
+            .collect();
 
         // Update tracks if any fragmented (moof) boxes are found.
         if !moofs.is_empty() {
             let mut default_sample_duration = 0;
-            if let Some(ref moov) = moov {
-                if let Some(ref mvex) = &moov.mvex {
-                    default_sample_duration = mvex.trex.default_sample_duration
-                }
+            if let Some(ref mvex) = &moov.mvex {
+                default_sample_duration = mvex.trex.default_sample_duration
             }
 
             for (moof, moof_offset) in moofs.iter().zip(moof_offsets) {
@@ -120,8 +111,8 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
         Ok(Mp4Reader {
             reader,
-            ftyp: ftyp.unwrap(),
-            moov: moov.unwrap(),
+            ftyp,
+            moov,
             moofs,
             emsgs,
             size,

@@ -35,10 +35,6 @@ impl Mp4Box for MoofBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("trafs={}", self.trafs.len());
         Ok(s)
@@ -80,16 +76,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
             current = reader.stream_position()?;
         }
 
-        if mfhd.is_none() {
-            return Err(Error::BoxNotFound(BoxType::MfhdBox));
-        }
-
+        let mfhd = mfhd.ok_or(Error::BoxNotFound(BoxType::MfhdBox))?;
         skip_bytes_to(reader, start + size)?;
-
-        Ok(MoofBox {
-            mfhd: mfhd.unwrap(),
-            trafs,
-        })
+        Ok(MoofBox { mfhd, trafs })
     }
 }
 

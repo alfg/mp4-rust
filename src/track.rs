@@ -346,7 +346,10 @@ impl Mp4Track {
     }
 
     fn ctts_index(&self, sample_id: u32) -> Result<(usize, u32)> {
-        let ctts = self.trak.mdia.minf.stbl.ctts.as_ref().unwrap();
+        let ctts = self.trak.mdia.minf.stbl.ctts.as_ref().ok_or(
+            // todo: is this the correct error to return here?
+            crate::error::Error::BoxNotFound(BoxType::CttsBox),
+        )?;
         let mut sample_count: u32 = 1;
         for (i, entry) in ctts.entries.iter().enumerate() {
             let next_sample_count =
@@ -369,30 +372,36 @@ impl Mp4Track {
     }
 
     /// return `(traf_idx, sample_idx_in_trun)`
-    fn find_traf_idx_and_sample_idx(&self, sample_id: u32) -> Option<(usize, usize)> {
+    fn find_traf_idx_and_sample_idx(&self, sample_id: u32) -> Result<Option<(usize, usize)>> {
         let global_idx = sample_id - 1;
         let mut offset = 0;
         for traf_idx in 0..self.trafs.len() {
             if let Some(trun) = &self.trafs[traf_idx].trun {
                 let sample_count = trun.sample_count;
                 if sample_count > (global_idx - offset) {
-                    return Some((traf_idx, (global_idx - offset) as _));
+                    return Ok(Some((traf_idx, (global_idx - offset) as _)));
                 }
-                offset = offset
-                    .checked_add(sample_count)
-                    .expect("attempt to sum trun sample_count with overflow");
+                offset =
+                    offset
+                        .checked_add(sample_count)
+                        .ok_or(crate::error::Error::InvalidData(
+                            "attempt to sum trun sample_count with overflow",
+                        ))?;
             }
         }
-        None
+        Ok(None)
     }
 
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
         if !self.trafs.is_empty() {
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id)? {
                 if let Some(size) = self.trafs[traf_idx]
                     .trun
                     .as_ref()
-                    .unwrap()
+                    .ok_or(crate::error::Error::BoxInTrafNotFound(
+                        traf_idx as u32,
+                        BoxType::TrunBox,
+                    ))?
                     .sample_sizes
                     .get(sample_idx)
                 {
@@ -439,7 +448,7 @@ impl Mp4Track {
 
     pub fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if !self.trafs.is_empty() {
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+            if let Ok(Some((traf_idx, sample_idx))) = self.find_traf_idx_and_sample_idx(sample_id) {
                 let mut sample_offset = self.trafs[traf_idx]
                     .tfhd
                     .base_data_offset
@@ -472,7 +481,13 @@ impl Mp4Track {
             let stsc_index = self.stsc_index(sample_id)?;
 
             let stsc = &self.trak.mdia.minf.stbl.stsc;
-            let stsc_entry = stsc.entries.get(stsc_index).unwrap();
+            let stsc_entry =
+                stsc.entries
+                    .get(stsc_index)
+                    .ok_or(crate::error::Error::GenericError(format!(
+                        "stsc entry not found for sample_id: {}, stsc_idx: {}",
+                        sample_id, stsc_index
+                    )))?;
 
             let first_chunk = stsc_entry.first_chunk;
             let first_sample = stsc_entry.first_sample;
@@ -503,7 +518,7 @@ impl Mp4Track {
         if !self.trafs.is_empty() {
             let mut base_start_time = 0;
             let mut default_sample_duration = self.default_sample_duration;
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+            if let Ok(Some((traf_idx, sample_idx))) = self.find_traf_idx_and_sample_idx(sample_id) {
                 let traf = &self.trafs[traf_idx];
                 if let Some(tfdt) = &traf.tfdt {
                     base_start_time = tfdt.base_media_decode_time;
@@ -557,24 +572,29 @@ impl Mp4Track {
         }
     }
 
-    fn sample_rendering_offset(&self, sample_id: u32) -> i32 {
+    fn sample_rendering_offset(&self, sample_id: u32) -> Result<i32> {
         if !self.trafs.is_empty() {
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+            if let Ok(Some((traf_idx, sample_idx))) = self.find_traf_idx_and_sample_idx(sample_id) {
                 if let Some(cts) = self.trafs[traf_idx]
                     .trun
                     .as_ref()
                     .and_then(|trun| trun.sample_cts.get(sample_idx))
                 {
-                    return *cts as i32;
+                    return Ok(*cts as i32);
                 }
             }
         } else if let Some(ref ctts) = self.trak.mdia.minf.stbl.ctts {
             if let Ok((ctts_index, _)) = self.ctts_index(sample_id) {
-                let ctts_entry = ctts.entries.get(ctts_index).unwrap();
-                return ctts_entry.sample_offset;
+                let ctts_entry =
+                    ctts.entries
+                        .get(ctts_index)
+                        .ok_or(crate::error::Error::InvalidData(
+                            "ctts not found after ctts_index was returned",
+                        ))?;
+                return Ok(ctts_entry.sample_offset);
             }
         }
-        0
+        Ok(0)
     }
 
     fn is_sync_sample(&self, sample_id: u32) -> bool {
@@ -610,8 +630,8 @@ impl Mp4Track {
         reader.seek(SeekFrom::Start(sample_offset))?;
         reader.read_exact(&mut buffer)?;
 
-        let (start_time, duration) = self.sample_time(sample_id).unwrap(); // XXX
-        let rendering_offset = self.sample_rendering_offset(sample_id);
+        let (start_time, duration) = self.sample_time(sample_id)?; // XXX
+        let rendering_offset = self.sample_rendering_offset(sample_id)?;
         let is_sync = self.is_sync_sample(sample_id);
 
         Ok(Some(Mp4Sample {
@@ -840,9 +860,16 @@ impl Mp4TrackWriter {
         Ok(self.trak.tkhd.duration)
     }
 
-    fn chunk_count(&self) -> u32 {
-        let co64 = self.trak.mdia.minf.stbl.co64.as_ref().unwrap();
-        co64.entries.len() as u32
+    fn chunk_count(&self) -> Result<u32> {
+        let co64 = self
+            .trak
+            .mdia
+            .minf
+            .stbl
+            .co64
+            .as_ref()
+            .ok_or(crate::error::Error::BoxNotFound(BoxType::Co64Box))?;
+        Ok(co64.entries.len() as u32)
     }
 
     fn update_sample_to_chunk(&mut self, chunk_id: u32) {
@@ -861,9 +888,17 @@ impl Mp4TrackWriter {
         self.trak.mdia.minf.stbl.stsc.entries.push(entry);
     }
 
-    fn update_chunk_offsets(&mut self, offset: u64) {
-        let co64 = self.trak.mdia.minf.stbl.co64.as_mut().unwrap();
+    fn update_chunk_offsets(&mut self, offset: u64) -> Result<()> {
+        let co64 = self
+            .trak
+            .mdia
+            .minf
+            .stbl
+            .co64
+            .as_mut()
+            .ok_or(crate::error::Error::BoxNotFound(BoxType::Co64Box))?;
         co64.entries.push(offset);
+        Ok(())
     }
 
     fn write_chunk<W: Write + Seek>(&mut self, writer: &mut W) -> Result<()> {
@@ -874,8 +909,8 @@ impl Mp4TrackWriter {
 
         writer.write_all(&self.chunk_buffer)?;
 
-        self.update_sample_to_chunk(self.chunk_count() + 1);
-        self.update_chunk_offsets(chunk_offset);
+        self.update_sample_to_chunk(self.chunk_count()? + 1);
+        self.update_chunk_offsets(chunk_offset)?;
 
         self.chunk_buffer.clear();
         self.chunk_samples = 0;
@@ -908,7 +943,15 @@ impl Mp4TrackWriter {
             // mp4a.esds.es_desc.dec_config.max_bitrate
             // mp4a.esds.es_desc.dec_config.avg_bitrate
         }
-        if let Ok(stco) = StcoBox::try_from(self.trak.mdia.minf.stbl.co64.as_ref().unwrap()) {
+        if let Ok(stco) = StcoBox::try_from(
+            self.trak
+                .mdia
+                .minf
+                .stbl
+                .co64
+                .as_ref()
+                .ok_or(crate::error::Error::BoxNotFound(BoxType::Co64Box))?,
+        ) {
             self.trak.mdia.minf.stbl.stco = Some(stco);
             self.trak.mdia.minf.stbl.co64 = None;
         }

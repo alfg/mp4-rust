@@ -67,10 +67,6 @@ impl Mp4Box for Avc1Box {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!(
             "data_reference_index={} width={} height={} frame_count={}",
@@ -204,10 +200,6 @@ impl Mp4Box for AvcCBox {
             size += pps.size() as u64;
         }
         size
-    }
-
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {

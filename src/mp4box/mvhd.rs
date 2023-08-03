@@ -66,10 +66,6 @@ impl Mp4Box for MvhdBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!(
             "creation_time={} timescale={} duration={} rate={} volume={}, matrix={}, next_track_id={}",

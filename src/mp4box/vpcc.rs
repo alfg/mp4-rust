@@ -31,10 +31,6 @@ impl Mp4Box for VpccBox {
         HEADER_SIZE + HEADER_EXT_SIZE + 8
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         Ok(format!("{self:?}"))
     }

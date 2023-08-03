@@ -60,10 +60,6 @@ impl Mp4Box for Mp4aBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!(
             "channel_count={} sample_size={} sample_rate={}",
@@ -186,10 +182,6 @@ impl Mp4Box for EsdsBox {
             + 1
             + size_of_length(ESDescriptor::desc_size()) as u64
             + ESDescriptor::desc_size() as u64
-    }
-
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {

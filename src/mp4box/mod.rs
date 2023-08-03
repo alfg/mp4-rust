@@ -57,6 +57,7 @@
 //!
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -244,7 +245,12 @@ boxtype! {
 pub trait Mp4Box: Sized {
     fn box_type(&self) -> BoxType;
     fn box_size(&self) -> u64;
-    fn to_json(&self) -> Result<String>;
+    fn to_json(&self) -> Result<String>
+    where
+        Self: Serialize,
+    {
+        serde_json::to_string(&self).map_err(|e| crate::error::Error::IoError(e.into()))
+    }
     fn summary(&self) -> Result<String>;
 }
 
@@ -274,11 +280,15 @@ impl BoxHeader {
         reader.read_exact(&mut buf)?;
 
         // Get size.
-        let s = buf[0..4].try_into().unwrap();
+        let s = buf[0..4]
+            .try_into()
+            .map_err(|_e| crate::error::Error::InvalidData("could not get slice"))?;
         let size = u32::from_be_bytes(s);
 
         // Get box type string.
-        let t = buf[4..8].try_into().unwrap();
+        let t = buf[4..8]
+            .try_into()
+            .map_err(|_e| crate::error::Error::InvalidData("could not get slice"))?;
         let typ = u32::from_be_bytes(t);
 
         // Get largesize if size is 1

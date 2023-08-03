@@ -34,10 +34,6 @@ impl Mp4Box for UdtaBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         Ok(String::new())
     }

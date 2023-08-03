@@ -40,10 +40,6 @@ impl Mp4Box for MfhdBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("sequence_number={}", self.sequence_number);
         Ok(s)

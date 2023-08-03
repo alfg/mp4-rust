@@ -36,10 +36,6 @@ impl Mp4Box for TfdtBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("base_media_decode_time={}", self.base_media_decode_time);
         Ok(s)

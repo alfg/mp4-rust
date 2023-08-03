@@ -44,10 +44,6 @@ impl Mp4Box for MinfBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = String::new();
         Ok(s)
@@ -97,20 +93,16 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
             current = reader.stream_position()?;
         }
 
-        if dinf.is_none() {
-            return Err(Error::BoxNotFound(BoxType::DinfBox));
-        }
-        if stbl.is_none() {
-            return Err(Error::BoxNotFound(BoxType::StblBox));
-        }
+        let dinf = dinf.ok_or(Error::BoxNotFound(BoxType::DinfBox))?;
+        let stbl = stbl.ok_or(Error::BoxNotFound(BoxType::StblBox))?;
 
         skip_bytes_to(reader, start + size)?;
 
         Ok(MinfBox {
             vmhd,
             smhd,
-            dinf: dinf.unwrap(),
-            stbl: stbl.unwrap(),
+            dinf,
+            stbl,
         })
     }
 }

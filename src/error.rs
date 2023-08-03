@@ -26,4 +26,6 @@ pub enum Error {
     EntryInTrunNotFound(u32, BoxType, u32),
     #[error("{0} version {1} is not supported")]
     UnsupportedBoxVersion(BoxType, u8),
+    #[error("{0}")]
+    GenericError(String),
 }

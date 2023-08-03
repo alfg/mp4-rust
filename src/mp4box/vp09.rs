@@ -74,10 +74,6 @@ impl Mp4Box for Vp09Box {
         0x6A
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         Ok(format!("{self:?}"))
     }

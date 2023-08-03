@@ -33,10 +33,6 @@ impl Mp4Box for Co64Box {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("entries_count={}", self.entries.len());
         Ok(s)

@@ -36,10 +36,6 @@ impl Mp4Box for IlstBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!("item_count={}", self.items.len());
         Ok(s)
@@ -153,15 +149,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
             current = reader.stream_position()?;
         }
 
-        if data.is_none() {
-            return Err(Error::BoxNotFound(BoxType::DataBox));
-        }
-
+        let data = data.ok_or(Error::BoxNotFound(BoxType::DataBox))?;
         skip_bytes_to(reader, start + size)?;
-
-        Ok(IlstItemBox {
-            data: data.unwrap(),
-        })
+        Ok(IlstItemBox { data })
     }
 }
 

@@ -125,10 +125,6 @@ impl Mp4Box for TkhdBox {
         self.get_size()
     }
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
     fn summary(&self) -> Result<String> {
         let s = format!(
             "creation_time={} track_id={} duration={} layer={} volume={} matrix={} width={} height={}",
