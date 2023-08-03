@@ -263,7 +263,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
         }
     }
 
-    pub fn sample_offset(&mut self, track_id: u32, sample_id : u32) -> Result<u64> {
+    pub fn sample_offset(&mut self, track_id: u32, sample_id: u32) -> Result<u64> {
         if let Some(track) = self.tracks.get(&track_id) {
             track.sample_offset(sample_id)
         } else {
