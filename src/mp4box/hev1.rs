@@ -158,15 +158,33 @@ impl<W: Write> WriteBox<&mut W> for Hev1Box {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct HvcCBox {
     pub configuration_version: u8,
+    pub general_profile_space: u8,
+    pub general_tier_flag: bool,
+    pub general_profile_idc: u8,
+    pub general_profile_compatibility_flags: u32,
+    pub general_constraint_indicator_flag: u64,
+    pub general_level_idc: u8,
+    pub min_spatial_segmentation_idc: u16,
+    pub parallelism_type: u8,
+    pub chroma_format_idc: u8,
+    pub bit_depth_luma_minus8: u8,
+    pub bit_depth_chroma_minus8: u8,
+    pub avg_frame_rate: u16,
+    pub constant_frame_rate: u8,
+    pub num_temporal_layers: u8,
+    pub temporal_id_nested: bool,
+    pub length_size_minus_one: u8,
+    pub arrays: Vec<HvcCArray>,
 }
 
 impl HvcCBox {
     pub fn new() -> Self {
         Self {
             configuration_version: 1,
+            ..Default::default()
         }
     }
 }
@@ -177,7 +195,13 @@ impl Mp4Box for HvcCBox {
     }
 
     fn box_size(&self) -> u64 {
-        HEADER_SIZE + 1
+        HEADER_SIZE
+            + 23
+            + self
+                .arrays
+                .iter()
+                .map(|a| 3 + a.nalus.iter().map(|x| 2 + x.data.len() as u64).sum::<u64>())
+                .sum::<u64>()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -185,21 +209,108 @@ impl Mp4Box for HvcCBox {
     }
 
     fn summary(&self) -> Result<String> {
-        let s = format!("configuration_version={}", self.configuration_version);
-        Ok(s)
+        Ok(format!("configuration_version={} general_profile_space={} general_tier_flag={} general_profile_idc={} general_profile_compatibility_flags={} general_constraint_indicator_flag={} general_level_idc={} min_spatial_segmentation_idc={} parallelism_type={} chroma_format_idc={} bit_depth_luma_minus8={} bit_depth_chroma_minus8={} avg_frame_rate={} constant_frame_rate={} num_temporal_layers={} temporal_id_nested={} length_size_minus_one={}", 
+            self.configuration_version,
+            self.general_profile_space,
+            self.general_tier_flag,
+            self.general_profile_idc,
+            self.general_profile_compatibility_flags,
+            self.general_constraint_indicator_flag,
+            self.general_level_idc,
+            self.min_spatial_segmentation_idc,
+            self.parallelism_type,
+            self.chroma_format_idc,
+            self.bit_depth_luma_minus8,
+            self.bit_depth_chroma_minus8,
+            self.avg_frame_rate,
+            self.constant_frame_rate,
+            self.num_temporal_layers,
+            self.temporal_id_nested,
+            self.length_size_minus_one
+        ))
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+pub struct HvcCArrayNalu {
+    pub size: u16,
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+pub struct HvcCArray {
+    pub completeness: bool,
+    pub nal_unit_type: u8,
+    pub nalus: Vec<HvcCArrayNalu>,
+}
+
 impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
-    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = box_start(reader)?;
-
+    fn read_box(reader: &mut R, _size: u64) -> Result<Self> {
         let configuration_version = reader.read_u8()?;
+        let params = reader.read_u8()?;
+        let general_profile_space = params & 0b11000000 >> 6;
+        let general_tier_flag = (params & 0b00100000 >> 5) > 0;
+        let general_profile_idc = params & 0b00011111;
 
-        skip_bytes_to(reader, start + size)?;
+        let general_profile_compatibility_flags = reader.read_u32::<BigEndian>()?;
+        let general_constraint_indicator_flag = reader.read_u48::<BigEndian>()?;
+        let general_level_idc = reader.read_u8()?;
+        let min_spatial_segmentation_idc = reader.read_u16::<BigEndian>()? & 0x0FFF;
+        let parallelism_type = reader.read_u8()? & 0b11;
+        let chroma_format_idc = reader.read_u8()? & 0b11;
+        let bit_depth_luma_minus8 = reader.read_u8()? & 0b111;
+        let bit_depth_chroma_minus8 = reader.read_u8()? & 0b111;
+        let avg_frame_rate = reader.read_u16::<BigEndian>()?;
+
+        let params = reader.read_u8()?;
+        let constant_frame_rate = params & 0b11000000 >> 6;
+        let num_temporal_layers = params & 0b00111000 >> 3;
+        let temporal_id_nested = (params & 0b00000100 >> 2) > 0;
+        let length_size_minus_one = params & 0b000011;
+
+        let num_of_arrays = reader.read_u8()?;
+
+        let mut arrays = Vec::with_capacity(num_of_arrays as _);
+        for _ in 0..num_of_arrays {
+            let params = reader.read_u8()?;
+            let num_nalus = reader.read_u16::<BigEndian>()?;
+            let mut nalus = Vec::with_capacity(num_nalus as usize);
+
+            for _ in 0..num_nalus {
+                let size = reader.read_u16::<BigEndian>()?;
+                let mut data = vec![0; size as usize];
+
+                reader.read_exact(&mut data)?;
+
+                nalus.push(HvcCArrayNalu { size, data })
+            }
+
+            arrays.push(HvcCArray {
+                completeness: (params & 0b10000000) > 0,
+                nal_unit_type: params & 0b111111,
+                nalus,
+            });
+        }
 
         Ok(HvcCBox {
             configuration_version,
+            general_profile_space,
+            general_tier_flag,
+            general_profile_idc,
+            general_profile_compatibility_flags,
+            general_constraint_indicator_flag,
+            general_level_idc,
+            min_spatial_segmentation_idc,
+            parallelism_type,
+            chroma_format_idc,
+            bit_depth_luma_minus8,
+            bit_depth_chroma_minus8,
+            avg_frame_rate,
+            constant_frame_rate,
+            num_temporal_layers,
+            temporal_id_nested,
+            length_size_minus_one,
+            arrays,
         })
     }
 }
@@ -210,6 +321,40 @@ impl<W: Write> WriteBox<&mut W> for HvcCBox {
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
         writer.write_u8(self.configuration_version)?;
+        let general_profile_space = (self.general_profile_space & 0b11) << 6;
+        let general_tier_flag = u8::from(self.general_tier_flag) << 5;
+        let general_profile_idc = self.general_profile_idc & 0b11111;
+
+        writer.write_u8(general_profile_space | general_tier_flag | general_profile_idc)?;
+        writer.write_u32::<BigEndian>(self.general_profile_compatibility_flags)?;
+        writer.write_u48::<BigEndian>(self.general_constraint_indicator_flag)?;
+        writer.write_u8(self.general_level_idc)?;
+
+        writer.write_u16::<BigEndian>(self.min_spatial_segmentation_idc & 0x0FFF)?;
+        writer.write_u8(self.parallelism_type & 0b11)?;
+        writer.write_u8(self.chroma_format_idc & 0b11)?;
+        writer.write_u8(self.bit_depth_luma_minus8 & 0b111)?;
+        writer.write_u8(self.bit_depth_chroma_minus8 & 0b111)?;
+        writer.write_u16::<BigEndian>(self.avg_frame_rate)?;
+
+        let constant_frame_rate = (self.constant_frame_rate & 0b11) << 6;
+        let num_temporal_layers = (self.num_temporal_layers & 0b111) << 3;
+        let temporal_id_nested = u8::from(self.temporal_id_nested) << 2;
+        let length_size_minus_one = self.length_size_minus_one & 0b11;
+        writer.write_u8(
+            constant_frame_rate | num_temporal_layers | temporal_id_nested | length_size_minus_one,
+        )?;
+        writer.write_u8(self.arrays.len() as u8)?;
+        for arr in &self.arrays {
+            writer.write_u8((arr.nal_unit_type & 0b111111) | u8::from(arr.completeness) << 7)?;
+            writer.write_u16::<BigEndian>(arr.nalus.len() as _)?;
+
+            for nalu in &arr.nalus {
+                writer.write_u16::<BigEndian>(nalu.size)?;
+                writer.write_all(&nalu.data)?;
+            }
+        }
+
         Ok(size)
     }
 }
@@ -232,6 +377,7 @@ mod tests {
             depth: 24,
             hvcc: HvcCBox {
                 configuration_version: 1,
+                ..Default::default()
             },
         };
         let mut buf = Vec::new();
