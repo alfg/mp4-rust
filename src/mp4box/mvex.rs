@@ -12,7 +12,7 @@ pub struct MvexBox {
 
 impl MvexBox {
     pub fn get_type(&self) -> BoxType {
-        BoxType::MdiaBox
+        BoxType::MvexBox
     }
 
     pub fn get_size(&self) -> u64 {
