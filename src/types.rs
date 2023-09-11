@@ -138,6 +138,13 @@ impl From<BoxType> for FourCC {
     }
 }
 
+impl From<FourCC> for BoxType {
+    fn from(fourcc: FourCC) -> BoxType {
+        let int_val: u32 = fourcc.into();
+        BoxType::from(int_val)
+    }
+}
+
 impl fmt::Debug for FourCC {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let code: u32 = self.into();
@@ -738,4 +745,22 @@ impl<'a, T: Metadata<'a>> Metadata<'a> for Option<T> {
     fn summary(&self) -> Option<Cow<str>> {
         self.as_ref().and_then(|t| t.summary())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+pub struct AuxiliaryInfoType {
+    pub aux_info_type: u32,
+    pub aux_info_type_parameter: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+pub struct SubSampleInfo {
+    pub bytes_of_clear_data: u16,
+    pub bytes_of_encrypted_data: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+pub struct SampleInfo {
+    pub iv: Vec<u8>,
+    pub subsamples: Vec<SubSampleInfo>,
 }

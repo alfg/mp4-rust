@@ -29,6 +29,13 @@
 //!                         hev1
 //!                         mp4a
 //!                         tx3g
+//!                         enca
+//!                         encv
+//!                             sinf
+//!                                 frma
+//!                                 schm
+//!                                 schi
+//!                                     tenc
 //!                     stts
 //!                     stsc
 //!                     stsz
@@ -52,6 +59,9 @@
 //!         tfhd
 //!         tfdt
 //!         trun
+//!         saiz
+//!         saio
+//!         senc
 //! mdat
 //! free
 //!
@@ -69,7 +79,10 @@ pub(crate) mod data;
 pub(crate) mod dinf;
 pub(crate) mod edts;
 pub(crate) mod elst;
+pub(crate) mod enca;
+pub(crate) mod encv;
 pub(crate) mod emsg;
+pub(crate) mod frma;
 pub(crate) mod ftyp;
 pub(crate) mod hdlr;
 pub(crate) mod hev1;
@@ -85,6 +98,12 @@ pub(crate) mod moov;
 pub(crate) mod mp4a;
 pub(crate) mod mvex;
 pub(crate) mod mvhd;
+pub(crate) mod saio;
+pub(crate) mod saiz;
+pub(crate) mod schi;
+pub(crate) mod schm;
+pub(crate) mod senc;
+pub(crate) mod sinf;
 pub(crate) mod smhd;
 pub(crate) mod stbl;
 pub(crate) mod stco;
@@ -93,6 +112,7 @@ pub(crate) mod stsd;
 pub(crate) mod stss;
 pub(crate) mod stsz;
 pub(crate) mod stts;
+pub(crate) mod tenc;
 pub(crate) mod tfdt;
 pub(crate) mod tfhd;
 pub(crate) mod tkhd;
@@ -113,7 +133,10 @@ pub use data::DataBox;
 pub use dinf::DinfBox;
 pub use edts::EdtsBox;
 pub use elst::ElstBox;
+pub use enca::EncaBox;
+pub use encv::EncvBox;
 pub use emsg::EmsgBox;
+pub use frma::FrmaBox;
 pub use ftyp::FtypBox;
 pub use hdlr::HdlrBox;
 pub use hev1::Hev1Box;
@@ -129,6 +152,12 @@ pub use moov::MoovBox;
 pub use mp4a::Mp4aBox;
 pub use mvex::MvexBox;
 pub use mvhd::MvhdBox;
+pub use saio::SaioBox;
+pub use saiz::SaizBox;
+pub use schi::SchiBox;
+pub use schm::SchmBox;
+pub use senc::SencBox;
+pub use sinf::SinfBox;
 pub use smhd::SmhdBox;
 pub use stbl::StblBox;
 pub use stco::StcoBox;
@@ -137,6 +166,7 @@ pub use stsd::StsdBox;
 pub use stss::StssBox;
 pub use stsz::StszBox;
 pub use stts::SttsBox;
+pub use tenc::TencBox;
 pub use tfdt::TfdtBox;
 pub use tfhd::TfhdBox;
 pub use tkhd::TkhdBox;
@@ -238,7 +268,17 @@ boxtype! {
     CovrBox => 0x636f7672,
     DescBox => 0x64657363,
     WideBox => 0x77696465,
-    WaveBox => 0x77617665
+    WaveBox => 0x77617665,
+    EncaBox => 0x656e6361,
+    EncvBox => 0x656e6376,
+    SinfBox => 0x73696e66,
+    FrmaBox => 0x66726d61,
+    SchmBox => 0x7363686d,
+    SchiBox => 0x73636869,
+    TencBox => 0x74656e63,
+    SaizBox => 0x7361697a,
+    SaioBox => 0x7361696f,
+    SencBox => 0x73656e63
 }
 
 pub trait Mp4Box: Sized {

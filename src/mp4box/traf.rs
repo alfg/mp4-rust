@@ -2,13 +2,25 @@ use serde::Serialize;
 use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
-use crate::mp4box::{tfdt::TfdtBox, tfhd::TfhdBox, trun::TrunBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct TrafBox {
     pub tfhd: TfhdBox,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tfdt: Option<TfdtBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub trun: Option<TrunBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub saiz: Option<SaizBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub saio: Option<SaioBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub senc: Option<SencBox>,
 }
 
 impl TrafBox {
@@ -24,6 +36,15 @@ impl TrafBox {
         }
         if let Some(ref trun) = self.trun {
             size += trun.box_size();
+        }
+        if let Some(ref saiz) = self.saiz {
+            size += saiz.box_size();
+        }
+        if let Some(ref saio) = self.saio {
+            size += saio.box_size();
+        }
+        if let Some(ref senc) = self.senc {
+            size += senc.box_size();
         }
         size
     }
@@ -55,6 +76,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
         let mut tfhd = None;
         let mut tfdt = None;
         let mut trun = None;
+        let mut saiz = None;
+        let mut saio = None;
+        let mut senc = None;
 
         let mut current = reader.stream_position()?;
         let end = start + size;
@@ -78,6 +102,15 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
                 BoxType::TrunBox => {
                     trun = Some(TrunBox::read_box(reader, s)?);
                 }
+                BoxType::SaizBox => {
+                    saiz = Some(SaizBox::read_box(reader, s)?);
+                }
+                BoxType::SaioBox => {
+                    saio = Some(SaioBox::read_box(reader, s)?);
+                }
+                BoxType::SencBox => {
+                    senc = Some(SencBox::read_box(reader, s)?);
+                }
                 _ => {
                     // XXX warn!()
                     skip_box(reader, s)?;
@@ -97,6 +130,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
             tfhd: tfhd.unwrap(),
             tfdt,
             trun,
+            saiz,
+            saio,
+            senc,
         })
     }
 }
@@ -112,6 +148,15 @@ impl<W: Write> WriteBox<&mut W> for TrafBox {
         }
         if let Some(ref trun) = self.trun {
             trun.write_box(writer)?;
+        }
+        if let Some(ref saiz) = self.saiz {
+            saiz.write_box(writer)?;
+        }
+        if let Some(ref saio) = self.saio {
+            saio.write_box(writer)?;
+        }
+        if let Some(ref senc) = self.senc {
+            senc.write_box(writer)?;
         }
 
         Ok(size)

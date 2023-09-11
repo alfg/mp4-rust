@@ -99,6 +99,27 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
         if let Some(ref mp4a) = &stbl.stsd.mp4a {
             boxes.push(build_box(mp4a));
         }
+        let mut sinf = None;
+        if let Some(ref encv) = &stbl.stsd.encv {
+            boxes.push(build_box(encv));
+            sinf = Some(&encv.sinf)
+        }
+        if let Some(ref enca) = &stbl.stsd.enca {
+            boxes.push(build_box(enca));
+            sinf = Some(&enca.sinf)
+        }
+        if let Some(sinf) = sinf {
+            boxes.push(build_box(sinf));
+            if let Some(ref schm) = sinf.schm {
+                boxes.push(build_box(schm));
+            }
+            if let Some(ref schi) = sinf.schi {
+                boxes.push(build_box(schi));
+                if let Some(ref tenc) = schi.tenc {
+                    boxes.push(build_box(tenc));
+                }
+            }
+        }
         boxes.push(build_box(&stbl.stts));
         if let Some(ref ctts) = &stbl.ctts {
             boxes.push(build_box(ctts));
