@@ -102,7 +102,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for SinfBox {
 impl<W: Write> WriteBox<&mut W> for SinfBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
-        println!("sinf size: {}", size);
 
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
