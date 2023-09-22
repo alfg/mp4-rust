@@ -37,10 +37,10 @@ fn info<P: AsRef<Path>>(filename: &P) -> Result<()> {
     println!("  compatible_brands:  {}\n", compatible_brands);
 
     println!("Movie:");
-    println!("  version:        {}", mp4.moov.mvhd.version);
+    println!("  version:        {}", mp4.header.moov.mvhd.version);
     println!(
         "  creation time:  {}",
-        creation_time(mp4.moov.mvhd.creation_time)
+        creation_time(mp4.header.moov.mvhd.creation_time)
     );
     println!("  duration:       {:?}", mp4.duration());
     println!("  fragments:      {:?}", mp4.is_fragmented());

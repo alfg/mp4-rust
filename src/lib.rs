@@ -22,8 +22,8 @@
 //!     let mp4 = mp4::Mp4Reader::read_header(reader, size)?;
 //!
 //!     // Print boxes.
-//!     println!("major brand: {}", mp4.ftyp.major_brand);
-//!     println!("timescale: {}", mp4.moov.mvhd.timescale);
+//!     println!("major brand: {}", mp4.header.ftyp.major_brand);
+//!     println!("timescale: {}", mp4.header.moov.mvhd.timescale);
 //!
 //!     // Use available methods.
 //!     println!("size: {}", mp4.size());
@@ -83,7 +83,7 @@ mod track;
 pub use track::{Mp4Track, TrackConfig};
 
 mod reader;
-pub use reader::Mp4Reader;
+pub use reader::{Mp4Header, Mp4Reader};
 
 mod writer;
 pub use writer::{Mp4Config, Mp4Writer};
