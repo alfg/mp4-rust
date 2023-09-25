@@ -103,7 +103,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for SencBox {
         // the senc box cannot be properly parsed without IV_size
         // which is only available from other boxes. Store the raw
         // data for parsing with member functions later
-        let data_size = start + size - reader.stream_position()?;
+        let data_size = (start + size)
+            .checked_sub(reader.stream_position()?)
+            .ok_or(Error::InvalidData("senc size too small"))?;
         let mut sample_data = vec![0; data_size as usize];
         reader.read_exact(&mut sample_data)?;
 
