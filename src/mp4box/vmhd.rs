@@ -4,7 +4,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VmhdBox {
     pub version: u8,
     pub flags: u32,
@@ -26,6 +26,17 @@ impl VmhdBox {
 
     pub fn get_size(&self) -> u64 {
         HEADER_SIZE + HEADER_EXT_SIZE + 8
+    }
+}
+
+impl Default for VmhdBox {
+    fn default() -> Self {
+        Self {
+            version: 0,
+            flags: 1,
+            graphics_mode: 0,
+            op_color: RgbColor::default(),
+        }
     }
 }
 
