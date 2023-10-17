@@ -181,11 +181,12 @@ impl Mp4Box for EsdsBox {
     }
 
     fn box_size(&self) -> u64 {
+        let es_desc_size = self.es_desc.desc_size();
         HEADER_SIZE
             + HEADER_EXT_SIZE
             + 1
-            + size_of_length(ESDescriptor::desc_size()) as u64
-            + ESDescriptor::desc_size() as u64
+            + size_of_length(es_desc_size) as u64
+            + es_desc_size as u64
     }
 
     fn to_json(&self) -> Result<String> {
@@ -247,7 +248,7 @@ impl<W: Write> WriteBox<&mut W> for EsdsBox {
 
 trait Descriptor: Sized {
     fn desc_tag() -> u8;
-    fn desc_size() -> u32;
+    fn desc_size(&self) -> u32;
 }
 
 trait ReadDesc<T>: Sized {
@@ -325,13 +326,15 @@ impl Descriptor for ESDescriptor {
         0x03
     }
 
-    fn desc_size() -> u32 {
+    fn desc_size(&self) -> u32 {
+        let dec_config_size = self.dec_config.desc_size();
+        let sl_config_size = self.sl_config.desc_size();
         3 + 1
-            + size_of_length(DecoderConfigDescriptor::desc_size())
-            + DecoderConfigDescriptor::desc_size()
+            + size_of_length(dec_config_size)
+            + dec_config_size
             + 1
-            + size_of_length(SLConfigDescriptor::desc_size())
-            + SLConfigDescriptor::desc_size()
+            + size_of_length(sl_config_size)
+            + sl_config_size
     }
 }
 
@@ -373,7 +376,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
 
 impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
+        let size = self.desc_size();
         write_desc(writer, Self::desc_tag(), size)?;
 
         writer.write_u16::<BigEndian>(self.es_id)?;
@@ -417,10 +420,9 @@ impl Descriptor for DecoderConfigDescriptor {
         0x04
     }
 
-    fn desc_size() -> u32 {
-        13 + 1
-            + size_of_length(DecoderSpecificDescriptor::desc_size())
-            + DecoderSpecificDescriptor::desc_size()
+    fn desc_size(&self) -> u32 {
+        let dec_specific_size = self.dec_specific.desc_size();
+        13 + 1 + size_of_length(dec_specific_size) + dec_specific_size
     }
 }
 
@@ -467,7 +469,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
 
 impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
+        let size = self.desc_size();
         write_desc(writer, Self::desc_tag(), size)?;
 
         writer.write_u8(self.object_type_indication)?;
@@ -504,15 +506,19 @@ impl Descriptor for DecoderSpecificDescriptor {
         0x05
     }
 
-    fn desc_size() -> u32 {
-        2
+    fn desc_size(&self) -> u32 {
+        if self.profile < 31 {
+            2
+        } else {
+            3
+        }
     }
 }
 
 fn get_audio_object_type(byte_a: u8, byte_b: u8) -> u8 {
     let mut profile = byte_a >> 3;
     if profile == 31 {
-        profile = 32 + ((byte_a & 7) | (byte_b >> 5));
+        profile = 32 + ((byte_a & 7) << 3 | (byte_b >> 5));
     }
 
     profile
@@ -531,7 +537,7 @@ fn get_chan_conf<R: Read + Seek>(
         chan_conf = ((sample_rate >> 4) & 0x0F) as u8;
     } else if extended_profile {
         let byte_c = reader.read_u8()?;
-        chan_conf = (byte_b & 1) | (byte_c & 0xE0);
+        chan_conf = (byte_b & 1) << 3 | (byte_c >> 5);
     } else {
         chan_conf = (byte_b >> 3) & 0x0F;
     }
@@ -564,11 +570,18 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
 
 impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
+        let size = self.desc_size();
         write_desc(writer, Self::desc_tag(), size)?;
 
-        writer.write_u8((self.profile << 3) + (self.freq_index >> 1))?;
-        writer.write_u8((self.freq_index << 7) + (self.chan_conf << 3))?;
+        if self.profile < 31 {
+            writer.write_u8((self.profile << 3) | (self.freq_index >> 1))?;
+            writer.write_u8((self.freq_index << 7) | (self.chan_conf << 3))?;
+        } else {
+            let profile_minus_32 = self.profile - 32;
+            writer.write_u8(31u8 << 3 | profile_minus_32 >> 3)?;
+            writer.write_u8(profile_minus_32 << 5 | self.freq_index << 1 | self.chan_conf >> 7)?;
+            writer.write_u8((self.chan_conf & 7) << 5)?;
+        }
 
         Ok(size)
     }
@@ -588,7 +601,7 @@ impl Descriptor for SLConfigDescriptor {
         0x06
     }
 
-    fn desc_size() -> u32 {
+    fn desc_size(&self) -> u32 {
         1
     }
 }
@@ -603,7 +616,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
 
 impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
     fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
+        let size = self.desc_size();
         write_desc(writer, Self::desc_tag(), size)?;
 
         writer.write_u8(2)?; // pre-defined
@@ -679,5 +692,49 @@ mod tests {
 
         let dst_box = Mp4aBox::read_box(&mut reader, header.size).unwrap();
         assert_eq!(src_box, dst_box);
+    }
+
+    #[test]
+    fn test_decoder_specific_descriptor() {
+        let test_dec_spec = |src_dec_spec: DecoderSpecificDescriptor| {
+            let mut buf = Vec::new();
+            let written = src_dec_spec.write_desc(&mut buf).unwrap();
+            // expect two extra bytes for the tag and size fields
+            assert_eq!(buf.len(), written as usize + 2);
+
+            let mut reader = Cursor::new(&buf);
+            let (tag, size) = read_desc(&mut reader).unwrap();
+            assert_eq!(5, tag);
+            assert_eq!(size, written);
+
+            let dst_dec_spec = DecoderSpecificDescriptor::read_desc(&mut reader, written).unwrap();
+            assert_eq!(src_dec_spec, dst_dec_spec);
+        };
+
+        test_dec_spec(DecoderSpecificDescriptor {
+            profile: 2,    // LC
+            freq_index: 4, // 44100
+            chan_conf: 2,  // Stereo
+        });
+        test_dec_spec(DecoderSpecificDescriptor {
+            profile: 5,    // SpectralBandReplication (HEv1)
+            freq_index: 3, // 48000
+            chan_conf: 1,  // Mono
+        });
+        test_dec_spec(DecoderSpecificDescriptor {
+            profile: 29,   // ParametricStereo (HEv2)
+            freq_index: 2, // 64000
+            chan_conf: 7,  // SevenOne
+        });
+        test_dec_spec(DecoderSpecificDescriptor {
+            profile: 34,   // MpegLayer3
+            freq_index: 4, // 44100
+            chan_conf: 2,  // Stereo
+        });
+        test_dec_spec(DecoderSpecificDescriptor {
+            profile: 42,    // UnifiedSpeechAudioCoding (xHE)
+            freq_index: 11, // 8000
+            chan_conf: 6,   // FiveOne
+        });
     }
 }
