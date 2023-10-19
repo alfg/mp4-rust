@@ -32,9 +32,7 @@ impl Mp4Header {
             let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
             if s > size {
-                return Err(Error::InvalidData(
-                    "file contains a box with a larger size than it",
-                ));
+                break;
             }
 
             // Break if size zero BoxHeader, which can result in dead-loop.
