@@ -4,7 +4,7 @@ use std::io::{Read, Seek, Write};
 
 use crate::mp4box::vp09::Vp09Box;
 use crate::mp4box::*;
-use crate::mp4box::{avc1::Avc1Box, hev1::Hev1Box, mp4a::Mp4aBox, tx3g::Tx3gBox};
+use crate::mp4box::{avc1::Avc1Box, hev1::Hev1Box, hvc1::Hvc1Box, mp4a::Mp4aBox, tx3g::Tx3gBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct StsdBox {
@@ -16,6 +16,9 @@ pub struct StsdBox {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hev1: Option<Hev1Box>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hvc1: Option<Hvc1Box>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vp09: Option<Vp09Box>,
@@ -78,6 +81,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 
         let mut avc1 = None;
         let mut hev1 = None;
+        let mut hvc1 = None;
         let mut vp09 = None;
         let mut mp4a = None;
         let mut tx3g = None;
@@ -98,6 +102,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Hev1Box => {
                 hev1 = Some(Hev1Box::read_box(reader, s)?);
             }
+            BoxType::Hvc1Box => {
+                hvc1 = Some(Hvc1Box::read_box(reader, s)?);
+            }
             BoxType::Vp09Box => {
                 vp09 = Some(Vp09Box::read_box(reader, s)?);
             }
@@ -117,6 +124,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             flags,
             avc1,
             hev1,
+            hvc1,
             vp09,
             mp4a,
             tx3g,

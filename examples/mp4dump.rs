@@ -96,6 +96,9 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
         if let Some(ref hev1) = &stbl.stsd.hev1 {
             boxes.push(build_box(hev1));
         }
+        if let Some(ref hvc1) = &stbl.stsd.hvc1 {
+            boxes.push(build_box(hvc1));
+        }
         if let Some(ref mp4a) = &stbl.stsd.mp4a {
             boxes.push(build_box(mp4a));
         }
