@@ -73,6 +73,7 @@ pub(crate) mod emsg;
 pub(crate) mod ftyp;
 pub(crate) mod hdlr;
 pub(crate) mod hev1;
+pub(crate) mod hvc1;
 pub(crate) mod ilst;
 pub(crate) mod mdhd;
 pub(crate) mod mdia;
@@ -225,6 +226,7 @@ boxtype! {
     Avc1Box => 0x61766331,
     AvcCBox => 0x61766343,
     Hev1Box => 0x68657631,
+    Hvc1Box => 0x68766331,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
     EsdsBox => 0x65736473,

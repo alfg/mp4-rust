@@ -180,12 +180,37 @@ pub struct HvcCBox {
     pub arrays: Vec<HvcCArray>,
 }
 
+const VPS: u8 = 32;
+const SPS: u8 = 33;
+const PPS: u8 = 34;
+
 impl HvcCBox {
     pub fn new() -> Self {
         Self {
             configuration_version: 1,
             ..Default::default()
         }
+    }
+
+    fn parameter_set(&self, track_id: u32, nal_type: u8) -> Result<&[u8]> {
+        for array in &self.arrays {
+            if array.nal_unit_type == nal_type {
+                return Ok(&array.nalus[0].data);
+            }
+        }
+        Err(Error::EntryInStblNotFound(track_id, BoxType::HvcCBox, 0))
+    }
+
+    pub fn sequence_parameter_set(&self, track_id: u32) -> Result<&[u8]> {
+        self.parameter_set(track_id, SPS)
+    }
+
+    pub fn picture_parameter_set(&self, track_id: u32) -> Result<&[u8]> {
+        self.parameter_set(track_id, PPS)
+    }
+
+    pub fn video_parameter_set(&self, track_id: u32) -> Result<&[u8]> {
+        self.parameter_set(track_id, VPS)
     }
 }
 
