@@ -95,8 +95,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             ));
         }
 
-        println!("test {name}");
-
         match name {
             BoxType::Avc1Box => {
                 avc1 = Some(Avc1Box::read_box(reader, s)?);
