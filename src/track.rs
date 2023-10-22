@@ -121,9 +121,9 @@ impl Mp4Track {
     pub fn media_type(&self) -> Result<MediaType> {
         if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
             Ok(MediaType::H264)
-        } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
-            Ok(MediaType::H265)
-        } else if self.trak.mdia.minf.stbl.stsd.hvc1.is_some() {
+        } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some()
+            || self.trak.mdia.minf.stbl.stsd.hvc1.is_some()
+        {
             Ok(MediaType::H265)
         } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
             Ok(MediaType::VP9)
