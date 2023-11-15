@@ -572,10 +572,23 @@ pub struct AvcConfig {
     pub pic_param_set: Vec<u8>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HevcConfig {
     pub width: u16,
     pub height: u16,
+    pub box_type: BoxType,
+    pub hvcc: hevc::HvcCBox,
+}
+
+impl Default for HevcConfig {
+    fn default() -> Self {
+        Self {
+            width: Default::default(),
+            height: Default::default(),
+            box_type: BoxType::Hvc1Box,
+            hvcc: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]

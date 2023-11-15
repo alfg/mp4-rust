@@ -93,8 +93,8 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
         if let Some(ref avc1) = &stbl.stsd.avc1 {
             boxes.push(build_box(avc1));
         }
-        if let Some(ref hev1) = &stbl.stsd.hev1 {
-            boxes.push(build_box(hev1));
+        if let Some(ref hevc) = &stbl.stsd.hevc {
+            boxes.push(build_box(hevc));
         }
         if let Some(ref mp4a) = &stbl.stsd.mp4a {
             boxes.push(build_box(mp4a));

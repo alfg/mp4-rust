@@ -50,10 +50,18 @@ fn copy<P: AsRef<Path>>(src_filename: &P, dst_filename: &P) -> Result<()> {
                 seq_param_set: track.sequence_parameter_set()?.to_vec(),
                 pic_param_set: track.picture_parameter_set()?.to_vec(),
             }),
-            MediaType::H265 => MediaConfig::HevcConfig(HevcConfig {
-                width: track.width(),
-                height: track.height(),
-            }),
+            MediaType::H265 => {
+                let hevc = track.trak.mdia.minf.stbl.stsd.hevc.as_ref();
+                MediaConfig::HevcConfig(HevcConfig {
+                    width: track.width(),
+                    height: track.height(),
+                    hvcc: hevc.map(|h| h.hvcc.clone()).unwrap_or(Default::default()),
+                    box_type: hevc
+                        .as_ref()
+                        .map(|hevc| hevc.box_type)
+                        .unwrap_or(mp4::BoxType::Hvc1Box),
+                })
+            }
             MediaType::VP9 => MediaConfig::Vp9Config(Vp9Config {
                 width: track.width(),
                 height: track.height(),

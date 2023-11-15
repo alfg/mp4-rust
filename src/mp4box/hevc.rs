@@ -5,7 +5,7 @@ use std::io::{Read, Seek, Write};
 use crate::mp4box::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Hev1Box {
+pub struct HevcBox {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
@@ -18,11 +18,13 @@ pub struct Hev1Box {
     pub frame_count: u16,
     pub depth: u16,
     pub hvcc: HvcCBox,
+    /// hev1 or hvc1
+    pub box_type: BoxType,
 }
 
-impl Default for Hev1Box {
+impl Default for HevcBox {
     fn default() -> Self {
-        Hev1Box {
+        HevcBox {
             data_reference_index: 0,
             width: 0,
             height: 0,
@@ -31,13 +33,14 @@ impl Default for Hev1Box {
             frame_count: 1,
             depth: 0x0018,
             hvcc: HvcCBox::default(),
+            box_type: BoxType::Hvc1Box,
         }
     }
 }
 
-impl Hev1Box {
+impl HevcBox {
     pub fn new(config: &HevcConfig) -> Self {
-        Hev1Box {
+        HevcBox {
             data_reference_index: 1,
             width: config.width,
             height: config.height,
@@ -45,12 +48,13 @@ impl Hev1Box {
             vertresolution: FixedPointU16::new(0x48),
             frame_count: 1,
             depth: 0x0018,
-            hvcc: HvcCBox::new(),
+            hvcc: config.hvcc.clone(),
+            box_type: config.box_type,
         }
     }
 
     pub fn get_type(&self) -> BoxType {
-        BoxType::Hev1Box
+        self.box_type
     }
 
     pub fn get_size(&self) -> u64 {
@@ -58,7 +62,7 @@ impl Hev1Box {
     }
 }
 
-impl Mp4Box for Hev1Box {
+impl Mp4Box for HevcBox {
     fn box_type(&self) -> BoxType {
         self.get_type()
     }
@@ -80,9 +84,16 @@ impl Mp4Box for Hev1Box {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
+impl<R: Read + Seek> ReadBox<&mut R> for HevcBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
+
+        reader.seek(SeekFrom::Start(start))?;
+        let header = BoxHeader::read(reader)?;
+        let BoxHeader {
+            name: box_type,
+            size: _,
+        } = header;
 
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
@@ -105,7 +116,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
         let BoxHeader { name, size: s } = header;
         if s > size {
             return Err(Error::InvalidData(
-                "hev1 box contains a box with a larger size than it",
+                "hevc box contains a box with a larger size than it",
             ));
         }
         if name == BoxType::HvcCBox {
@@ -113,7 +124,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
 
             skip_bytes_to(reader, start + size)?;
 
-            Ok(Hev1Box {
+            Ok(HevcBox {
                 data_reference_index,
                 width,
                 height,
@@ -122,6 +133,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
                 frame_count,
                 depth,
                 hvcc,
+                box_type,
             })
         } else {
             Err(Error::InvalidData("hvcc not found"))
@@ -129,7 +141,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for Hev1Box {
+impl<W: Write> WriteBox<&mut W> for HevcBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
         BoxHeader::new(self.box_type(), size).write(writer)?;
@@ -366,8 +378,8 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn test_hev1() {
-        let src_box = Hev1Box {
+    fn test_hevc() {
+        let src_box = HevcBox {
             data_reference_index: 1,
             width: 320,
             height: 240,
@@ -379,6 +391,7 @@ mod tests {
                 configuration_version: 1,
                 ..Default::default()
             },
+            box_type: BoxType::Hvc1Box,
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
@@ -386,10 +399,10 @@ mod tests {
 
         let mut reader = Cursor::new(&buf);
         let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::Hev1Box);
+        assert_eq!(header.name, BoxType::Hvc1Box);
         assert_eq!(src_box.box_size(), header.size);
 
-        let dst_box = Hev1Box::read_box(&mut reader, header.size).unwrap();
+        let dst_box = HevcBox::read_box(&mut reader, header.size).unwrap();
         assert_eq!(src_box, dst_box);
     }
 }

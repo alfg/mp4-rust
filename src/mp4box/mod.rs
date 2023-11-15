@@ -26,7 +26,7 @@
 //!                 stbl
 //!                     stsd
 //!                         avc1
-//!                         hev1
+//!                         hevc(hev1 | hvc1)
 //!                         mp4a
 //!                         tx3g
 //!                     stts
@@ -57,6 +57,7 @@
 //!
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -72,7 +73,7 @@ pub(crate) mod elst;
 pub(crate) mod emsg;
 pub(crate) mod ftyp;
 pub(crate) mod hdlr;
-pub(crate) mod hev1;
+pub(crate) mod hevc;
 pub(crate) mod ilst;
 pub(crate) mod mdhd;
 pub(crate) mod mdia;
@@ -116,7 +117,7 @@ pub use elst::ElstBox;
 pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
 pub use hdlr::HdlrBox;
-pub use hev1::Hev1Box;
+pub use hevc::HevcBox;
 pub use ilst::IlstBox;
 pub use mdhd::MdhdBox;
 pub use mdia::MdiaBox;
@@ -156,7 +157,7 @@ pub const HEADER_EXT_SIZE: u64 = 4;
 
 macro_rules! boxtype {
     ($( $name:ident => $value:expr ),*) => {
-        #[derive(Clone, Copy, PartialEq, Eq)]
+        #[derive(Clone, Copy, PartialEq, Eq, Serialize)]
         pub enum BoxType {
             $( $name, )*
             UnknownBox(u32),
@@ -225,6 +226,7 @@ boxtype! {
     Avc1Box => 0x61766331,
     AvcCBox => 0x61766343,
     Hev1Box => 0x68657631,
+    Hvc1Box => 0x68766331,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
     EsdsBox => 0x65736473,

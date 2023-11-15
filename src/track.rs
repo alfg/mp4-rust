@@ -8,7 +8,7 @@ use crate::mp4box::traf::TrafBox;
 use crate::mp4box::trak::TrakBox;
 use crate::mp4box::trun::TrunBox;
 use crate::mp4box::{
-    avc1::Avc1Box, co64::Co64Box, ctts::CttsBox, ctts::CttsEntry, hev1::Hev1Box, mp4a::Mp4aBox,
+    avc1::Avc1Box, co64::Co64Box, ctts::CttsBox, ctts::CttsEntry, hevc::HevcBox, mp4a::Mp4aBox,
     smhd::SmhdBox, stco::StcoBox, stsc::StscEntry, stss::StssBox, stts::SttsEntry, tx3g::Tx3gBox,
     vmhd::VmhdBox, vp09::Vp09Box,
 };
@@ -121,7 +121,7 @@ impl Mp4Track {
     pub fn media_type(&self) -> Result<MediaType> {
         if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
             Ok(MediaType::H264)
-        } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
+        } else if self.trak.mdia.minf.stbl.stsd.hevc.is_some() {
             Ok(MediaType::H265)
         } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
             Ok(MediaType::VP9)
@@ -137,8 +137,12 @@ impl Mp4Track {
     pub fn box_type(&self) -> Result<FourCC> {
         if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
             Ok(FourCC::from(BoxType::Avc1Box))
-        } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
-            Ok(FourCC::from(BoxType::Hev1Box))
+        } else if let Some(hevc) = self.trak.mdia.minf.stbl.stsd.hevc.as_ref() {
+            match hevc.box_type {
+                BoxType::Hev1Box => Ok(FourCC::from(BoxType::Hev1Box)),
+                BoxType::Hvc1Box => Ok(FourCC::from(BoxType::Hvc1Box)),
+                _ => Err(Error::InvalidData("invalid hevc box")),
+            }
         } else if self.trak.mdia.minf.stbl.stsd.vp09.is_some() {
             Ok(FourCC::from(BoxType::Vp09Box))
         } else if self.trak.mdia.minf.stbl.stsd.mp4a.is_some() {
@@ -665,9 +669,7 @@ impl Mp4TrackWriter {
 
                 let vmhd = VmhdBox::default();
                 trak.mdia.minf.vmhd = Some(vmhd);
-
-                let hev1 = Hev1Box::new(hevc_config);
-                trak.mdia.minf.stbl.stsd.hev1 = Some(hev1);
+                trak.mdia.minf.stbl.stsd.hevc = Some(HevcBox::new(hevc_config));
             }
             MediaConfig::Vp9Config(ref config) => {
                 trak.tkhd.set_width(config.width);
