@@ -501,16 +501,14 @@ impl Mp4Track {
 
     fn sample_time(&self, sample_id: u32) -> Result<(u64, u32)> {
         if !self.trafs.is_empty() {
-            let mut base_start_time = 0;
-            let mut default_sample_duration = self.default_sample_duration;
             if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
                 let traf = &self.trafs[traf_idx];
-                if let Some(tfdt) = &traf.tfdt {
-                    base_start_time = tfdt.base_media_decode_time;
-                }
-                if let Some(duration) = traf.tfhd.default_sample_duration {
-                    default_sample_duration = duration;
-                }
+                let base_start_time = traf
+                    .tfdt
+                    .as_ref()
+                    .map(|tfdt| tfdt.base_media_decode_time)
+                    .unwrap_or(0);
+
                 if let Some(trun) = &traf.trun {
                     if TrunBox::FLAG_SAMPLE_DURATION & trun.flags != 0 {
                         let mut start_offset = 0u64;
@@ -523,9 +521,21 @@ impl Mp4Track {
                         return Ok((base_start_time + start_offset, duration));
                     }
                 }
+
+                let default_sample_duration = traf
+                    .tfhd
+                    .default_sample_duration
+                    .unwrap_or(self.default_sample_duration);
+
+                let start_offset = sample_idx as u64 * default_sample_duration as u64;
+
+                Ok((base_start_time + start_offset, default_sample_duration))
+            } else {
+                Ok((
+                    ((sample_id - 1) * self.default_sample_duration) as u64,
+                    self.default_sample_duration,
+                ))
             }
-            let start_offset = ((sample_id - 1) * default_sample_duration) as u64;
-            Ok((base_start_time + start_offset, default_sample_duration))
         } else {
             let stts = &self.trak.mdia.minf.stbl.stts;
 
@@ -579,8 +589,11 @@ impl Mp4Track {
 
     fn is_sync_sample(&self, sample_id: u32) -> bool {
         if !self.trafs.is_empty() {
-            let sample_sizes_count = self.sample_count() / self.trafs.len() as u32;
-            return sample_id == 1 || sample_id % sample_sizes_count == 0;
+            if let Some((_, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+                return sample_idx == 0;
+            }
+
+            return sample_id == 1;
         }
 
         if let Some(ref stss) = self.trak.mdia.minf.stbl.stss {
