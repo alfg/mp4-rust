@@ -46,12 +46,12 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
 
     // collect known boxes
     let mut boxes = vec![
-        build_box(&mp4.ftyp),
-        build_box(&mp4.moov),
-        build_box(&mp4.moov.mvhd),
+        build_box(&mp4.header.ftyp),
+        build_box(&mp4.header.moov),
+        build_box(&mp4.header.moov.mvhd),
     ];
 
-    if let Some(ref mvex) = &mp4.moov.mvex {
+    if let Some(ref mvex) = &mp4.header.moov.mvex {
         boxes.push(build_box(mvex));
         if let Some(mehd) = &mvex.mehd {
             boxes.push(build_box(mehd));
@@ -117,7 +117,7 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
     }
 
     // If fragmented, add moof boxes.
-    for moof in mp4.moofs.iter() {
+    for moof in mp4.header.moofs.iter() {
         boxes.push(build_box(moof));
         boxes.push(build_box(&moof.mfhd));
         for traf in moof.trafs.iter() {

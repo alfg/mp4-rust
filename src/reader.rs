@@ -6,8 +6,7 @@ use crate::meta::MetaBox;
 use crate::*;
 
 #[derive(Debug)]
-pub struct Mp4Reader<R> {
-    reader: R,
+pub struct Mp4Header {
     pub ftyp: FtypBox,
     pub moov: MoovBox,
     pub moofs: Vec<MoofBox>,
@@ -17,8 +16,8 @@ pub struct Mp4Reader<R> {
     size: u64,
 }
 
-impl<R: Read + Seek> Mp4Reader<R> {
-    pub fn read_header(mut reader: R, size: u64) -> Result<Self> {
+impl Mp4Header {
+    pub fn read<R: Read + Seek>(reader: &mut R, size: u64) -> Result<Self> {
         let start = reader.stream_position()?;
 
         let mut ftyp = None;
@@ -30,12 +29,10 @@ impl<R: Read + Seek> Mp4Reader<R> {
         let mut current = start;
         while current < size {
             // Get box header.
-            let header = BoxHeader::read(&mut reader)?;
+            let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
             if s > size {
-                return Err(Error::InvalidData(
-                    "file contains a box with a larger size than it",
-                ));
+                break;
             }
 
             // Break if size zero BoxHeader, which can result in dead-loop.
@@ -46,30 +43,30 @@ impl<R: Read + Seek> Mp4Reader<R> {
             // Match and parse the atom boxes.
             match name {
                 BoxType::FtypBox => {
-                    ftyp = Some(FtypBox::read_box(&mut reader, s)?);
+                    ftyp = Some(FtypBox::read_box(reader, s)?);
                 }
                 BoxType::FreeBox => {
-                    skip_box(&mut reader, s)?;
+                    skip_box(reader, s)?;
                 }
                 BoxType::MdatBox => {
-                    skip_box(&mut reader, s)?;
+                    skip_box(reader, s)?;
                 }
                 BoxType::MoovBox => {
-                    moov = Some(MoovBox::read_box(&mut reader, s)?);
+                    moov = Some(MoovBox::read_box(reader, s)?);
                 }
                 BoxType::MoofBox => {
                     let moof_offset = reader.stream_position()? - 8;
-                    let moof = MoofBox::read_box(&mut reader, s)?;
+                    let moof = MoofBox::read_box(reader, s)?;
                     moofs.push(moof);
                     moof_offsets.push(moof_offset);
                 }
                 BoxType::EmsgBox => {
-                    let emsg = EmsgBox::read_box(&mut reader, s)?;
+                    let emsg = EmsgBox::read_box(reader, s)?;
                     emsgs.push(emsg);
                 }
                 _ => {
                     // XXX warn!()
-                    skip_box(&mut reader, s)?;
+                    skip_box(reader, s)?;
                 }
             }
             current = reader.stream_position()?;
@@ -118,8 +115,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
             }
         }
 
-        Ok(Mp4Reader {
-            reader,
+        Ok(Mp4Header {
             ftyp: ftyp.unwrap(),
             moov: moov.unwrap(),
             moofs,
@@ -129,11 +125,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
         })
     }
 
-    pub fn read_fragment_header<FR: Read + Seek>(
-        &self,
-        mut reader: FR,
-        size: u64,
-    ) -> Result<Mp4Reader<FR>> {
+    pub fn read_fragment<R: Read + Seek>(&self, reader: &mut R, size: u64) -> Result<Self> {
         let start = reader.stream_position()?;
 
         let mut moofs = Vec::new();
@@ -142,7 +134,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
         let mut current = start;
         while current < size {
             // Get box header.
-            let header = BoxHeader::read(&mut reader)?;
+            let header = BoxHeader::read(reader)?;
             let BoxHeader { name, size: s } = header;
             if s > size {
                 return Err(Error::InvalidData(
@@ -158,17 +150,17 @@ impl<R: Read + Seek> Mp4Reader<R> {
             // Match and parse the atom boxes.
             match name {
                 BoxType::MdatBox => {
-                    skip_box(&mut reader, s)?;
+                    skip_box(reader, s)?;
                 }
                 BoxType::MoofBox => {
                     let moof_offset = reader.stream_position()? - 8;
-                    let moof = MoofBox::read_box(&mut reader, s)?;
+                    let moof = MoofBox::read_box(reader, s)?;
                     moofs.push(moof);
                     moof_offsets.push(moof_offset);
                 }
                 _ => {
                     // XXX warn!()
-                    skip_box(&mut reader, s)?;
+                    skip_box(reader, s)?;
                 }
             }
             current = reader.stream_position()?;
@@ -204,8 +196,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
             }
         }
 
-        Ok(Mp4Reader {
-            reader,
+        Ok(Mp4Header {
             ftyp: self.ftyp.clone(),
             moov: self.moov.clone(),
             moofs,
@@ -215,10 +206,12 @@ impl<R: Read + Seek> Mp4Reader<R> {
         })
     }
 
+    #[inline]
     pub fn size(&self) -> u64 {
         self.size
     }
 
+    #[inline]
     pub fn major_brand(&self) -> &FourCC {
         &self.ftyp.major_brand
     }
@@ -255,9 +248,14 @@ impl<R: Read + Seek> Mp4Reader<R> {
         }
     }
 
-    pub fn read_sample(&mut self, track_id: u32, sample_id: u32) -> Result<Option<Mp4Sample>> {
+    pub fn read_sample<R: Read + Seek>(
+        &mut self,
+        reader: &mut R,
+        track_id: u32,
+        sample_id: u32,
+    ) -> Result<Option<Mp4Sample>> {
         if let Some(track) = self.tracks.get(&track_id) {
-            track.read_sample(&mut self.reader, sample_id)
+            track.read_sample(reader, sample_id)
         } else {
             Err(Error::TrakNotFound(track_id))
         }
@@ -270,9 +268,7 @@ impl<R: Read + Seek> Mp4Reader<R> {
             Err(Error::TrakNotFound(track_id))
         }
     }
-}
 
-impl<R> Mp4Reader<R> {
     pub fn metadata(&self) -> impl Metadata<'_> {
         self.moov.udta.as_ref().and_then(|udta| {
             udta.meta.as_ref().and_then(|meta| match meta {
@@ -280,5 +276,86 @@ impl<R> Mp4Reader<R> {
                 _ => None,
             })
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct Mp4Reader<R> {
+    reader: R,
+    pub header: Mp4Header,
+}
+
+impl<R: Read + Seek> Mp4Reader<R> {
+    pub fn from_reader(reader: R, header: Mp4Header) -> Self {
+        Self { reader, header }
+    }
+
+    pub fn read_header(mut reader: R, size: u64) -> Result<Self> {
+        Ok(Mp4Reader {
+            header: Mp4Header::read(&mut reader, size)?,
+            reader,
+        })
+    }
+
+    pub fn read_fragment_header<FR: Read + Seek>(
+        &self,
+        mut reader: FR,
+        size: u64,
+    ) -> Result<Mp4Reader<FR>> {
+        Ok(Mp4Reader {
+            header: self.header.read_fragment(&mut reader, size)?,
+            reader,
+        })
+    }
+
+    pub fn size(&self) -> u64 {
+        self.header.size()
+    }
+
+    pub fn major_brand(&self) -> &FourCC {
+        self.header.major_brand()
+    }
+
+    pub fn minor_version(&self) -> u32 {
+        self.header.minor_version()
+    }
+
+    pub fn compatible_brands(&self) -> &[FourCC] {
+        self.header.compatible_brands()
+    }
+
+    pub fn duration(&self) -> Duration {
+        self.header.duration()
+    }
+
+    pub fn timescale(&self) -> u32 {
+        self.header.timescale()
+    }
+
+    pub fn is_fragmented(&self) -> bool {
+        self.header.is_fragmented()
+    }
+
+    pub fn tracks(&self) -> &HashMap<u32, Mp4Track> {
+        self.header.tracks()
+    }
+
+    pub fn sample_count(&self, track_id: u32) -> Result<u32> {
+        self.header.sample_count(track_id)
+    }
+
+    pub fn read_sample(&mut self, track_id: u32, sample_id: u32) -> Result<Option<Mp4Sample>> {
+        self.header
+            .read_sample(&mut self.reader, track_id, sample_id)
+    }
+
+    pub fn sample_offset(&mut self, track_id: u32, sample_id: u32) -> Result<u64> {
+        self.header.sample_offset(track_id, sample_id)
+    }
+}
+
+impl<R> Mp4Reader<R> {
+    pub fn metadata(&self) -> impl Metadata<'_> {
+        self.header.metadata()
     }
 }
