@@ -52,6 +52,7 @@
 //!     mvex
 //!         mehd
 //!         trex
+//!     pssh
 //! emsg
 //! moof
 //!     mfhd
@@ -98,6 +99,7 @@ pub(crate) mod moov;
 pub(crate) mod mp4a;
 pub(crate) mod mvex;
 pub(crate) mod mvhd;
+pub(crate) mod pssh;
 pub(crate) mod saio;
 pub(crate) mod saiz;
 pub(crate) mod schi;
@@ -152,6 +154,7 @@ pub use moov::MoovBox;
 pub use mp4a::Mp4aBox;
 pub use mvex::MvexBox;
 pub use mvhd::MvhdBox;
+pub use pssh::PsshBox;
 pub use saio::SaioBox;
 pub use saiz::SaizBox;
 pub use schi::SchiBox;
@@ -278,7 +281,8 @@ boxtype! {
     TencBox => 0x74656e63,
     SaizBox => 0x7361697a,
     SaioBox => 0x7361696f,
-    SencBox => 0x73656e63
+    SencBox => 0x73656e63,
+    PsshBox => 0x70737368
 }
 
 pub trait Mp4Box: Sized {
