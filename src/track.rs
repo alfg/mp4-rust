@@ -520,12 +520,12 @@ impl Mp4Track {
                             )?;
                         }
                         let duration = trun.sample_durations[sample_idx];
-                        return Ok((base_start_time + start_offset, duration));
+                        return Ok((base_start_time.wrapping_add(start_offset), duration));
                     }
                 }
             }
             let start_offset = ((sample_id - 1) * default_sample_duration) as u64;
-            Ok((base_start_time + start_offset, default_sample_duration))
+            Ok((base_start_time.wrapping_add(start_offset), default_sample_duration))
         } else {
             let stts = &self.trak.mdia.minf.stbl.stts;
 
