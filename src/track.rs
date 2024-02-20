@@ -525,7 +525,10 @@ impl Mp4Track {
                 }
             }
             let start_offset = ((sample_id - 1) * default_sample_duration) as u64;
-            Ok((base_start_time.wrapping_add(start_offset), default_sample_duration))
+            Ok((
+                base_start_time.wrapping_add(start_offset),
+                default_sample_duration,
+            ))
         } else {
             let stts = &self.trak.mdia.minf.stbl.stts;
 
