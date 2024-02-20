@@ -208,7 +208,15 @@ impl Mp4Track {
     }
 
     pub fn sample_freq_index(&self) -> Result<SampleFreqIndex> {
+        let mut mp4a_opt: Option<&Mp4aBox> = None;
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            mp4a_opt = Some(mp4a);
+        } else if let Some(ref enca) = self.trak.mdia.minf.stbl.stsd.enca {
+            if let Some(ref mp4a) = enca.mp4a {
+                mp4a_opt = Some(mp4a);
+            }
+        }
+        if let Some(ref mp4a) = mp4a_opt {
             if let Some(ref esds) = mp4a.esds {
                 SampleFreqIndex::try_from(esds.es_desc.dec_config.dec_specific.freq_index)
             } else {
@@ -220,7 +228,15 @@ impl Mp4Track {
     }
 
     pub fn channel_config(&self) -> Result<ChannelConfig> {
+        let mut mp4a_opt: Option<&Mp4aBox> = None;
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            mp4a_opt = Some(mp4a);
+        } else if let Some(ref enca) = self.trak.mdia.minf.stbl.stsd.enca {
+            if let Some(ref mp4a) = enca.mp4a {
+                mp4a_opt = Some(mp4a);
+            }
+        }
+        if let Some(ref mp4a) = mp4a_opt {
             if let Some(ref esds) = mp4a.esds {
                 ChannelConfig::try_from(esds.es_desc.dec_config.dec_specific.chan_conf)
             } else {
@@ -246,7 +262,15 @@ impl Mp4Track {
     }
 
     pub fn bitrate(&self) -> u32 {
+        let mut mp4a_opt: Option<&Mp4aBox> = None;
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            mp4a_opt = Some(mp4a);
+        } else if let Some(ref enca) = self.trak.mdia.minf.stbl.stsd.enca {
+            if let Some(ref mp4a) = enca.mp4a {
+                mp4a_opt = Some(mp4a);
+            }
+        }
+        if let Some(ref mp4a) = mp4a_opt {
             if let Some(ref esds) = mp4a.esds {
                 esds.es_desc.dec_config.avg_bitrate
             } else {
@@ -281,7 +305,15 @@ impl Mp4Track {
     }
 
     pub fn video_profile(&self) -> Result<AvcProfile> {
+        let mut avc1_opt: Option<&Avc1Box> = None;
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
+            avc1_opt = Some(avc1);
+        } else if let Some(ref encv) = self.trak.mdia.minf.stbl.stsd.encv {
+            if let Some(ref avc1) = encv.avc1 {
+                avc1_opt = Some(avc1);
+            }
+        }
+        if let Some(ref avc1) = avc1_opt {
             AvcProfile::try_from((
                 avc1.avcc.avc_profile_indication,
                 avc1.avcc.profile_compatibility,
@@ -292,7 +324,15 @@ impl Mp4Track {
     }
 
     pub fn sequence_parameter_set(&self) -> Result<&[u8]> {
+        let mut avc1_opt: Option<&Avc1Box> = None;
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
+            avc1_opt = Some(avc1);
+        } else if let Some(ref encv) = self.trak.mdia.minf.stbl.stsd.encv {
+            if let Some(ref avc1) = encv.avc1 {
+                avc1_opt = Some(avc1);
+            }
+        }
+        if let Some(ref avc1) = avc1_opt {
             match avc1.avcc.sequence_parameter_sets.get(0) {
                 Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
@@ -307,7 +347,15 @@ impl Mp4Track {
     }
 
     pub fn picture_parameter_set(&self) -> Result<&[u8]> {
+        let mut avc1_opt: Option<&Avc1Box> = None;
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
+            avc1_opt = Some(avc1);
+        } else if let Some(ref encv) = self.trak.mdia.minf.stbl.stsd.encv {
+            if let Some(ref avc1) = encv.avc1 {
+                avc1_opt = Some(avc1);
+            }
+        }
+        if let Some(ref avc1) = avc1_opt {
             match avc1.avcc.picture_parameter_sets.get(0) {
                 Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
@@ -322,7 +370,15 @@ impl Mp4Track {
     }
 
     pub fn audio_profile(&self) -> Result<AudioObjectType> {
+        let mut mp4a_opt: Option<&Mp4aBox> = None;
         if let Some(ref mp4a) = self.trak.mdia.minf.stbl.stsd.mp4a {
+            mp4a_opt = Some(mp4a);
+        } else if let Some(ref enca) = self.trak.mdia.minf.stbl.stsd.enca {
+            if let Some(ref mp4a) = enca.mp4a {
+                mp4a_opt = Some(mp4a);
+            }
+        }
+        if let Some(ref mp4a) = mp4a_opt {
             if let Some(ref esds) = mp4a.esds {
                 AudioObjectType::try_from(esds.es_desc.dec_config.dec_specific.profile)
             } else {
