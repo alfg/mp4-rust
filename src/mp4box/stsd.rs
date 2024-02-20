@@ -25,6 +25,12 @@ pub struct StsdBox {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tx3g: Option<Tx3gBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enca: Option<EncaBox>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encv: Option<EncvBox>,
 }
 
 impl StsdBox {
@@ -44,6 +50,10 @@ impl StsdBox {
             size += mp4a.box_size();
         } else if let Some(ref tx3g) = self.tx3g {
             size += tx3g.box_size();
+        } else if let Some(ref enca) = self.enca {
+            size += enca.box_size();
+        } else if let Some(ref encv) = self.encv {
+            size += encv.box_size();
         }
         size
     }
@@ -81,6 +91,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         let mut vp09 = None;
         let mut mp4a = None;
         let mut tx3g = None;
+        let mut enca = None;
+        let mut encv = None;
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
@@ -107,6 +119,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Tx3gBox => {
                 tx3g = Some(Tx3gBox::read_box(reader, s)?);
             }
+            BoxType::EncaBox => {
+                enca = Some(EncaBox::read_box(reader, s)?);
+            }
+            BoxType::EncvBox => {
+                encv = Some(EncvBox::read_box(reader, s)?);
+            }
             _ => {}
         }
 
@@ -120,6 +138,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             vp09,
             mp4a,
             tx3g,
+            enca,
+            encv,
         })
     }
 }
@@ -143,6 +163,10 @@ impl<W: Write> WriteBox<&mut W> for StsdBox {
             mp4a.write_box(writer)?;
         } else if let Some(ref tx3g) = self.tx3g {
             tx3g.write_box(writer)?;
+        } else if let Some(ref enca) = self.enca {
+            enca.write_box(writer)?;
+        } else if let Some(ref encv) = self.encv {
+            encv.write_box(writer)?;
         }
 
         Ok(size)
