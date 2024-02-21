@@ -236,7 +236,7 @@ impl Mp4Track {
         if !self.trafs.is_empty() {
             let mut sample_count = 0u32;
             for traf in self.trafs.iter() {
-                if let Some(ref trun) = traf.trun {
+                for trun in &traf.truns {
                     sample_count = sample_count
                         .checked_add(trun.sample_count)
                         .expect("attempt to sum trun sample_count with overflow");
@@ -369,14 +369,14 @@ impl Mp4Track {
     }
 
     /// return `(traf_idx, sample_idx_in_trun)`
-    fn find_traf_idx_and_sample_idx(&self, sample_id: u32) -> Option<(usize, usize)> {
+    fn find_traf_trun_and_sample_idx(&self, sample_id: u32) -> Option<(usize, usize, usize)> {
         let global_idx = sample_id - 1;
         let mut offset = 0;
         for traf_idx in 0..self.trafs.len() {
-            if let Some(trun) = &self.trafs[traf_idx].trun {
+            for (trun_idx, trun) in self.trafs[traf_idx].truns.iter().enumerate() {
                 let sample_count = trun.sample_count;
                 if sample_count > (global_idx - offset) {
-                    return Some((traf_idx, (global_idx - offset) as _));
+                    return Some((traf_idx, trun_idx, (global_idx - offset) as _));
                 }
                 offset = offset
                     .checked_add(sample_count)
@@ -388,11 +388,10 @@ impl Mp4Track {
 
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
         if !self.trafs.is_empty() {
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
-                if let Some(size) = self.trafs[traf_idx]
-                    .trun
-                    .as_ref()
-                    .unwrap()
+            if let Some((traf_idx, trun_idx, sample_idx)) =
+                self.find_traf_trun_and_sample_idx(sample_id)
+            {
+                if let Some(size) = self.trafs[traf_idx].truns[trun_idx]
                     .sample_sizes
                     .get(sample_idx)
                 {
@@ -439,17 +438,15 @@ impl Mp4Track {
 
     pub fn sample_offset(&self, sample_id: u32) -> Result<u64> {
         if !self.trafs.is_empty() {
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+            if let Some((traf_idx, trun_idx, sample_idx)) =
+                self.find_traf_trun_and_sample_idx(sample_id)
+            {
                 let mut sample_offset = self.trafs[traf_idx]
                     .tfhd
                     .base_data_offset
                     .unwrap_or(self.moof_offsets[traf_idx]);
 
-                if let Some(data_offset) = self.trafs[traf_idx]
-                    .trun
-                    .as_ref()
-                    .and_then(|trun| trun.data_offset)
-                {
+                if let Some(data_offset) = self.trafs[traf_idx].truns[trun_idx].data_offset {
                     sample_offset = sample_offset.checked_add_signed(data_offset as i64).ok_or(
                         Error::InvalidData("attempt to calculate trun sample offset with overflow"),
                     )?;
@@ -503,7 +500,9 @@ impl Mp4Track {
         if !self.trafs.is_empty() {
             let mut base_start_time = 0;
             let mut default_sample_duration = self.default_sample_duration;
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
+            if let Some((traf_idx, trun_idx, sample_idx)) =
+                self.find_traf_trun_and_sample_idx(sample_id)
+            {
                 let traf = &self.trafs[traf_idx];
                 if let Some(tfdt) = &traf.tfdt {
                     base_start_time = tfdt.base_media_decode_time;
@@ -511,17 +510,16 @@ impl Mp4Track {
                 if let Some(duration) = traf.tfhd.default_sample_duration {
                     default_sample_duration = duration;
                 }
-                if let Some(trun) = &traf.trun {
-                    if TrunBox::FLAG_SAMPLE_DURATION & trun.flags != 0 {
-                        let mut start_offset = 0u64;
-                        for duration in &trun.sample_durations[..sample_idx] {
-                            start_offset = start_offset.checked_add(*duration as u64).ok_or(
-                                Error::InvalidData("attempt to sum sample durations with overflow"),
-                            )?;
-                        }
-                        let duration = trun.sample_durations[sample_idx];
-                        return Ok((base_start_time + start_offset, duration));
+                let trun = &traf.truns[trun_idx];
+                if TrunBox::FLAG_SAMPLE_DURATION & trun.flags != 0 {
+                    let mut start_offset = 0u64;
+                    for duration in &trun.sample_durations[..sample_idx] {
+                        start_offset = start_offset.checked_add(*duration as u64).ok_or(
+                            Error::InvalidData("attempt to sum sample durations with overflow"),
+                        )?;
                     }
+                    let duration = trun.sample_durations[sample_idx];
+                    return Ok((base_start_time + start_offset, duration));
                 }
             }
             let start_offset = ((sample_id - 1) * default_sample_duration) as u64;
@@ -559,11 +557,12 @@ impl Mp4Track {
 
     fn sample_rendering_offset(&self, sample_id: u32) -> i32 {
         if !self.trafs.is_empty() {
-            if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
-                if let Some(cts) = self.trafs[traf_idx]
-                    .trun
-                    .as_ref()
-                    .and_then(|trun| trun.sample_cts.get(sample_idx))
+            if let Some((traf_idx, trun_idx, sample_idx)) =
+                self.find_traf_trun_and_sample_idx(sample_id)
+            {
+                if let Some(cts) = self.trafs[traf_idx].truns[trun_idx]
+                    .sample_cts
+                    .get(sample_idx)
                 {
                     return *cts as i32;
                 }

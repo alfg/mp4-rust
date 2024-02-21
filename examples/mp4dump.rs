@@ -123,7 +123,7 @@ fn get_boxes(file: File) -> Result<Vec<Box>> {
         for traf in moof.trafs.iter() {
             boxes.push(build_box(traf));
             boxes.push(build_box(&traf.tfhd));
-            if let Some(ref trun) = &traf.trun {
+            for trun in &traf.truns {
                 boxes.push(build_box(trun));
             }
         }
