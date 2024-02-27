@@ -26,6 +26,7 @@
 //!                 stbl
 //!                     stsd
 //!                         avc1
+//!                         avc3
 //!                         hev1
 //!                         mp4a
 //!                         tx3g
@@ -62,7 +63,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::*;
 
-pub(crate) mod avc1;
+pub(crate) mod avc;
 pub(crate) mod co64;
 pub(crate) mod ctts;
 pub(crate) mod data;
@@ -106,7 +107,7 @@ pub(crate) mod vmhd;
 pub(crate) mod vp09;
 pub(crate) mod vpcc;
 
-pub use avc1::Avc1Box;
+pub use avc::Avc1Box;
 pub use co64::Co64Box;
 pub use ctts::CttsBox;
 pub use data::DataBox;
@@ -223,6 +224,7 @@ boxtype! {
     UrlBox  => 0x75726C20,
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
+    Avc3Box => 0x61766333,
     AvcCBox => 0x61766343,
     Hev1Box => 0x68657631,
     HvcCBox => 0x68766343,

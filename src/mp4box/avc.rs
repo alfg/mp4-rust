@@ -5,7 +5,7 @@ use std::io::{Read, Seek, Write};
 use crate::mp4box::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Avc1Box {
+pub struct Avc1Or3Inner {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
@@ -20,9 +20,9 @@ pub struct Avc1Box {
     pub avcc: AvcCBox,
 }
 
-impl Default for Avc1Box {
+impl Default for Avc1Or3Inner {
     fn default() -> Self {
-        Avc1Box {
+        Avc1Or3Inner {
             data_reference_index: 0,
             width: 0,
             height: 0,
@@ -35,9 +35,9 @@ impl Default for Avc1Box {
     }
 }
 
-impl Avc1Box {
+impl Avc1Or3Inner {
     pub fn new(config: &AvcConfig) -> Self {
-        Avc1Box {
+        Avc1Or3Inner {
             data_reference_index: 1,
             width: config.width,
             height: config.height,
@@ -49,41 +49,13 @@ impl Avc1Box {
         }
     }
 
-    pub fn get_type(&self) -> BoxType {
-        BoxType::Avc1Box
-    }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + 8 + 70 + self.avcc.box_size()
+    pub fn size(&self) -> u64 {
+        8 + 70 + self.avcc.box_size()
     }
 }
 
-impl Mp4Box for Avc1Box {
-    fn box_type(&self) -> BoxType {
-        self.get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
-    }
-
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
-    }
-
-    fn summary(&self) -> Result<String> {
-        let s = format!(
-            "data_reference_index={} width={} height={} frame_count={}",
-            self.data_reference_index, self.width, self.height, self.frame_count
-        );
-        Ok(s)
-    }
-}
-
-impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
-    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
-        let start = box_start(reader)?;
-
+impl Avc1Or3Inner {
+    fn read<R: Read + Seek>(reader: &mut R, size: u64, start: u64) -> Result<Self> {
         reader.read_u32::<BigEndian>()?; // reserved
         reader.read_u16::<BigEndian>()?; // reserved
         let data_reference_index = reader.read_u16::<BigEndian>()?;
@@ -119,7 +91,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
 
                 skip_bytes_to(reader, start + size)?;
 
-                return Ok(Avc1Box {
+                return Ok(Avc1Or3Inner {
                     data_reference_index,
                     width,
                     height,
@@ -134,13 +106,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
             }
         }
     }
-}
 
-impl<W: Write> WriteBox<&mut W> for Avc1Box {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
+    fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
         writer.write_u32::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(0)?; // reserved
         writer.write_u16::<BigEndian>(self.data_reference_index)?;
@@ -160,6 +127,140 @@ impl<W: Write> WriteBox<&mut W> for Avc1Box {
         writer.write_i16::<BigEndian>(-1)?; // pre-defined
 
         self.avcc.write_box(writer)?;
+
+        Ok(self.size())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
+pub struct Avc1Box {
+    pub inner: Avc1Or3Inner,
+}
+
+impl Avc1Box {
+    pub fn new(config: &AvcConfig) -> Self {
+        Avc1Box {
+            inner: Avc1Or3Inner::new(config),
+        }
+    }
+
+    pub fn get_type(&self) -> BoxType {
+        BoxType::Avc1Box
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + self.inner.size()
+    }
+}
+
+impl Mp4Box for Avc1Box {
+    fn box_type(&self) -> BoxType {
+        self.get_type()
+    }
+
+    fn box_size(&self) -> u64 {
+        self.get_size()
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!(
+            "data_reference_index={} width={} height={} frame_count={}",
+            self.inner.data_reference_index,
+            self.inner.width,
+            self.inner.height,
+            self.inner.frame_count
+        );
+        Ok(s)
+    }
+}
+
+impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = box_start(reader)?;
+
+        let inner = Avc1Or3Inner::read(reader, size, start)?;
+
+        Ok(Avc1Box { inner })
+    }
+}
+
+impl<W: Write> WriteBox<&mut W> for Avc1Box {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write(writer)?;
+
+        self.inner.write(writer)?;
+
+        Ok(size)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
+pub struct Avc3Box {
+    pub inner: Avc1Or3Inner,
+}
+
+impl Avc3Box {
+    pub fn new(config: &AvcConfig) -> Self {
+        Avc3Box {
+            inner: Avc1Or3Inner::new(config),
+        }
+    }
+
+    pub fn get_type(&self) -> BoxType {
+        BoxType::Avc3Box
+    }
+
+    pub fn get_size(&self) -> u64 {
+        HEADER_SIZE + self.inner.size()
+    }
+}
+
+impl Mp4Box for Avc3Box {
+    fn box_type(&self) -> BoxType {
+        self.get_type()
+    }
+
+    fn box_size(&self) -> u64 {
+        self.get_size()
+    }
+
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
+    }
+
+    fn summary(&self) -> Result<String> {
+        let s = format!(
+            "data_reference_index={} width={} height={} frame_count={}",
+            self.inner.data_reference_index,
+            self.inner.width,
+            self.inner.height,
+            self.inner.frame_count
+        );
+        Ok(s)
+    }
+}
+
+impl<R: Read + Seek> ReadBox<&mut R> for Avc3Box {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = box_start(reader)?;
+
+        let inner = Avc1Or3Inner::read(reader, size, start)?;
+
+        Ok(Avc3Box { inner })
+    }
+}
+
+impl<W: Write> WriteBox<&mut W> for Avc3Box {
+    fn write_box(&self, writer: &mut W) -> Result<u64> {
+        let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write(writer)?;
+
+        self.inner.write(writer)?;
 
         Ok(size)
     }
@@ -315,28 +416,30 @@ mod tests {
     #[test]
     fn test_avc1() {
         let src_box = Avc1Box {
-            data_reference_index: 1,
-            width: 320,
-            height: 240,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
-            frame_count: 1,
-            depth: 24,
-            avcc: AvcCBox {
-                configuration_version: 1,
-                avc_profile_indication: 100,
-                profile_compatibility: 0,
-                avc_level_indication: 13,
-                length_size_minus_one: 3,
-                sequence_parameter_sets: vec![NalUnit {
-                    bytes: vec![
-                        0x67, 0x64, 0x00, 0x0D, 0xAC, 0xD9, 0x41, 0x41, 0xFA, 0x10, 0x00, 0x00,
-                        0x03, 0x00, 0x10, 0x00, 0x00, 0x03, 0x03, 0x20, 0xF1, 0x42, 0x99, 0x60,
-                    ],
-                }],
-                picture_parameter_sets: vec![NalUnit {
-                    bytes: vec![0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0],
-                }],
+            inner: Avc1Or3Inner {
+                data_reference_index: 1,
+                width: 320,
+                height: 240,
+                horizresolution: FixedPointU16::new(0x48),
+                vertresolution: FixedPointU16::new(0x48),
+                frame_count: 1,
+                depth: 24,
+                avcc: AvcCBox {
+                    configuration_version: 1,
+                    avc_profile_indication: 100,
+                    profile_compatibility: 0,
+                    avc_level_indication: 13,
+                    length_size_minus_one: 3,
+                    sequence_parameter_sets: vec![NalUnit {
+                        bytes: vec![
+                            0x67, 0x64, 0x00, 0x0D, 0xAC, 0xD9, 0x41, 0x41, 0xFA, 0x10, 0x00, 0x00,
+                            0x03, 0x00, 0x10, 0x00, 0x00, 0x03, 0x03, 0x20, 0xF1, 0x42, 0x99, 0x60,
+                        ],
+                    }],
+                    picture_parameter_sets: vec![NalUnit {
+                        bytes: vec![0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0],
+                    }],
+                },
             },
         };
         let mut buf = Vec::new();
@@ -349,6 +452,48 @@ mod tests {
         assert_eq!(src_box.box_size(), header.size);
 
         let dst_box = Avc1Box::read_box(&mut reader, header.size).unwrap();
+        assert_eq!(src_box, dst_box);
+    }
+
+    #[test]
+    fn test_avc3() {
+        let src_box = Avc3Box {
+            inner: Avc1Or3Inner {
+                data_reference_index: 1,
+                width: 320,
+                height: 240,
+                horizresolution: FixedPointU16::new(0x48),
+                vertresolution: FixedPointU16::new(0x48),
+                frame_count: 1,
+                depth: 24,
+                avcc: AvcCBox {
+                    configuration_version: 1,
+                    avc_profile_indication: 100,
+                    profile_compatibility: 0,
+                    avc_level_indication: 13,
+                    length_size_minus_one: 3,
+                    sequence_parameter_sets: vec![NalUnit {
+                        bytes: vec![
+                            0x67, 0x64, 0x00, 0x0D, 0xAC, 0xD9, 0x41, 0x41, 0xFA, 0x10, 0x00, 0x00,
+                            0x03, 0x00, 0x10, 0x00, 0x00, 0x03, 0x03, 0x20, 0xF1, 0x42, 0x99, 0x60,
+                        ],
+                    }],
+                    picture_parameter_sets: vec![NalUnit {
+                        bytes: vec![0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0],
+                    }],
+                },
+            },
+        };
+        let mut buf = Vec::new();
+        src_box.write_box(&mut buf).unwrap();
+        assert_eq!(buf.len(), src_box.box_size() as usize);
+
+        let mut reader = Cursor::new(&buf);
+        let header = BoxHeader::read(&mut reader).unwrap();
+        assert_eq!(header.name, BoxType::Avc3Box);
+        assert_eq!(src_box.box_size(), header.size);
+
+        let dst_box = Avc3Box::read_box(&mut reader, header.size).unwrap();
         assert_eq!(src_box, dst_box);
     }
 }

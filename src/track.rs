@@ -8,11 +8,13 @@ use crate::mp4box::traf::TrafBox;
 use crate::mp4box::trak::TrakBox;
 use crate::mp4box::trun::TrunBox;
 use crate::mp4box::{
-    avc1::Avc1Box, co64::Co64Box, ctts::CttsBox, ctts::CttsEntry, hev1::Hev1Box, mp4a::Mp4aBox,
+    avc::Avc1Box, co64::Co64Box, ctts::CttsBox, ctts::CttsEntry, hev1::Hev1Box, mp4a::Mp4aBox,
     smhd::SmhdBox, stco::StcoBox, stsc::StscEntry, stss::StssBox, stts::SttsEntry, tx3g::Tx3gBox,
     vmhd::VmhdBox, vp09::Vp09Box,
 };
 use crate::*;
+
+use self::avc::Avc1Or3Inner;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrackConfig {
@@ -119,7 +121,7 @@ impl Mp4Track {
     }
 
     pub fn media_type(&self) -> Result<MediaType> {
-        if self.trak.mdia.minf.stbl.stsd.avc1.is_some() {
+        if self.avc1_or_3_inner().is_some() {
             Ok(MediaType::H264)
         } else if self.trak.mdia.minf.stbl.stsd.hev1.is_some() {
             Ok(MediaType::H265)
@@ -150,17 +152,37 @@ impl Mp4Track {
         }
     }
 
+    pub fn avc1_or_3_inner(&self) -> Option<&Avc1Or3Inner> {
+        self.trak
+            .mdia
+            .minf
+            .stbl
+            .stsd
+            .avc1
+            .as_ref()
+            .map(|avc1| &avc1.inner)
+            .or(self
+                .trak
+                .mdia
+                .minf
+                .stbl
+                .stsd
+                .avc3
+                .as_ref()
+                .map(|avc3| &avc3.inner))
+    }
+
     pub fn width(&self) -> u16 {
-        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
-            avc1.width
+        if let Some(avc) = self.avc1_or_3_inner() {
+            avc.width
         } else {
             self.trak.tkhd.width.value()
         }
     }
 
     pub fn height(&self) -> u16 {
-        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
-            avc1.height
+        if let Some(avc) = self.avc1_or_3_inner() {
+            avc.height
         } else {
             self.trak.tkhd.height.value()
         }
@@ -249,10 +271,10 @@ impl Mp4Track {
     }
 
     pub fn video_profile(&self) -> Result<AvcProfile> {
-        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
+        if let Some(avc) = self.avc1_or_3_inner() {
             AvcProfile::try_from((
-                avc1.avcc.avc_profile_indication,
-                avc1.avcc.profile_compatibility,
+                avc.avcc.avc_profile_indication,
+                avc.avcc.profile_compatibility,
             ))
         } else {
             Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Avc1Box))
@@ -260,8 +282,8 @@ impl Mp4Track {
     }
 
     pub fn sequence_parameter_set(&self) -> Result<&[u8]> {
-        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
-            match avc1.avcc.sequence_parameter_sets.get(0) {
+        if let Some(avc) = self.avc1_or_3_inner() {
+            match avc.avcc.sequence_parameter_sets.first() {
                 Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
                     self.track_id(),
@@ -275,8 +297,8 @@ impl Mp4Track {
     }
 
     pub fn picture_parameter_set(&self) -> Result<&[u8]> {
-        if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
-            match avc1.avcc.picture_parameter_sets.get(0) {
+        if let Some(avc) = self.avc1_or_3_inner() {
+            match avc.avcc.picture_parameter_sets.first() {
                 Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
                     self.track_id(),
