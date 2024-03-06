@@ -97,6 +97,7 @@ pub struct Mp4Track {
 
     // Fragmented Tracks Defaults.
     pub default_sample_duration: u32,
+    pub default_sample_size: u32,
 }
 
 impl Mp4Track {
@@ -107,6 +108,7 @@ impl Mp4Track {
             trafs: Vec::new(),
             moof_offsets: Vec::new(),
             default_sample_duration: 0,
+            default_sample_size: 0,
         }
     }
 
@@ -389,21 +391,19 @@ impl Mp4Track {
     fn sample_size(&self, sample_id: u32) -> Result<u32> {
         if !self.trafs.is_empty() {
             if let Some((traf_idx, sample_idx)) = self.find_traf_idx_and_sample_idx(sample_id) {
-                if let Some(size) = self.trafs[traf_idx]
+                let mut default_sample_size = self.default_sample_size;
+                let traf = &self.trafs[traf_idx];
+                if let Some(size) = traf.tfhd.default_sample_size {
+                    default_sample_size = size;
+                }
+                if let Some(size) = traf
                     .trun
                     .as_ref()
-                    .unwrap()
-                    .sample_sizes
-                    .get(sample_idx)
+                    .and_then(|trun| trun.sample_sizes.get(sample_idx))
                 {
-                    Ok(*size)
-                } else {
-                    Err(Error::EntryInTrunNotFound(
-                        self.track_id(),
-                        BoxType::TrunBox,
-                        sample_id,
-                    ))
+                    default_sample_size = *size;
                 }
+                Ok(default_sample_size)
             } else {
                 Err(Error::BoxInTrafNotFound(self.track_id(), BoxType::TrafBox))
             }
