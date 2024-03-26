@@ -46,6 +46,7 @@
 //!         mehd
 //!         trex
 //! emsg
+//! uuid
 //! moof
 //!     mfhd
 //!     traf
@@ -102,6 +103,7 @@ pub(crate) mod trex;
 pub(crate) mod trun;
 pub(crate) mod tx3g;
 pub(crate) mod udta;
+pub(crate) mod uuid;
 pub(crate) mod vmhd;
 pub(crate) mod vp09;
 pub(crate) mod vpcc;
@@ -146,6 +148,7 @@ pub use trex::TrexBox;
 pub use trun::TrunBox;
 pub use tx3g::Tx3gBox;
 pub use udta::UdtaBox;
+pub use uuid::UuidBox;
 pub use vmhd::VmhdBox;
 pub use vp09::Vp09Box;
 pub use vpcc::VpccBox;
@@ -238,7 +241,8 @@ boxtype! {
     CovrBox => 0x636f7672,
     DescBox => 0x64657363,
     WideBox => 0x77696465,
-    WaveBox => 0x77617665
+    WaveBox => 0x77617665,
+    UuidBox => 0x75756964
 }
 
 pub trait Mp4Box: Sized {
